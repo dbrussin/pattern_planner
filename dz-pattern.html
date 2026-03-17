@@ -157,9 +157,16 @@
   }
   .calc-btn:active { opacity: 0.75; }
 
-  .legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
-  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
-  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  /* MAP LEGEND OVERLAY */
+  #map-legend {
+    position: fixed; bottom: 50px; left: 12px; z-index: 400;
+    background: rgba(10,12,15,0.82); border: 1px solid var(--border); border-radius: 6px;
+    padding: 7px 10px; backdrop-filter: blur(4px);
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+  .legend-dot { width: 20px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+  .legend-dot.dashed { background: none; border-top: 2px dashed rgba(255,255,255,0.4); }
 
   /* WINDS */
   .wind-header { display: grid; grid-template-columns: 52px 1fr 1fr; gap: 8px; margin-bottom: 6px; }
@@ -214,6 +221,13 @@
 <div id="map-hint">Tap map to set landing target</div>
 <div id="status-pill"></div>
 
+<div id="map-legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--downwind-color)"></div>Downwind</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--base-color)"></div>Base (ground track)</div>
+  <div class="legend-item"><div class="legend-dot dashed"></div>Base (steered hdg)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--final-color)"></div>Final</div>
+</div>
+
 <div id="sheet-tab">
   <div id="sheet-tab-handle"></div>
   <div id="sheet-tab-label">Settings &amp; Results</div>
@@ -250,12 +264,6 @@
         <button onclick="resetHeading()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:3px;font-size:11px;font-family:'Barlow Condensed',sans-serif;cursor:pointer;font-weight:600;letter-spacing:.06em;">AUTO</button>
       </div>
       <button class="calc-btn" onclick="calculate()">Recalculate</button>
-      <div class="legend">
-        <div class="legend-item"><div class="legend-dot" style="background:var(--final-color)"></div>Final</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--base-color)"></div>Base steered</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--downwind-color)"></div>Downwind</div>
-        <div class="legend-item"><div class="legend-dot" style="background:rgba(255,255,255,0.35)"></div>Ground track</div>
-      </div>
     </div>
 
     <div class="tab-content" id="winds-tab">
@@ -679,11 +687,11 @@ function showResults() {
 
   document.getElementById('results-content').innerHTML = `
     <div class="result-grid">
-      <div class="result-block final">
-        <h3>Final</h3>
-        <div class="val">${fd.toLocaleString()} ft</div>
-        <div class="sub">Hdg ${Math.round(p.fHdg)}° · ${Math.round(p.tF*60)}s</div>
-        <div class="sub">${Math.abs(fWC)}kt ${fWC>=0?'headwind':'tailwind'}</div>
+      <div class="result-block downwind">
+        <h3>Downwind</h3>
+        <div class="val">${dd.toLocaleString()} ft</div>
+        <div class="sub">Hdg ${Math.round(p.dwHdg)}° · ${Math.round(p.tD*60)}s</div>
+        <div class="sub">${Math.abs(dWC)}kt ${dWC<=0?'tailwind':'headwind'}</div>
       </div>
       <div class="result-block base">
         <h3>Base</h3>
@@ -691,11 +699,11 @@ function showResults() {
         <div class="sub">Steer ${Math.round(p.bHdg)}° · ${Math.round(p.tB*60)}s</div>
         <div class="sub">${Math.abs(bWC)}kt cross</div>
       </div>
-      <div class="result-block downwind">
-        <h3>Downwind</h3>
-        <div class="val">${dd.toLocaleString()} ft</div>
-        <div class="sub">Hdg ${Math.round(p.dwHdg)}° · ${Math.round(p.tD*60)}s</div>
-        <div class="sub">${Math.abs(dWC)}kt ${dWC<=0?'tailwind':'headwind'}</div>
+      <div class="result-block final">
+        <h3>Final</h3>
+        <div class="val">${fd.toLocaleString()} ft</div>
+        <div class="sub">Hdg ${Math.round(p.fHdg)}° · ${Math.round(p.tF*60)}s</div>
+        <div class="sub">${Math.abs(fWC)}kt ${fWC>=0?'headwind':'tailwind'}</div>
       </div>
       <div class="result-block" style="border-color:var(--muted)">
         <h3>Setup</h3>
