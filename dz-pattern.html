@@ -125,9 +125,23 @@
 
   /* ── ICON BAR ── */
   #icon-bar {
-    position: fixed; bottom: 62px; right: 10px; z-index: 410;
+    position: fixed; bottom: 160px; right: 10px; z-index: 410;
     display: flex; flex-direction: column; gap: 8px;
   }
+  /* ── ZOOM CONTROLS ── */
+  #zoom-bar {
+    position: fixed; bottom: 62px; right: 10px; z-index: 410;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .zoom-btn {
+    width: 42px; height: 42px; border-radius: 8px;
+    background: rgba(10,12,15,0.88); border: 1px solid var(--border);
+    color: var(--text); font-size: 22px; font-weight: 300; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; backdrop-filter: blur(4px); transition: all 0.15s;
+    user-select: none;
+  }
+  .zoom-btn:active { opacity: 0.65; }
   .map-icon-btn {
     width: 42px; height: 42px; border-radius: 8px;
     background: rgba(10,12,15,0.88); border: 1px solid var(--border);
@@ -179,15 +193,21 @@
   .field-note { font-size: 10px; color: var(--muted); font-family: 'Space Mono', monospace; margin-top: 5px; line-height: 1.5; }
 
   /* ── WINDS ── */
-  .wind-header { display: grid; grid-template-columns: 52px 1fr 1fr; gap: 8px; margin-bottom: 6px; }
+  .wind-header { display: grid; grid-template-columns: 58px 1fr 1fr 44px; gap: 6px; margin-bottom: 6px; }
   .wind-header span { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
-  .wind-row { display: grid; grid-template-columns: 52px 1fr 1fr; gap: 8px; align-items: center; margin-bottom: 7px; }
-  .wind-row .alt-label { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent2); text-align: right; }
+  .wind-row { display: grid; grid-template-columns: 58px 1fr 1fr 44px; gap: 6px; align-items: center; margin-bottom: 5px; }
+  .wind-row .alt-label { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent2); text-align: right; white-space: nowrap; }
+  .wind-row .temp-label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted); text-align: right; }
   .wind-row input {
     background: var(--panel2); border: 1px solid var(--border); border-radius: 4px;
-    color: var(--text); font-family: 'Space Mono', monospace; font-size: 13px; padding: 6px 8px; width: 100%;
+    color: var(--text); font-family: 'Space Mono', monospace; font-size: 13px; padding: 5px 6px; width: 100%;
   }
   .wind-row input:focus { outline: none; border-color: var(--accent2); }
+  .wind-row.real .alt-label { color: var(--accent2); }
+  .wind-row.interpolated .alt-label { color: var(--muted); }
+  .wind-row.sfc .alt-label { color: var(--accent); }
+  .wind-row.real input { border-color: var(--accent2); }
+  .wind-row.interpolated input { border-color: var(--border); }
   .fetch-btn {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     width: 100%; padding: 9px; background: var(--panel2); border: 1px solid var(--border);
@@ -247,6 +267,12 @@
   </div>
 </div>
 
+<!-- ZOOM CONTROLS -->
+<div id="zoom-bar">
+  <div class="zoom-btn" onclick="map.zoomIn()"  title="Zoom in">+</div>
+  <div class="zoom-btn" onclick="map.zoomOut()" title="Zoom out">−</div>
+</div>
+
 <!-- SETTINGS OVERLAY -->
 <div class="overlay-panel" id="overlay-settings">
   <div class="overlay-header">
@@ -261,6 +287,35 @@
       <div class="input-group"><label>Turn Base</label><input type="number" id="alt-base" value="600" min="100" max="2000" step="50" oninput="calculate()"></div>
       <div class="input-group"><label>Turn Final</label><input type="number" id="alt-final" value="300" min="50" max="1000" step="50" oninput="calculate()"></div>
       <div class="input-group"><label>Land</label><input type="number" value="0" disabled style="opacity:0.4;"></div>
+    </div>
+
+    <div class="section-label">Jump Run</div>
+    <div class="input-grid">
+      <div class="input-group"><label>Exit Alt (ft AGL)</label><input type="number" id="alt-exit" value="13500" min="1000" max="25000" step="500" oninput="calculate()"></div>
+      <div class="input-group"><label>Opening Alt (ft AGL)</label><input type="number" id="alt-open" value="3000" min="500" max="8000" step="100" oninput="calculate()"></div>
+      <div class="input-group"><label>Freefall Speed (mph)</label><input type="number" id="ff-speed" value="120" min="60" max="250" step="5" oninput="calculate()"></div>
+      <div class="input-group"><label>Aircraft IAS (kts)</label><input type="number" id="jr-airspeed" value="80" min="40" max="200" step="5" oninput="calculate()"></div>
+      <div class="input-group"><label>Region Buffer (%)</label><input type="number" id="safety-margin" value="10" min="0" max="40" step="1" oninput="calculate()"></div>
+      <div class="input-group"><label>Jump Run Offset (nm)</label><input type="number" id="jr-offset" value="0" min="-10" max="10" step="0.1" oninput="calculate()"><div id="jr-offset-note" style="font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;margin-top:3px;"></div></div>
+    </div>
+    <div class="field-note">Freefall assumes vertical descent — horizontal drift from wind only.</div>
+    <div id="jr-heading-row" style="display:flex;align-items:center;gap:8px;margin-top:8px;
+      padding:8px 10px;background:var(--panel2);border-radius:4px;border:1px solid var(--border);">
+      <span style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap;flex-shrink:0;">Jump Run</span>
+      <span id="jr-hdg-display" style="font-family:'Space Mono',monospace;font-size:13px;color:var(--accent2);min-width:36px;flex-shrink:0;">---°</span>
+      <div style="flex:1;position:relative;padding-bottom:10px;min-width:0;">
+        <input type="range" id="jr-hdg-slider" min="0" max="359" step="1" value="0"
+          style="width:100%;accent-color:var(--accent2);display:block;"
+          oninput="onJumpRunSlider(this.value)">
+        <div id="jr-wind-pyramid" style="position:absolute;bottom:0;width:0;height:0;
+          border-left:7px solid transparent;border-right:7px solid transparent;
+          border-bottom:12px solid var(--accent2);transform:translateX(-50%);
+          pointer-events:none;display:none;
+          filter:drop-shadow(0 0 3px rgba(77,244,200,0.5));"></div>
+        <div id="jr-wind-pyramid-hit" style="position:absolute;bottom:0;width:28px;height:14px;
+          transform:translateX(-50%);cursor:pointer;display:none;"
+          onclick="snapJumpRunToWind()" title="Snap to into-wind heading"></div>
+      </div>
     </div>
 
     <div class="section-label">Pattern Type</div>
@@ -300,12 +355,12 @@
   <div class="overlay-body">
     <button class="fetch-btn" id="fetch-btn" onclick="fetchWinds(true).then(calculate)" disabled>⬇ Refresh Winds</button>
     <div class="fetch-status" id="fetch-status">Set landing point on map first</div>
-    <div class="wind-header"><span>Alt AGL</span><span>Dir °T</span><span>Spd kts</span></div>
+    <div class="wind-header"><span>Alt AGL</span><span>Dir °T</span><span>Spd kts</span><span>°C</span></div>
     <div id="wind-rows"></div>
     <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;line-height:1.6;">
-      SFC &amp; 262/394/591ft: <a href="https://open-meteo.com" target="_blank" style="color:var(--accent2);text-decoration:none;">open-meteo.com</a> real height levels.<br>
-      Higher bands: interpolated from pressure levels.<br>
-      Teal borders = real data · grey = interpolated.
+      Source: <a href="https://open-meteo.com" target="_blank" style="color:var(--accent2);text-decoration:none;">open-meteo.com</a> GFS+HRRR (US).<br>
+      HRRR updates hourly · same source as Schulze winds aloft.<br>
+      SFC/262/394/591ft: real data · others interpolated.
     </div>
   </div>
 </div>
@@ -319,12 +374,14 @@ const state = {
   fieldElevFt: 0,
   finalHeadingDeg: null,
   manualHeading: false,
+  jumpRunHdgDeg: null,
+  manualJumpRun: false,
   winds: [],
   surfaceWind: null,
   pattern: null,
   labelsVisible: true,
   fitDone: false,
-  patternType: 'drifting',  // 'drifting' | 'traditional'
+  patternType: 'drifting',
 };
 
 // Wind cache — keyed by rounded lat/lng, expires after CACHE_MS
@@ -346,23 +403,62 @@ function findCachedWinds(lat, lng) {
   return null;
 }
 
-// 262/394/591ft = open-meteo 80m/120m/180m real height levels
-const WIND_ALTS_FT    = [0, 262, 394, 591, 1000, 2000, 3000, 5000, 7000, 9000, 12000];
-const PRESSURE_LEVELS = [925, 850, 700, 600, 500, 400, 300];
-const HEIGHT_LEVELS   = [80, 120, 180]; // metres
+// Interpolated display rows (ft AGL) — these are always shown
+const INTERP_ALTS_FT  = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000, 14000];
+const PRESSURE_LEVELS = [1000, 975, 950, 925, 850, 700, 600, 500, 400, 300];
+const HEIGHT_LEVELS   = [80, 120, 180]; // metres AGL → 262, 394, 591 ft
+
+// ─── WIND TABLE — built dynamically after fetch ───────────────────────────────
+// state.winds entries: {altFt, aglFt, dirDeg, speedKts, tempC, real, label, source}
+// real: true = actual model data point; false = interpolated
+
+function buildWindTable() {
+  const c = document.getElementById('wind-rows');
+  c.innerHTML = '';
+  if (!state.winds || !state.winds.length) return;
+
+  state.winds.forEach((w, i) => {
+    const row = document.createElement('div');
+    const cls = w.aglFt === 0 ? 'sfc' : w.real ? 'real' : 'interpolated';
+    row.className = `wind-row ${cls}`;
+    const tempStr = w.tempC !== null && w.tempC !== undefined ? Math.round(w.tempC) + '°' : '';
+    row.innerHTML = `
+      <div class="alt-label">${w.label}</div>
+      <input type="number" min="0" max="360" step="1" value="${w.dirDeg !== null ? w.dirDeg : ''}" placeholder="---"
+        onchange="updateWindByIdx(${i},'dirDeg',this.value)">
+      <input type="number" min="0" max="200" step="1" value="${w.speedKts !== null ? w.speedKts : ''}" placeholder="---"
+        onchange="updateWindByIdx(${i},'speedKts',this.value)">
+      <div class="temp-label">${tempStr}</div>`;
+    c.appendChild(row);
+  });
+}
+
+function updateWindByIdx(i, field, val) {
+  if (!state.winds[i]) return;
+  state.winds[i][field] = val === '' ? null : parseFloat(val);
+  if (state.winds[i].aglFt === 0) {
+    if (!state.surfaceWind) state.surfaceWind = {dirDeg: null, speedKts: null};
+    state.surfaceWind[field] = state.winds[i][field];
+  }
+  calculate();
+}
+
+// Legacy stub — calculate() still calls getWindAtAGL which reads state.winds by altitude
+function updateWind(i, field, val) { updateWindByIdx(i, field, val); }
 
 // ─── OVERLAY MANAGEMENT ──────────────────────────────────────────────────────
 function toggleOverlay(name) {
   const panel  = document.getElementById(`overlay-${name}`);
   const btn    = document.getElementById(`btn-${name}`);
   const isOpen = panel.classList.contains('open');
-  // Close all overlay panels and their buttons, but preserve labels toggle state
   document.querySelectorAll('.overlay-panel').forEach(p => p.classList.remove('open'));
   document.getElementById('btn-settings').classList.remove('active');
   document.getElementById('btn-winds').classList.remove('active');
   if (!isOpen) {
     panel.classList.add('open');
     btn.classList.add('active');
+    // Re-measure pyramid positions after panel is visible
+    setTimeout(() => { updateWindPyramid(); updateJrPyramid(); }, 50);
   }
 }
 function closeOverlay(name) {
@@ -410,6 +506,12 @@ function setStatus(msg, persist=false) {
 
 // ─── PLACE TARGET ─────────────────────────────────────────────────────────────
 async function placeTarget(lat, lng) {
+  // Reset manual heading if moving more than 1 mile from current target
+  if (state.target && distMiles(state.target, {lat, lng}) > 1.0) {
+    state.manualHeading  = false;
+    state.manualJumpRun  = false;
+    state.jumpRunHdgDeg  = null;
+  }
   state.target = {lat, lng};
   state.pattern = null;
   state.fitDone = false;
@@ -431,49 +533,6 @@ async function placeTarget(lat, lng) {
   calculate();
 }
 
-// ─── WIND ROWS ────────────────────────────────────────────────────────────────
-function buildWindRows() {
-  const c = document.getElementById('wind-rows');
-  c.innerHTML = '';
-  WIND_ALTS_FT.forEach((alt, i) => {
-    const label = alt===0 ? 'SFC' : alt<1000 ? alt+'ft' : (alt/1000).toFixed(1).replace(/\.0$/,'')+'k';
-    const row = document.createElement('div');
-    row.className = 'wind-row';
-    row.innerHTML = `
-      <div class="alt-label">${label}</div>
-      <input type="number" min="0" max="360" step="1" placeholder="---" onchange="updateWind(${i},'dirDeg',this.value);calculate()">
-      <input type="number" min="0" max="200" step="1" placeholder="---" onchange="updateWind(${i},'speedKts',this.value);calculate()">`;
-    c.appendChild(row);
-  });
-  state.winds = WIND_ALTS_FT.map(alt => ({altFt:alt, dirDeg:null, speedKts:null, real:false}));
-}
-
-function updateWind(i, field, val) {
-  if (!state.winds[i]) state.winds[i] = {altFt:WIND_ALTS_FT[i], dirDeg:null, speedKts:null};
-  state.winds[i][field] = val==='' ? null : parseFloat(val);
-  if (WIND_ALTS_FT[i]===0) {
-    if (!state.surfaceWind) state.surfaceWind = {dirDeg:null, speedKts:null};
-    state.surfaceWind[field] = state.winds[i][field];
-  }
-}
-
-function rebuildWindInputs() {
-  const rows = document.querySelectorAll('#wind-rows .wind-row');
-  state.winds.forEach((w, i) => {
-    if (!rows[i]) return;
-    const [inp0, inp1] = rows[i].querySelectorAll('input');
-    const isSfc = WIND_ALTS_FT[i]===0;
-    const src = isSfc && state.surfaceWind ? state.surfaceWind : w;
-    inp0.value = src.dirDeg  !== null ? src.dirDeg  : '';
-    inp1.value = src.speedKts !== null ? src.speedKts : '';
-    const col = isSfc ? 'var(--accent)' : w.real ? 'var(--accent2)' : 'var(--muted)';
-    rows[i].querySelector('.alt-label').style.color = col;
-    const bc = (isSfc || w.real) ? 'var(--accent2)' : 'var(--border)';
-    inp0.style.borderColor = bc; inp1.style.borderColor = bc;
-  });
-}
-buildWindRows();
-
 // ─── ELEVATION ────────────────────────────────────────────────────────────────
 async function fetchElevation(lat, lng) {
   try {
@@ -483,11 +542,9 @@ async function fetchElevation(lat, lng) {
 }
 
 // ─── WINDS FETCH ──────────────────────────────────────────────────────────────
-function pressureToAltFt(hPa) {
-  if (hPa>=925) return 2500; if (hPa>=850) return 5000; if (hPa>=700) return 10000;
-  if (hPa>=600) return 14000; if (hPa>=500) return 18000; if (hPa>=400) return 24000;
-  return 30000;
-}
+// Geopotential height conversion: 1 gpm ≈ 1 m MSL for practical purposes
+// (true geopotential height differs from geometric by <0.3% below 30,000ft)
+function geopotentialToFtMSL(gpm) { return Math.round(gpm * 3.28084); }
 
 async function fetchWinds(forceRefresh=false) {
   if (!state.target) return;
@@ -496,13 +553,13 @@ async function fetchWinds(forceRefresh=false) {
   if (!forceRefresh) {
     const cached = findCachedWinds(state.target.lat, state.target.lng);
     if (cached) {
-      state.winds      = cached.winds;
+      state.winds       = cached.winds;
       state.surfaceWind = cached.surfaceWind;
       state.fieldElevFt = cached.fieldElevFt;
-      rebuildWindInputs();
+      buildWindTable();
       updateWindStatusAge(cached.ts);
       if (!state.manualHeading) { state.finalHeadingDeg = cached.surfaceWind.dirDeg; updateHeadingDisplay(cached.surfaceWind.dirDeg); }
-      updateWindPyramid();
+      updateWindPyramid(); updateJrPyramid();
       setStatus(`Winds from cache`);
       return;
     }
@@ -512,51 +569,168 @@ async function fetchWinds(forceRefresh=false) {
   btn.disabled = true; btn.textContent = '⏳ Fetching…';
   try {
     const {lat, lng} = state.target;
-    const plVars = PRESSURE_LEVELS.flatMap(p=>[`windspeed_${p}hPa`,`winddirection_${p}hPa`]).join(',');
-    const htVars = HEIGHT_LEVELS.flatMap(h=>[`windspeed_${h}m`,`winddirection_${h}m`]).join(',');
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=windspeed_10m,winddirection_10m&hourly=${plVars},${htVars}&wind_speed_unit=kn&forecast_days=1&timezone=auto`;
-    const d = await (await fetch(url)).json();
-    const hi = new Date().getHours();
+    const plWindVars = PRESSURE_LEVELS.flatMap(p=>[`windspeed_${p}hPa`,`winddirection_${p}hPa`]).join(',');
+    const plHgtVars  = PRESSURE_LEVELS.map(p=>`geopotential_height_${p}hPa`).join(',');
+    const plTmpVars  = PRESSURE_LEVELS.map(p=>`temperature_${p}hPa`).join(',');
+    const htVars     = HEIGHT_LEVELS.flatMap(h=>[`windspeed_${h}m`,`winddirection_${h}m`]).join(',');
 
+    const url = `https://api.open-meteo.com/v1/gfs?latitude=${lat}&longitude=${lng}&hourly=${plWindVars},${plHgtVars},${plTmpVars},${htVars},windspeed_10m,winddirection_10m&wind_speed_unit=kn&forecast_days=1&timezone=auto`;
+    const d = await (await fetch(url)).json();
+
+    // Match current hour
+    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const localHourStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:00`;
+    let hi = d.hourly.time.indexOf(localHourStr);
+    if (hi < 0) {
+      const nowMs = now.getTime();
+      hi = d.hourly.time.reduce((best, t, i) =>
+        Math.abs(new Date(t).getTime() - nowMs) < Math.abs(new Date(d.hourly.time[best]).getTime() - nowMs) ? i : best, 0);
+    }
+
+    // Surface wind
     state.surfaceWind = {
-      dirDeg: Math.round(d.current.winddirection_10m),
-      speedKts: Math.round(d.current.windspeed_10m)
+      dirDeg: Math.round(d.hourly.winddirection_10m[hi]),
+      speedKts: Math.round(d.hourly.windspeed_10m[hi])
     };
 
-    const raw = [{altFt: state.fieldElevFt, dirDeg: state.surfaceWind.dirDeg, speedKts: state.surfaceWind.speedKts}];
+    // ── Build raw arrays for interpolation (keyed by MSL altitude) ──
+    // rawWinds: [{altFt(MSL), dirDeg, speedKts}] — used for wind interpolation
+    // rawTemp:  [{altFt(MSL), tempC}]            — used for temperature interpolation
+    const rawWinds = [{altFt: state.fieldElevFt, dirDeg: state.surfaceWind.dirDeg, speedKts: state.surfaceWind.speedKts}];
+    const rawTemp  = [];
+
+    // Fixed-height-level winds (AGL → MSL), no temperature available
     const htAGLft = {80:262, 120:394, 180:591};
     HEIGHT_LEVELS.forEach(hm => {
-      const sk=`windspeed_${hm}m`, dk=`winddirection_${hm}m`;
-      if (d.hourly[sk]?.[hi] != null)
-        raw.push({altFt: state.fieldElevFt + htAGLft[hm], dirDeg: Math.round(d.hourly[dk][hi]), speedKts: Math.round(d.hourly[sk][hi])});
+      const spd = d.hourly[`windspeed_${hm}m`]?.[hi];
+      const dir = d.hourly[`winddirection_${hm}m`]?.[hi];
+      if (spd != null && dir != null)
+        rawWinds.push({altFt: state.fieldElevFt + htAGLft[hm], dirDeg: Math.round(dir), speedKts: Math.round(spd)});
     });
+
+    // Pressure level winds + temperature at actual geopotential altitude
+    const pressureRows = []; // real data rows to add to state.winds
     PRESSURE_LEVELS.forEach(p => {
-      if (d.hourly[`windspeed_${p}hPa`]?.[hi] != null)
-        raw.push({altFt: pressureToAltFt(p), dirDeg: Math.round(d.hourly[`winddirection_${p}hPa`][hi]), speedKts: Math.round(d.hourly[`windspeed_${p}hPa`][hi])});
+      const spd = d.hourly[`windspeed_${p}hPa`]?.[hi];
+      const dir = d.hourly[`winddirection_${p}hPa`]?.[hi];
+      const hgt = d.hourly[`geopotential_height_${p}hPa`]?.[hi];
+      const tmp = d.hourly[`temperature_${p}hPa`]?.[hi];
+      if (spd != null && dir != null && hgt != null) {
+        const mslFt = geopotentialToFtMSL(hgt);
+        const aglFt = mslFt - state.fieldElevFt;
+        if (aglFt < 50) return; // below or at ground level, skip
+        rawWinds.push({altFt: mslFt, dirDeg: Math.round(dir), speedKts: Math.round(spd)});
+        if (tmp != null) rawTemp.push({altFt: mslFt, tempC: tmp});
+        pressureRows.push({
+          aglFt, altFt: aglFt,
+          mslFt,
+          dirDeg: Math.round(dir),
+          speedKts: Math.round(spd),
+          tempC: tmp !== null && tmp !== undefined ? Math.round(tmp * 10) / 10 : null,
+          real: true,
+          label: `${Math.round(aglFt/100)*100 === aglFt ? aglFt.toLocaleString() : '~'+Math.round(aglFt/100)*100}ft`,
+          source: `${p}hPa`,
+        });
+      }
     });
-    raw.sort((a,b)=>a.altFt-b.altFt);
+    rawWinds.sort((a,b)=>a.altFt-b.altFt);
+    rawTemp.sort((a,b)=>a.altFt-b.altFt);
 
-    const realSpd = {262: d.hourly['windspeed_80m']?.[hi],  394: d.hourly['windspeed_120m']?.[hi],  591: d.hourly['windspeed_180m']?.[hi]};
-    const realDir = {262: d.hourly['winddirection_80m']?.[hi], 394: d.hourly['winddirection_120m']?.[hi], 591: d.hourly['winddirection_180m']?.[hi]};
+    // Temperature interpolation helper
+    function interpTemp(mslFt) {
+      if (!rawTemp.length) return null;
+      if (mslFt <= rawTemp[0].altFt) return rawTemp[0].tempC;
+      if (mslFt >= rawTemp[rawTemp.length-1].altFt) return rawTemp[rawTemp.length-1].tempC;
+      for (let i=0; i<rawTemp.length-1; i++) {
+        const lo=rawTemp[i], hi2=rawTemp[i+1];
+        if (mslFt>=lo.altFt && mslFt<=hi2.altFt) {
+          const t=(mslFt-lo.altFt)/(hi2.altFt-lo.altFt);
+          return Math.round((lo.tempC + t*(hi2.tempC-lo.tempC))*10)/10;
+        }
+      }
+      return null;
+    }
 
-    state.winds = WIND_ALTS_FT.map(agl => {
-      if (agl===0) return {altFt:0, dirDeg:state.surfaceWind.dirDeg, speedKts:state.surfaceWind.speedKts, real:true};
-      if (realSpd[agl] != null) return {altFt:agl, dirDeg:Math.round(realDir[agl]), speedKts:Math.round(realSpd[agl]), real:true};
-      return {altFt:agl, real:false, ...interpObj(raw, agl + state.fieldElevFt)};
+    // ── Build display rows ──
+    const allRows = [];
+
+    // SFC row
+    allRows.push({
+      aglFt: 0, altFt: 0,
+      dirDeg: state.surfaceWind.dirDeg, speedKts: state.surfaceWind.speedKts,
+      tempC: interpTemp(state.fieldElevFt),
+      real: true, label: 'SFC', source: '10m'
     });
 
-    // Save to cache
+    // Fixed height-level rows (262/394/591ft AGL) — htAGLft already declared above
+    HEIGHT_LEVELS.forEach(hm => {
+      const spd = d.hourly[`windspeed_${hm}m`]?.[hi];
+      const dir = d.hourly[`winddirection_${hm}m`]?.[hi];
+      const agl = htAGLft[hm];
+      if (spd != null && dir != null) {
+        allRows.push({
+          aglFt: agl, altFt: agl,
+          dirDeg: Math.round(dir), speedKts: Math.round(spd),
+          tempC: interpTemp(state.fieldElevFt + agl),
+          real: true, label: `${agl}ft`, source: `${hm}m AGL`
+        });
+      }
+    });
+
+    // Pressure level real data rows
+    allRows.push(...pressureRows);
+
+    // Sort all real rows by altitude so far
+    allRows.sort((a,b)=>a.aglFt-b.aglFt);
+
+    // Interpolated rows at every 1k ft from 1k to 14k
+    // Insert them in sorted order, skipping if a real row is within 100ft
+    INTERP_ALTS_FT.forEach(agl => {
+      const nearby = allRows.find(r => Math.abs(r.aglFt - agl) < 100);
+      if (nearby) return; // real data close enough, skip interpolated row
+      const msl = agl + state.fieldElevFt;
+      const wInterp = interpObj(rawWinds, msl);
+      allRows.push({
+        aglFt: agl, altFt: agl,
+        dirDeg: wInterp.dirDeg, speedKts: wInterp.speedKts,
+        tempC: interpTemp(msl),
+        real: false,
+        label: (agl/1000).toFixed(1).replace(/\.0$/,'')+'k',
+        source: 'interpolated'
+      });
+    });
+
+    // Final sort
+    allRows.sort((a,b)=>a.aglFt-b.aglFt);
+
+    // Clean up pressure level labels — use k-suffix above 1000ft for consistency
+    allRows.forEach(r => {
+      if (r.source && r.source.endsWith('hPa')) {
+        const ft = Math.round(r.aglFt / 100) * 100;
+        r.label = r.aglFt < 1000
+          ? Math.round(r.aglFt) + 'ft'
+          : ft >= 1000
+            ? (ft/1000).toFixed(1).replace(/\.0$/,'') + 'k'
+            : ft + 'ft';
+      }
+    });
+
+    state.winds = allRows;
+
     const ts = Date.now();
     windCache[cacheKey(lat,lng)] = {winds:state.winds, surfaceWind:state.surfaceWind, fieldElevFt:state.fieldElevFt, loc:{lat,lng}, ts};
 
-    rebuildWindInputs();
+    buildWindTable();
     updateWindStatusAge(ts);
     if (!state.manualHeading) { state.finalHeadingDeg = state.surfaceWind.dirDeg; updateHeadingDisplay(state.surfaceWind.dirDeg); }
-    updateWindPyramid();
+    autoSetJumpRunHeading();
+    updateWindPyramid(); updateJrPyramid();
     setStatus(`Winds loaded · SFC ${state.surfaceWind.dirDeg}°@${state.surfaceWind.speedKts}kt`);
   } catch(e) {
     document.getElementById('fetch-status').textContent = `Fetch failed: ${e.message}`;
     setStatus('Wind fetch failed');
+    console.error(e);
   }
   btn.disabled = false; btn.textContent = '⬇ Refresh Winds';
 }
@@ -566,7 +740,7 @@ function updateWindStatusAge(ts) {
   const ageMin = Math.round((Date.now() - ts) / 60000);
   const ageStr = ageMin < 1 ? 'just now' : `${ageMin}m ago`;
   document.getElementById('fetch-status').textContent =
-    `SFC: ${sw.dirDeg}° @ ${sw.speedKts}kt · Elev ${state.fieldElevFt}ft MSL\nLoaded ${ageStr} · 262/394/591ft: real data`;
+    `SFC: ${sw.dirDeg}° @ ${sw.speedKts}kt · Elev ${state.fieldElevFt}ft MSL\nLoaded ${ageStr} · teal = real data · grey = interpolated`;
 }
 
 // Auto-refresh if wind data is stale and page is visible
@@ -574,7 +748,7 @@ setInterval(() => {
   if (!state.target || document.hidden) return;
   const cached = findCachedWinds(state.target.lat, state.target.lng);
   if (!cached) { fetchWinds().then(calculate); return; }
-  updateWindStatusAge(cached.ts); // keep age display current
+  updateWindStatusAge(cached.ts);
 }, 60 * 1000);
 
 function interpObj(sorted, msl) { const r=interpolateWind(sorted,msl); return {dirDeg:r.dir,speedKts:r.speed}; }
@@ -619,7 +793,7 @@ function updateHeadingDisplay(deg) {
   const d = Math.round(deg);
   document.getElementById('heading-bar-val').textContent = d + '°';
   document.getElementById('heading-bar-slider').value = d;
-  updateWindPyramid();
+  updateWindPyramid(); updateJrPyramid();
 }
 
 function updateWindPyramid() {
@@ -728,6 +902,54 @@ function showLegend() {
   document.getElementById('map-legend').classList.add('visible');
 }
 
+// ─── JUMP RUN HEADING ────────────────────────────────────────────────────────
+function onJumpRunSlider(v) {
+  state.manualJumpRun = true;
+  state.jumpRunHdgDeg = parseInt(v);
+  updateJumpRunDisplay(parseInt(v));
+  calculate();
+}
+function snapJumpRunToWind() {
+  state.manualJumpRun = false;
+  state.jumpRunHdgDeg = null; // let calculate() re-derive from exit-alt wind
+  calculate();
+}
+function updateJumpRunDisplay(deg) {
+  document.getElementById('jr-hdg-display').textContent = Math.round(deg) + '°';
+  document.getElementById('jr-hdg-slider').value = Math.round(deg);
+  updateJrPyramid();
+}
+
+function updateJrPyramid() {
+  // Show pyramid at the into-wind heading position on the jr slider
+  const wExit = getWindAtAGL(parseFloat(document.getElementById('alt-exit').value) || 13500);
+  const pyr    = document.getElementById('jr-wind-pyramid');
+  const pyrHit = document.getElementById('jr-wind-pyramid-hit');
+  if (!pyr || vecLen(wExit) < 0.1) { if(pyr) pyr.style.display='none'; if(pyrHit) pyrHit.style.display='none'; return; }
+  const windVelDir = (Math.atan2(wExit.e, wExit.n) * R2D + 360) % 360;
+  const intoWindHdg = (windVelDir + 180) % 360;
+  const slider  = document.getElementById('jr-hdg-slider');
+  const trackW  = slider.clientWidth;
+  const thumbR  = 14;
+  const pct     = ((thumbR + (intoWindHdg / 359) * (trackW - 2*thumbR)) / trackW) * 100;
+  pyr.style.left    = pct + '%';
+  pyrHit.style.left = pct + '%';
+  pyr.style.display    = 'block';
+  pyrHit.style.display = 'block';
+}
+function autoSetJumpRunHeading() {
+  if (!state.manualJumpRun) {
+    const altExit = parseFloat(document.getElementById('alt-exit').value) || 13500;
+    const wExit = getWindAtAGL(altExit);
+    if (vecLen(wExit) > 0.1) {
+      const windVelDir = (Math.atan2(wExit.e, wExit.n) * R2D + 360) % 360;
+      const dir = Math.round((windVelDir + 180) % 360); // into wind
+      state.jumpRunHdgDeg = dir;
+      updateJumpRunDisplay(dir);
+    }
+  }
+}
+
 // ─── GEOMETRY ─────────────────────────────────────────────────────────────────
 const R_FT=20902231, D2R=Math.PI/180, R2D=180/Math.PI;
 function offsetLL(lat,lng,dN,dE) { return {lat:lat+(dN/R_FT)*R2D, lng:lng+(dE/(R_FT*Math.cos(lat*D2R)))*R2D}; }
@@ -737,15 +959,15 @@ function vecLen(v) { return Math.sqrt(v.n**2+v.e**2); }
 function normalize(v) { const l=vecLen(v)||1; return {n:v.n/l,e:v.e/l}; }
 
 function getWindAtAGL(agl) {
-  const msl=agl+state.fieldElevFt;
-  const sorted=state.winds
-    .filter(w=>w.dirDeg!==null&&w.speedKts!==null&&isFinite(w.dirDeg)&&isFinite(w.speedKts))
-    .sort((a,b)=>a.altFt-b.altFt);
-  if (!sorted.length) return {n:0,e:0};
-  const sm=sorted.map(w=>({altFt:w.altFt+state.fieldElevFt,dirDeg:w.dirDeg,speedKts:w.speedKts}));
-  const r=interpolateWind(sm,msl);
-  if (!isFinite(r.dir)||!isFinite(r.speed)) return {n:0,e:0};
-  return windVec(r.dir,r.speed);
+  const msl = agl + state.fieldElevFt;
+  const sorted = state.winds
+    .filter(w => w.dirDeg !== null && w.speedKts !== null && isFinite(w.dirDeg) && isFinite(w.speedKts))
+    .map(w => ({altFt: w.aglFt + state.fieldElevFt, dirDeg: w.dirDeg, speedKts: w.speedKts}))
+    .sort((a,b) => a.altFt - b.altFt);
+  if (!sorted.length) return {n:0, e:0};
+  const r = interpolateWind(sorted, msl);
+  if (!isFinite(r.dir) || !isFinite(r.speed)) return {n:0, e:0};
+  return windVec(r.dir, r.speed);
 }
 
 // ─── CALCULATE ────────────────────────────────────────────────────────────────
@@ -756,6 +978,28 @@ function calculate() {
   const altE   = parseFloat(document.getElementById('alt-enter').value);
   const altB   = parseFloat(document.getElementById('alt-base').value);
   const altF   = parseFloat(document.getElementById('alt-final').value);
+  const altExit   = parseFloat(document.getElementById('alt-exit').value)   || 13500;
+  const altOpen   = parseFloat(document.getElementById('alt-open').value)   || 3000;
+  const ffSpeedMph= parseFloat(document.getElementById('ff-speed').value)   || 120;
+  const safetyPct = (parseFloat(document.getElementById('safety-margin').value) || 0) / 100;
+  const jrAirspeedKts = parseFloat(document.getElementById('jr-airspeed').value) || 80;
+  const jrOffsetNm    = parseFloat(document.getElementById('jr-offset').value) || 0;
+
+  // Jump run heading — plane flies INTO wind, so heading = opposite of wind velocity direction
+  let jrHdg = state.jumpRunHdgDeg;
+  if (jrHdg === null) {
+    const wExit = getWindAtAGL(altExit);
+    const exitWindSpd = vecLen(wExit);
+    if (exitWindSpd > 0.5) {
+      // Wind velocity direction = where wind goes. Plane flies into wind = opposite.
+      const windVelDir = (Math.atan2(wExit.e, wExit.n) * R2D + 360) % 360;
+      jrHdg = (windVelDir + 180) % 360; // into wind
+    } else {
+      jrHdg = fHdg; // calm — use final heading as fallback
+    }
+    document.getElementById('jr-hdg-display').textContent = Math.round(jrHdg) + '°';
+    document.getElementById('jr-hdg-slider').value = Math.round(jrHdg);
+  }
 
   if (isNaN(glide)||isNaN(cSpd)||isNaN(altE)||isNaN(altB)||isNaN(altF)) return;
   if (altB>=altE||altF>=altB) { setStatus('Altitudes must be: Enter > Base > Final'); return; }
@@ -912,6 +1156,8 @@ function calculate() {
     fDisp, bDisp, dDisp,
     fWC, bWC, dWC,
     glide, cSpd, altE, altB, altF,
+    altExit, altOpen, ffSpeedMph, safetyPct,
+    jrHdg, jrAirspeedKts, jrOffsetNm,
     fieldElevFt: state.fieldElevFt,
   };
 
@@ -981,6 +1227,242 @@ function drawPattern() {
   addL(L.marker(ll(tFinal), {icon:pinIcon('#e8f44d'), zIndexOffset:100}));
 
   if (state.labelsVisible) {
+    // ── Safety zones ──
+    // All circles are centered at entry point shifted upwind by accumulated drift.
+    // Safety margin shrinks each radius by safetyPct.
+    const dRate    = (p.cSpd / p.glide) * 101.269; // ft/min canopy descent
+    const margin   = 1 - p.safetyPct;               // e.g. 0.90 for 10% margin
+
+    // Helper: compute integrated wind drift (ft N, ft E) while descending
+    // from altTopAGL to altBotAGL at a given descent rate (ft/min).
+    // Uses our multi-level wind data, integrating across bands.
+    function integratedDrift(altTopAGL, altBotAGL, descentFtMin) {
+      const totalAlt = altTopAGL - altBotAGL;
+      if (totalAlt <= 0) return {dN:0, dE:0};
+      // Sample wind at midpoints of each 200ft sub-band
+      const STEP = 200;
+      let dN = 0, dE = 0;
+      for (let agl = altBotAGL; agl < altTopAGL; agl += STEP) {
+        const bandTop = Math.min(agl + STEP, altTopAGL);
+        const midAGL  = (agl + bandTop) / 2;
+        const bandAlt = bandTop - agl;
+        const w = getWindAtAGL(midAGL);
+        const tMin = bandAlt / descentFtMin;
+        dN += w.n * (tMin / 60) * 6076;
+        dE += w.e * (tMin / 60) * 6076;
+      }
+      return {dN, dE};
+    }
+
+    // Helper: average wind speed/direction in an altitude band (for labels)
+    function avgWindInBand(altBotAGL, altTopAGL) {
+      const STEP = 200;
+      let sumN = 0, sumE = 0, count = 0;
+      for (let agl = altBotAGL; agl < altTopAGL; agl += STEP) {
+        const mid = (agl + Math.min(agl+STEP, altTopAGL)) / 2;
+        const w = getWindAtAGL(mid);
+        sumN += w.n; sumE += w.e; count++;
+      }
+      if (!count) return {spd:0, dir:0};
+      const avgN = sumN/count, avgE = sumE/count;
+      const spd = Math.round(Math.sqrt(avgN**2+avgE**2));
+      const dir = Math.round((Math.atan2(avgE,avgN)*R2D+360)%360);
+      return {spd, dir};
+    }
+
+    // Helper: draw one circle zone
+    function drawZone(centerAGL, radiusFt, driftAGL, borderColor, fillColor, fillOpacity, borderOpacity, borderWidth) {
+      const drift = integratedDrift(driftAGL.top, driftAGL.bot, driftAGL.rate);
+      const r     = radiusFt * margin * 0.3048; // metres, with safety margin
+      const ctr   = offsetLL(entry.lat, entry.lng, -drift.dN, -drift.dE);
+      addL(L.circle([ctr.lat, ctr.lng], {
+        radius: r, color: borderColor, weight: borderWidth,
+        fill: fillOpacity > 0, fillColor, fillOpacity, interactive: false,
+        dashArray: fillOpacity === 0 ? '8 5' : null,
+      }));
+      return ctr;
+    }
+
+    // Helper: zone label placed ON the border, on the upwind side of the circle.
+    // windVelDir: direction the wind is blowing TOWARD (velocity direction)
+    // upwind of center = opposite to wind velocity = windVelDir + 180
+    function zoneLabel(ctr, radiusFt, txt, color, windVelDir) {
+      const radiusM       = radiusFt * margin * 0.3048;
+      const radiusFtActual = radiusM / 0.3048;
+      // Upwind direction in heading terms: wind blows toward windVelDir, so upwind = +180
+      const upwindHdg = (windVelDir + 180) % 360;
+      const upwindVec = hdgVec(upwindHdg);
+      // Place label just outside the border on the upwind side
+      const labelPt = offsetLL(ctr.lat, ctr.lng,
+        upwindVec.n * (radiusFtActual + 100),
+        upwindVec.e * (radiusFtActual + 100));
+
+      // Arrow points in wind velocity direction (where wind goes)
+      const arrowSvg = `<svg width="12" height="12" viewBox="0 0 14 14" style="display:inline-block;vertical-align:middle;margin-right:3px;flex-shrink:0;">
+        <polygon points="7,1 12,13 7,10 2,13" fill="${color}" transform="rotate(${windVelDir},7,7)"/>
+      </svg>`;
+
+      addL(L.marker(ll(labelPt), {
+        icon: L.divIcon({
+          html:`<div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;
+            color:${color};text-shadow:0 1px 4px #000,0 0 8px #000;white-space:nowrap;
+            text-align:center;pointer-events:none;line-height:1.4;display:flex;align-items:center;justify-content:center;">
+            ${arrowSvg}${txt}</div>`,
+          iconSize:[160,20], iconAnchor:[80,10], className:''
+        }),
+        interactive:false, zIndexOffset:40
+      }));
+    }
+
+    // ── Pattern entry rings (opening alt → pattern entry, divided into thirds) ──
+    const canopyRange = p.altOpen - p.altE;
+    const hStep3 = canopyRange / 3;
+    const ringColors = [
+      {fill:'rgba(255,160,40,1)', border:'rgba(255,180,60,0.85)', fillOp:0.18, bw:2},
+      {fill:'rgba(255,160,40,1)', border:'rgba(255,180,60,0.65)', fillOp:0.11, bw:2},
+      {fill:'rgba(255,160,40,1)', border:'rgba(255,180,60,0.45)', fillOp:0.06, bw:2},
+    ];
+
+    // Draw outer to inner, label all three
+    [2,1,0].forEach(i => {
+      const h      = hStep3 * (i+1);
+      const topAGL = p.altE + h;
+      const botAGL = p.altE;
+      const rc     = ringColors[i];
+      const ctr    = drawZone(
+        p.altE, h * p.glide,
+        {top: topAGL, bot: botAGL, rate: dRate},
+        rc.border, rc.fill, rc.fillOp, 1, rc.bw
+      );
+      const avg    = avgWindInBand(botAGL, topAGL);
+      // avg.dir is already wind velocity direction (where wind goes)
+      const altLabel = Math.round(p.altE + h).toLocaleString();
+      zoneLabel(ctr, h * p.glide,
+        `${altLabel}ft · ${avg.spd}kt`,
+        rc.border.replace(/[\d.]+\)$/, '1)'),
+        avg.dir);
+    });
+
+    // ── Opening altitude ring ──
+    const openDrift    = integratedDrift(p.altOpen, p.altE, dRate);
+    const openRadiusFt = canopyRange * p.glide;
+    const openCtr      = offsetLL(entry.lat, entry.lng, -openDrift.dN, -openDrift.dE);
+    const openAvg      = avgWindInBand(p.altE, p.altOpen);
+    addL(L.circle([openCtr.lat, openCtr.lng], {
+      radius: openRadiusFt * margin * 0.3048,
+      color: 'rgba(255,210,80,0.95)', weight: 2.5,
+      fill: false, interactive: false,
+    }));
+    zoneLabel(openCtr, openRadiusFt,
+      `Open ${p.altOpen.toLocaleString()}ft · ${openAvg.spd}kt`,
+      'rgba(255,220,100,1)', openAvg.dir);
+
+    // ── Exit ring (dashed, no fill) ──
+    const ffRateFtMin  = p.ffSpeedMph * 88;
+    const ffDrift      = integratedDrift(p.altExit, p.altOpen, ffRateFtMin);
+    const exitCenter   = offsetLL(openCtr.lat, openCtr.lng, -ffDrift.dN, -ffDrift.dE);
+    const ffAvg        = avgWindInBand(p.altOpen, p.altExit);
+    addL(L.circle([exitCenter.lat, exitCenter.lng], {
+      radius: openRadiusFt * margin * 0.3048,
+      color: 'rgba(160,220,255,0.95)', weight: 2.5,
+      fill: false, interactive: false, dashArray: '8 5',
+    }));
+    zoneLabel(exitCenter, openRadiusFt,
+      `Exit ${p.altExit.toLocaleString()}ft · ${ffAvg.spd}kt`,
+      'rgba(180,230,255,1)', ffAvg.dir);
+
+    // ── Jump run line ──
+    const jrVec      = hdgVec(p.jrHdg);
+    const jrRightVec = {n: jrVec.e, e: -jrVec.n}; // 90° right of heading
+
+    // Jump run line base: landing target shifted by user offset (perpendicular to jrVec)
+    // Offset = 0 → line passes through landing target
+    const offsetFt = p.jrOffsetNm * 6076;
+    const jrBase   = offsetLL(p.landing.lat, p.landing.lng,
+      jrRightVec.n * offsetFt, jrRightVec.e * offsetFt);
+
+    // Natural offset: perpendicular distance from landing target to the
+    // "theoretical" line through exitCenter — display only
+    const exitToLandN = (p.landing.lat - exitCenter.lat) * R_FT * D2R;
+    const exitToLandE = (p.landing.lng - exitCenter.lng) * R_FT * Math.cos(exitCenter.lat * D2R) * D2R;
+    const naturalOffsetFt = exitToLandN * jrRightVec.n + exitToLandE * jrRightVec.e;
+    const naturalOffsetNm = (-naturalOffsetFt / 6076);
+    // Show natural offset as a note, never write back to the input (avoids feedback loop)
+    const noteEl = document.getElementById('jr-offset-note');
+    if (noteEl) noteEl.textContent = `Natural: ${naturalOffsetNm >= 0 ? '+' : ''}${naturalOffsetNm.toFixed(2)}nm`;
+
+    const exitR  = openRadiusFt * margin * 0.3048; // metres
+    const extFt  = (exitR / 0.3048) * 1.8;
+    const jrUpwind   = offsetLL(jrBase.lat, jrBase.lng,  jrVec.n*extFt,  jrVec.e*extFt);
+    const jrDownwind = offsetLL(jrBase.lat, jrBase.lng, -jrVec.n*extFt, -jrVec.e*extFt);
+
+    addL(L.polyline([ll(jrDownwind), ll(jrUpwind)], {
+      color: 'rgba(160,220,255,0.85)', weight: 2,
+      dashArray: '8 5', interactive: false,
+    }));
+
+    // Single chevron at center of line showing direction of flight (into wind)
+    const chevronSvg = `<svg width="14" height="14" viewBox="0 0 12 12" style="display:block;">
+      <polyline points="3,10 6,2 9,10" fill="none" stroke="rgba(160,220,255,0.95)"
+        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+        transform="rotate(${p.jrHdg},6,6)"/>
+    </svg>`;
+    addL(L.marker(ll(jrBase), {
+      icon: L.divIcon({html:chevronSvg, iconSize:[14,14], iconAnchor:[7,7], className:''}),
+      interactive:false, zIndexOffset:43
+    }));
+
+    // Ground speed
+    const wJr      = getWindAtAGL(p.altExit);
+    const jrWC     = wJr.n*jrVec.n + wJr.e*jrVec.e;
+    const jrGndSpd = Math.round(p.jrAirspeedKts + jrWC);
+
+    // ── Green/red light distances ──
+    // Reference point: foot of perpendicular from landing target onto the jump run line.
+    // With offset=0 this is the landing target itself.
+    // t parametrizes position along jrVec from the reference point.
+    // Positive t = upwind of reference (plane hasn't reached it yet = "prior").
+    // Negative t = downwind of reference (plane has passed it = "past").
+    //
+    // Intersect the zero-offset jump run (through landing target, direction jrVec)
+    // with the exit circle (center exitCenter, radius exitRFt).
+    // exitCtr vector = exitCenter relative to landing target, in feet.
+    const exitCtrN = (exitCenter.lat - p.landing.lat) * R_FT * D2R;
+    const exitCtrE = (exitCenter.lng - p.landing.lng) * R_FT * Math.cos(p.landing.lat * D2R) * D2R;
+    const exitRFt  = exitR / 0.3048;
+    // Project exitCtr onto jrVec to get foot of perpendicular (our reference offset)
+    // Quadratic: |exitCtr - t*jrVec|² = exitRFt²
+    // t² - 2t(exitCtrN*jn + exitCtrE*je) + (exitCtrN²+exitCtrE² - exitRFt²) = 0
+    const proj = exitCtrN*jrVec.n + exitCtrE*jrVec.e; // signed dist from landing to closest point on line
+    const cq   = exitCtrN**2 + exitCtrE**2 - exitRFt**2;
+    const dq   = proj**2 - cq;
+    let greenTxt = '', redTxt = '';
+    if (dq >= 0) {
+      const t1 = proj - Math.sqrt(dq); // plane reaches this first (green light)
+      const t2 = proj + Math.sqrt(dq); // plane reaches this last (red light)
+      const fmtDist = (t) => {
+        const nm = Math.abs(t) / 6076;
+        const word = t >= 0 ? 'prior' : 'past';
+        return `${nm.toFixed(1)}nm ${word}`;
+      };
+      greenTxt = ` · 🟢 ${fmtDist(t1)}`;
+      redTxt   = ` · 🔴 ${fmtDist(t2)}`;
+    }
+
+    const offsetTxt = `${p.jrOffsetNm >= 0 ? '+' : ''}${p.jrOffsetNm.toFixed(1)}nm`;
+    const jrLabelPt = offsetLL(jrDownwind.lat, jrDownwind.lng, -jrVec.n*250, -jrVec.e*250);
+    addL(L.marker(ll(jrLabelPt), {
+      icon: L.divIcon({
+        html:`<div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;
+          color:rgba(160,220,255,1);text-shadow:0 1px 4px #000,0 0 8px #000;
+          white-space:nowrap;pointer-events:none;text-align:center;line-height:1.5;">
+          Jump run ${Math.round(p.jrHdg)}° · ${jrGndSpd}kt GS · ${offsetTxt}${greenTxt}${redTxt}
+        </div>`,
+        iconSize:[360,32], iconAnchor:[180,0], className:''
+      }),
+      interactive:false, zIndexOffset:45
+    }));
+
     // Turn altitude labels
     const turnLabelIcon = (txt, color) => L.divIcon({
       html:`<div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;
@@ -1013,7 +1495,7 @@ function drawPattern() {
   // Wind arrow
   const wSfc = getWindAtAGL(0), ws = vecLen(wSfc);
   if (ws > 0.5) {
-    const velDeg = (Math.atan2(wSfc.e, wSfc.n)*R2D+360)%360;
+    const velDeg  = (Math.atan2(wSfc.e, wSfc.n)*R2D+360)%360;
     const fromDeg = (velDeg+180)%360;
     const upwindVec = normalize({n:-wSfc.n, e:-wSfc.e});
     const arrowPt = offsetLL(state.target.lat, state.target.lng,
@@ -1021,11 +1503,15 @@ function drawPattern() {
       upwindVec.e*350 + hdgVec(fromDeg+90).e*200);
     addL(L.marker(ll(arrowPt), {
       icon: L.divIcon({
-        html:`<div style="text-align:center;">
-          <div style="transform:rotate(${velDeg}deg);font-size:20px;color:#fff;text-shadow:0 0 4px #000;line-height:1;">↑</div>
-          <div style="font-size:10px;font-family:'Space Mono',monospace;color:#fff;text-shadow:0 0 3px #000;white-space:nowrap;background:rgba(10,12,15,0.6);border-radius:8px;padding:1px 5px;">${Math.round(fromDeg)}°@${Math.round(ws)}kt</div>
+        html:`<div style="display:flex;align-items:center;gap:4px;pointer-events:none;">
+          <svg width="12" height="12" viewBox="0 0 14 14">
+            <polygon points="7,1 12,13 7,10 2,13" fill="rgba(255,255,255,0.9)"
+              transform="rotate(${velDeg},7,7)"/>
+          </svg>
+          <span style="font-family:'Space Mono',monospace;font-size:10px;color:#fff;
+            text-shadow:0 0 4px #000,0 1px 3px #000;white-space:nowrap;">${Math.round(fromDeg)}°@${Math.round(ws)}kt</span>
         </div>`,
-        iconSize:[60,42], iconAnchor:[30,10], className:''
+        iconSize:[90,14], iconAnchor:[45,7], className:''
       }),
       interactive:false, zIndexOffset:200
     }));
@@ -1109,7 +1595,7 @@ async function pickDZ(dz){
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 updateCanopyCalc();
-window.addEventListener('resize', () => { if (state.surfaceWind) updateWindPyramid(); });
+window.addEventListener('resize', () => { if (state.surfaceWind) updateWindPyramid(); updateJrPyramid(); });
 setTimeout(()=>map.invalidateSize(), 300);
 </script>
 </body>
