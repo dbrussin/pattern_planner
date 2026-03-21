@@ -296,7 +296,15 @@
       <div class="input-group"><label>Freefall Speed (mph)</label><input type="number" id="ff-speed" value="120" min="60" max="250" step="5" oninput="calculate()"></div>
       <div class="input-group"><label>Aircraft IAS (kts)</label><input type="number" id="jr-airspeed" value="80" min="40" max="200" step="5" oninput="calculate()"></div>
       <div class="input-group"><label>Region Buffer (%)</label><input type="number" id="safety-margin" value="10" min="0" max="40" step="1" oninput="calculate()"></div>
-      <div class="input-group"><label>Jump Run Offset (nm)</label><input type="number" id="jr-offset" value="0" min="-10" max="10" step="0.1" oninput="calculate()"><div id="jr-offset-note" style="font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;margin-top:3px;"></div></div>
+      <div class="input-group"><label>Exit Separation (ft)</label><input type="number" id="exit-sep" value="1500" min="500" max="5000" step="100" oninput="calculate()"></div>
+      <div class="input-group">
+        <label>Jump Run Offset (nm)
+          <span onclick="resetJrOffset()" title="Reset to calculated"
+            style="cursor:pointer;color:var(--accent2);font-size:9px;margin-left:4px;">↺</span>
+        </label>
+        <input type="number" id="jr-offset" value="" min="-10" max="10" step="0.1"
+          placeholder="calc" style="color:var(--muted);" oninput="onJrOffsetInput()">
+      </div>
     </div>
     <div class="field-note">Freefall assumes vertical descent — horizontal drift from wind only.</div>
     <div id="jr-heading-row" style="display:flex;align-items:center;gap:8px;margin-top:8px;
@@ -376,6 +384,7 @@ const state = {
   manualHeading: false,
   jumpRunHdgDeg: null,
   manualJumpRun: false,
+  manualJrOffset: false,
   winds: [],
   surfaceWind: null,
   pattern: null,
@@ -511,6 +520,7 @@ async function placeTarget(lat, lng) {
     state.manualHeading  = false;
     state.manualJumpRun  = false;
     state.jumpRunHdgDeg  = null;
+    state.manualJrOffset = false;
   }
   state.target = {lat, lng};
   state.pattern = null;
@@ -909,9 +919,19 @@ function onJumpRunSlider(v) {
   updateJumpRunDisplay(parseInt(v));
   calculate();
 }
+function onJrOffsetInput() {
+  state.manualJrOffset = true;
+  document.getElementById('jr-offset').style.color = 'var(--text)';
+  calculate();
+}
+function resetJrOffset() {
+  state.manualJrOffset = false;
+  document.getElementById('jr-offset').style.color = 'var(--muted)';
+  calculate();
+}
 function snapJumpRunToWind() {
   state.manualJumpRun = false;
-  state.jumpRunHdgDeg = null; // let calculate() re-derive from exit-alt wind
+  state.jumpRunHdgDeg = null;
   calculate();
 }
 function updateJumpRunDisplay(deg) {
@@ -983,7 +1003,7 @@ function calculate() {
   const ffSpeedMph= parseFloat(document.getElementById('ff-speed').value)   || 120;
   const safetyPct = (parseFloat(document.getElementById('safety-margin').value) || 0) / 100;
   const jrAirspeedKts = parseFloat(document.getElementById('jr-airspeed').value) || 80;
-  const jrOffsetNm    = parseFloat(document.getElementById('jr-offset').value) || 0;
+  const exitSepFt     = parseFloat(document.getElementById('exit-sep').value) || 1500;
 
   // Jump run heading — plane flies INTO wind, so heading = opposite of wind velocity direction
   let jrHdg = state.jumpRunHdgDeg;
@@ -1157,7 +1177,7 @@ function calculate() {
     fWC, bWC, dWC,
     glide, cSpd, altE, altB, altF,
     altExit, altOpen, ffSpeedMph, safetyPct,
-    jrHdg, jrAirspeedKts, jrOffsetNm,
+    jrHdg, jrAirspeedKts, exitSepFt,
     fieldElevFt: state.fieldElevFt,
   };
 
@@ -1375,21 +1395,33 @@ function drawPattern() {
     const jrVec      = hdgVec(p.jrHdg);
     const jrRightVec = {n: jrVec.e, e: -jrVec.n}; // 90° right of heading
 
-    // Jump run line base: landing target shifted by user offset (perpendicular to jrVec)
-    // Offset = 0 → line passes through landing target
-    const offsetFt = p.jrOffsetNm * 6076;
-    const jrBase   = offsetLL(p.landing.lat, p.landing.lng,
-      jrRightVec.n * offsetFt, jrRightVec.e * offsetFt);
+    // Natural offset = perpendicular distance from landing target to the natural
+    // jump run line (through exit circle center), signed by jrRightVec.
+    // Vector from landing TO exit circle center:
+    const landToExitN  = (exitCenter.lat - p.landing.lat) * R_FT * D2R;
+    const landToExitE  = (exitCenter.lng - p.landing.lng) * R_FT * Math.cos(p.landing.lat * D2R) * D2R;
+    // Component perpendicular to jrVec (i.e. along jrRightVec):
+    // positive = exit circle is to the right of the line through landing
+    const calcOffsetFt = landToExitN * jrRightVec.n + landToExitE * jrRightVec.e;
+    const calcOffsetNm = calcOffsetFt / 6076;
+    // To put the line through the exit circle center from the landing target,
+    // shift landing by calcOffsetFt in the jrRight direction — same sign as user input
 
-    // Natural offset: perpendicular distance from landing target to the
-    // "theoretical" line through exitCenter — display only
-    const exitToLandN = (p.landing.lat - exitCenter.lat) * R_FT * D2R;
-    const exitToLandE = (p.landing.lng - exitCenter.lng) * R_FT * Math.cos(exitCenter.lat * D2R) * D2R;
-    const naturalOffsetFt = exitToLandN * jrRightVec.n + exitToLandE * jrRightVec.e;
-    const naturalOffsetNm = (-naturalOffsetFt / 6076);
-    // Show natural offset as a note, never write back to the input (avoids feedback loop)
-    const noteEl = document.getElementById('jr-offset-note');
-    if (noteEl) noteEl.textContent = `Natural: ${naturalOffsetNm >= 0 ? '+' : ''}${naturalOffsetNm.toFixed(2)}nm`;
+    // Echo natural offset to field in muted color when not manually set
+    const jrOffsetEl = document.getElementById('jr-offset');
+    if (!state.manualJrOffset) {
+      jrOffsetEl.value = calcOffsetNm.toFixed(2);
+      jrOffsetEl.style.color = 'var(--muted)';
+    }
+
+    // Line positioning:
+    // Auto: line passes exactly through exit circle center
+    // Manual: line passes through landing target offset by user value
+    const jrBase = state.manualJrOffset
+      ? offsetLL(p.landing.lat, p.landing.lng,
+          jrRightVec.n * (parseFloat(jrOffsetEl.value) || 0) * 6076,
+          jrRightVec.e * (parseFloat(jrOffsetEl.value) || 0) * 6076)
+      : {lat: exitCenter.lat, lng: exitCenter.lng};
 
     const exitR  = openRadiusFt * margin * 0.3048; // metres
     const extFt  = (exitR / 0.3048) * 1.8;
@@ -1415,50 +1447,52 @@ function drawPattern() {
     // Ground speed
     const wJr      = getWindAtAGL(p.altExit);
     const jrWC     = wJr.n*jrVec.n + wJr.e*jrVec.e;
-    const jrGndSpd = Math.round(p.jrAirspeedKts + jrWC);
+    const jrGndSpd  = Math.round(p.jrAirspeedKts + jrWC);
+    const gsFps     = jrGndSpd * 6076 / 3600; // ground speed in ft/sec
+    const sepSec    = gsFps > 0 ? Math.ceil(p.exitSepFt / gsFps) : null;
 
     // ── Green/red light distances ──
-    // Reference point: foot of perpendicular from landing target onto the jump run line.
-    // With offset=0 this is the landing target itself.
-    // t parametrizes position along jrVec from the reference point.
-    // Positive t = upwind of reference (plane hasn't reached it yet = "prior").
-    // Negative t = downwind of reference (plane has passed it = "past").
-    //
-    // Intersect the zero-offset jump run (through landing target, direction jrVec)
-    // with the exit circle (center exitCenter, radius exitRFt).
-    // exitCtr vector = exitCenter relative to landing target, in feet.
-    const exitCtrN = (exitCenter.lat - p.landing.lat) * R_FT * D2R;
-    const exitCtrE = (exitCenter.lng - p.landing.lng) * R_FT * Math.cos(p.landing.lat * D2R) * D2R;
-    const exitRFt  = exitR / 0.3048;
-    // Project exitCtr onto jrVec to get foot of perpendicular (our reference offset)
-    // Quadratic: |exitCtr - t*jrVec|² = exitRFt²
-    // t² - 2t(exitCtrN*jn + exitCtrE*je) + (exitCtrN²+exitCtrE² - exitRFt²) = 0
-    const proj = exitCtrN*jrVec.n + exitCtrE*jrVec.e; // signed dist from landing to closest point on line
-    const cq   = exitCtrN**2 + exitCtrE**2 - exitRFt**2;
-    const dq   = proj**2 - cq;
+    // Intersect the actual jump run line (through jrBase, direction jrVec) with exit circle.
+    // Reference for distances = foot of perpendicular from landing target onto the jump run line.
+    // t parametrizes position along jrVec from jrBase.
+    // jrBaseToExit = vector from jrBase to exitCenter, in feet
+    const jrBaseToExitN = (exitCenter.lat - jrBase.lat) * R_FT * D2R;
+    const jrBaseToExitE = (exitCenter.lng - jrBase.lng) * R_FT * Math.cos(jrBase.lat * D2R) * D2R;
+    const exitRFt  = openRadiusFt * margin;
+    // Quadratic: t² - 2t*(proj2) + (distSq2 - exitRFt²) = 0
+    const proj2   = jrBaseToExitN*jrVec.n + jrBaseToExitE*jrVec.e;
+    const distSq2 = jrBaseToExitN**2 + jrBaseToExitE**2;
+    const disc2   = proj2**2 - (distSq2 - exitRFt**2);
+    // t_ref = position of landing target's foot of perpendicular along jrVec from jrBase
+    const landToBaseN = (p.landing.lat - jrBase.lat) * R_FT * D2R;
+    const landToBaseE = (p.landing.lng - jrBase.lng) * R_FT * Math.cos(jrBase.lat * D2R) * D2R;
+    const tRef = landToBaseN*jrVec.n + landToBaseE*jrVec.e;
     let greenTxt = '', redTxt = '';
-    if (dq >= 0) {
-      const t1 = proj - Math.sqrt(dq); // plane reaches this first (green light)
-      const t2 = proj + Math.sqrt(dq); // plane reaches this last (red light)
+    if (disc2 >= 0) {
+      const t1 = proj2 - Math.sqrt(disc2); // plane reaches first = green light
+      const t2 = proj2 + Math.sqrt(disc2); // plane reaches last  = red light
       const fmtDist = (t) => {
-        const nm = Math.abs(t) / 6076;
-        const word = t >= 0 ? 'prior' : 'past';
+        const dt   = t - tRef;
+        const nm   = Math.abs(dt) / 6076;
+        const word = dt >= 0 ? 'past' : 'prior';
         return `${nm.toFixed(1)}nm ${word}`;
       };
       greenTxt = ` · 🟢 ${fmtDist(t1)}`;
       redTxt   = ` · 🔴 ${fmtDist(t2)}`;
     }
 
-    const offsetTxt = `${p.jrOffsetNm >= 0 ? '+' : ''}${p.jrOffsetNm.toFixed(1)}nm`;
+    const sepTxt    = sepSec ? ` · ${sepSec}s sep` : '';
+    const displayOffsetNm = state.manualJrOffset ? parseFloat(jrOffsetEl.value) || 0 : calcOffsetNm;
+    const offsetTxt = `${displayOffsetNm >= 0 ? '+' : ''}${displayOffsetNm.toFixed(1)}nm`;
     const jrLabelPt = offsetLL(jrDownwind.lat, jrDownwind.lng, -jrVec.n*250, -jrVec.e*250);
     addL(L.marker(ll(jrLabelPt), {
       icon: L.divIcon({
         html:`<div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;
           color:rgba(160,220,255,1);text-shadow:0 1px 4px #000,0 0 8px #000;
           white-space:nowrap;pointer-events:none;text-align:center;line-height:1.5;">
-          Jump run ${Math.round(p.jrHdg)}° · ${jrGndSpd}kt GS · ${offsetTxt}${greenTxt}${redTxt}
+          Jump run ${Math.round(p.jrHdg)}° · ${jrGndSpd}kt GS · ${offsetTxt}${sepTxt}${greenTxt}${redTxt}
         </div>`,
-        iconSize:[360,32], iconAnchor:[180,0], className:''
+        iconSize:[420,32], iconAnchor:[210,0], className:''
       }),
       interactive:false, zIndexOffset:45
     }));
