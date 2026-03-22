@@ -1176,8 +1176,15 @@ function onJumpRunSlider(v) {
   calculate();
 }
 function onJrOffsetInput() {
-  state.manualJrOffset = true;
-  document.getElementById('jr-offset').style.color = 'var(--text)';
+  const el = document.getElementById('jr-offset');
+  if (el.value === '' || el.value === null) {
+    // Empty = revert to auto (line through exit circle center)
+    state.manualJrOffset = false;
+    el.style.color = 'var(--muted)';
+  } else {
+    state.manualJrOffset = true;
+    el.style.color = 'var(--text)';
+  }
   calculate();
 }
 function resetJrOffset() {
@@ -1676,12 +1683,14 @@ function drawPattern() {
     }
 
     // Line positioning:
-    // Auto: line passes exactly through exit circle center
-    // Manual: line passes through landing target offset by user value
+    // Auto: exactly through exit circle center
+    // Manual: shift from exit circle center by (userOffset - calcOffset) delta
+    // Using exitCenter as the invariant base means offset=calcOffsetNm gives
+    // exactly exitCenter with no discontinuity
     const jrBase = state.manualJrOffset
-      ? offsetLL(p.landing.lat, p.landing.lng,
-          jrRightVec.n * (parseFloat(jrOffsetEl.value) || 0) * 6076,
-          jrRightVec.e * (parseFloat(jrOffsetEl.value) || 0) * 6076)
+      ? offsetLL(exitCenter.lat, exitCenter.lng,
+          jrRightVec.n * ((parseFloat(jrOffsetEl.value) || 0) - calcOffsetNm) * 6076,
+          jrRightVec.e * ((parseFloat(jrOffsetEl.value) || 0) - calcOffsetNm) * 6076)
       : {lat: exitCenter.lat, lng: exitCenter.lng};
 
     const exitR  = openRadiusFt * margin * 0.3048; // metres
