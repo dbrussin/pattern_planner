@@ -31,6 +31,7 @@
     position: fixed; top: 0; left: 0; right: 0; height: var(--header-h); z-index: 500;
     display: flex; align-items: center; gap: 8px; padding: 0 10px;
     background: #12151a; border-bottom: 1px solid var(--border);
+    position: fixed; /* keep fixed, also acts as containing block for absolute child */
   }
   #header h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.06em; color: var(--accent); text-transform: uppercase; white-space: nowrap; flex: 1; }
   #header h1 span { color: var(--text); font-weight: 400; }
@@ -67,7 +68,7 @@
   }
   #heading-bar-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
   #heading-bar-val { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--accent); min-width: 36px; flex-shrink: 0; }
-  #heading-bar-slider-wrap { flex: 1; position: relative; min-width: 0; padding-bottom: 12px; }
+  #heading-bar-slider-wrap { flex: 1; position: relative; min-width: 0; padding-bottom: 12px; margin-left: 6px; }
   #heading-bar-slider { width: 100%; accent-color: var(--accent); display: block; }
   /* Pyramid indicator */
   #wind-pyramid {
@@ -256,6 +257,11 @@
 <!-- HEADER -->
 <div id="header">
   <h1>Pattern <span>Planner</span></h1>
+  <div id="forecast-time-label" style="
+    font-family:'Space Mono',monospace;font-size:10px;letter-spacing:0.04em;
+    color:var(--muted);white-space:nowrap;
+    position:absolute;left:50%;transform:translateX(-50%);
+    pointer-events:none;display:none;"></div>
   <div onclick="toggleSearch()" id="dz-search-icon" title="Search drop zones"
     style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;
     color:var(--muted);font-size:17px;cursor:pointer;flex-shrink:0;">🔍</div>
@@ -298,8 +304,9 @@
   <input type="number" id="heading-bar-val" min="0" max="359" step="1"
     style="font-family:'Space Mono',monospace;font-size:13px;color:var(--accent);
     background:transparent;border:none;border-bottom:1px solid var(--border);
-    width:42px;text-align:center;padding:2px 0;"
-    oninput="onHeadingInput(this.value)">
+    width:42px;text-align:center;padding:2px 0;position:relative;z-index:2;
+    touch-action:manipulation;-webkit-appearance:none;"
+    oninput="onHeadingInput(this.value)" onblur="onHeadingBlur()">
   <div id="heading-bar-slider-wrap">
     <input type="range" id="heading-bar-slider" min="0" max="359" step="1" value="0" oninput="onHeadingSlider(this.value)">
     <div id="wind-pyramid"></div>
@@ -357,8 +364,8 @@
       <input type="number" id="jr-hdg-display" min="0" max="359" step="1"
         style="font-family:'Space Mono',monospace;font-size:13px;color:var(--accent2);
         background:transparent;border:none;border-bottom:1px solid var(--border);
-        width:42px;text-align:center;padding:2px 0;flex-shrink:0;"
-        oninput="onJrHdgInput(this.value)">
+        width:42px;text-align:center;padding:2px 0;flex-shrink:0;position:relative;z-index:1;"
+        oninput="onJrHdgInput(this.value)" onblur="onJrHdgBlur()">
       <div style="flex:1;position:relative;padding-bottom:10px;min-width:0;">
         <input type="range" id="jr-hdg-slider" min="0" max="359" step="1" value="0"
           style="width:100%;accent-color:var(--accent2);display:block;"
@@ -384,10 +391,12 @@
           <div style="display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden;">
             <button id="dw-crab" class="leg-mode-btn active" onclick="setLegMode('dw','crab')">Crab</button>
             <button id="dw-drift" class="leg-mode-btn" onclick="setLegMode('dw','drift')">Drift</button>
-            <button id="dw-z" class="leg-mode-btn" onclick="setLegMode('dw','z')">Z</button>
           </div>
         </div>
-        <div id="dw-perf-toggle" style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          <label style="font-size:10px;color:var(--muted);flex:1;">Z pattern (fly upwind on downwind leg)</label>
+          <input type="checkbox" id="dw-z-check" onchange="toggleZPattern(this.checked)">
+        </div>
           <label style="font-size:10px;color:var(--muted);flex:1;">Custom performance</label>
           <input type="checkbox" id="dw-custom-perf" onchange="updatePerfSections()">
         </div>
@@ -699,8 +708,9 @@ const state = {
   forecastOffset: 0,
   layers: { jumpRun:true, exitRegion:true, canopyRegions:true, patternLabels:true, legend:true },
   fitDone: false,
-  // Per-leg modes: 'crab' | 'drift' | 'z' (z only valid for downwind)
+  // Per-leg modes: 'crab' | 'drift'
   legModes: { dw: 'crab', b: 'drift', f: 'crab' },
+  zPattern: false,  // Z pattern is independent of crab/drift
   // Per-leg custom canopy performance
   legCustomPerf: { dw: false, b: false, f: false },
 };
@@ -732,6 +742,7 @@ function saveSettings() {
     localStorage.setItem(storageKey('layers'),       JSON.stringify(state.layers));
     localStorage.setItem(storageKey('leg_modes'),    JSON.stringify(state.legModes));
     localStorage.setItem(storageKey('leg_custom'),   JSON.stringify(state.legCustomPerf));
+    localStorage.setItem(storageKey('z_pattern'),    String(state.zPattern));
     // Per-leg perf inputs
     ['dw','b','f'].forEach(leg => {
       ['glide','speed','sink'].forEach(field => {
@@ -763,8 +774,8 @@ function initStorage() {
     }
   } catch(e) {}
 }
-const windCache = {}; // { key: {winds, surfaceWind, fieldElevFt, ts} }
-function cacheKey(lat, lng) { return `${lat.toFixed(2)},${lng.toFixed(2)},${state.forecastOffset||0}`; }
+const windCache = {}; // { key: {rawData, fieldElevFt, loc, ts} }
+function cacheKey(lat, lng) { return `${lat.toFixed(2)},${lng.toFixed(2)}`; } // no offset in key
 function distMiles(a, b) {
   const dLat = (a.lat-b.lat) * 69;
   const dLng = (a.lng-b.lng) * 69 * Math.cos(a.lat * Math.PI/180);
@@ -881,6 +892,11 @@ async function placeTarget(lat, lng) {
     state.manualJumpRun  = false;
     state.jumpRunHdgDeg  = null;
     state.manualJrOffset = false;
+    state.forecastOffset = 0;
+    const fo = document.getElementById('forecast-offset');
+    if (fo) fo.value = 0;
+    const fl = document.getElementById('forecast-offset-label');
+    if (fl) fl.textContent = 'Now';
   }
   state.target = {lat, lng};
   state.pattern = null;
@@ -919,18 +935,12 @@ function geopotentialToFtMSL(gpm) { return Math.round(gpm * 3.28084); }
 async function fetchWinds(forceRefresh=false) {
   if (!state.target) return;
 
-  // Check cache
+  // Check cache — cache stores raw API payload, not processed winds
   if (!forceRefresh) {
     const cached = findCachedWinds(state.target.lat, state.target.lng);
     if (cached) {
-      state.winds       = cached.winds;
-      state.surfaceWind = cached.surfaceWind;
-      state.fieldElevFt = cached.fieldElevFt;
-      buildWindTable();
+      processWindData(cached.rawData, cached.fieldElevFt);
       updateWindStatusAge(cached.ts);
-      if (!state.manualHeading) { state.finalHeadingDeg = cached.surfaceWind.dirDeg; updateHeadingDisplay(cached.surfaceWind.dirDeg); }
-      updateWindPyramid(); updateJrPyramid();
-      setStatus(`Winds from cache`);
       return;
     }
   }
@@ -944,32 +954,71 @@ async function fetchWinds(forceRefresh=false) {
     const plTmpVars  = PRESSURE_LEVELS.map(p=>`temperature_${p}hPa`).join(',');
     const htVars     = HEIGHT_LEVELS.flatMap(h=>[`windspeed_${h}m`,`winddirection_${h}m`]).join(',');
 
-    const url = `https://api.open-meteo.com/v1/gfs?latitude=${lat}&longitude=${lng}&hourly=${plWindVars},${plHgtVars},${plTmpVars},${htVars},windspeed_10m,winddirection_10m&wind_speed_unit=kn&forecast_days=1&timezone=auto`;
-    const d = await (await fetch(url)).json();
+    // forecast_days=2 ensures +12h is always available regardless of current hour
+    const url = `https://api.open-meteo.com/v1/gfs?latitude=${lat}&longitude=${lng}&hourly=${plWindVars},${plHgtVars},${plTmpVars},${htVars},windspeed_10m,winddirection_10m&wind_speed_unit=kn&forecast_days=2&timezone=auto`;
+    const rawData = await (await fetch(url)).json();
 
-    // Match current hour + forecast offset
-    const now = new Date();
-    const pad = n => String(n).padStart(2,'0');
-    const localHourStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:00`;
-    let hi = d.hourly.time.indexOf(localHourStr);
-    if (hi < 0) {
-      const nowMs = now.getTime();
-      hi = d.hourly.time.reduce((best, t, i) =>
-        Math.abs(new Date(t).getTime() - nowMs) < Math.abs(new Date(d.hourly.time[best]).getTime() - nowMs) ? i : best, 0);
-    }
-    hi = Math.min(hi + state.forecastOffset, d.hourly.time.length - 1);
+    // Fetch MSL elevation for this location
+    let fieldElevFt = state.fieldElevFt || 0;
+    try {
+      const elevUrl = `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lng}`;
+      const elevData = await (await fetch(elevUrl)).json();
+      if (elevData.elevation?.[0] != null) fieldElevFt = Math.round(elevData.elevation[0] * 3.28084);
+    } catch(e) {}
 
-    // Surface wind
-    state.surfaceWind = {
-      dirDeg: Math.round(d.hourly.winddirection_10m[hi]),
-      speedKts: Math.round(d.hourly.windspeed_10m[hi])
-    };
+    const ts = Date.now();
+    windCache[cacheKey(lat,lng)] = {rawData, fieldElevFt, loc:{lat,lng}, ts};
+    state.fieldElevFt = fieldElevFt;
 
-    // ── Build raw arrays for interpolation (keyed by MSL altitude) ──
-    // rawWinds: [{altFt(MSL), dirDeg, speedKts}] — used for wind interpolation
-    // rawTemp:  [{altFt(MSL), tempC}]            — used for temperature interpolation
-    const rawWinds = [{altFt: state.fieldElevFt, dirDeg: state.surfaceWind.dirDeg, speedKts: state.surfaceWind.speedKts}];
-    const rawTemp  = [];
+    processWindData(rawData, fieldElevFt);
+    updateWindStatusAge(ts);
+    setStatus(`Winds loaded · SFC ${state.surfaceWind.dirDeg}°@${state.surfaceWind.speedKts}kt`);
+  } catch(e) {
+    document.getElementById('fetch-status').textContent = `Fetch failed: ${e.message}`;
+    setStatus('Wind fetch failed');
+    console.error(e);
+  }
+  btn.disabled = false; btn.textContent = '⬇ Refresh Winds';
+}
+
+// Process raw API data for a given forecast offset — no network needed
+function processWindData(d, fieldElevFt) {
+  // Find base hour index (current local time)
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const localHourStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:00`;
+  let hi = d.hourly.time.indexOf(localHourStr);
+  if (hi < 0) {
+    const nowMs = now.getTime();
+    hi = d.hourly.time.reduce((best, t, i) =>
+      Math.abs(new Date(t).getTime() - nowMs) < Math.abs(new Date(d.hourly.time[best]).getTime() - nowMs) ? i : best, 0);
+  }
+  hi = Math.min(hi + (state.forecastOffset || 0), d.hourly.time.length - 1);
+
+  // Update header forecast time label
+  const effectiveTimeStr = d.hourly.time[hi];
+  const effectiveDate = new Date(effectiveTimeStr);
+  const timeLabel = document.getElementById('forecast-time-label');
+  if (timeLabel) {
+    const hh = String(effectiveDate.getHours()).padStart(2,'0');
+    const mo = effectiveDate.toLocaleString('en', {month:'short'});
+    const dd = effectiveDate.getDate();
+    const isNow = (state.forecastOffset || 0) === 0;
+    timeLabel.textContent = isNow ? `${mo} ${dd}  ${hh}:00` : `+${state.forecastOffset}h  ${mo} ${dd}  ${hh}:00`;
+    timeLabel.style.display = 'block';
+    timeLabel.style.color = isNow ? 'var(--muted)' : 'var(--accent2)';
+  }
+
+  // Surface wind
+  state.surfaceWind = {
+    dirDeg: Math.round(d.hourly.winddirection_10m[hi]),
+    speedKts: Math.round(d.hourly.windspeed_10m[hi])
+  };
+  state.fieldElevFt = fieldElevFt;
+
+  // ── Build raw arrays for interpolation (keyed by MSL altitude) ──
+  const rawWinds = [{altFt: fieldElevFt, dirDeg: state.surfaceWind.dirDeg, speedKts: state.surfaceWind.speedKts}];
+  const rawTemp  = [];
 
     // Fixed-height-level winds (AGL → MSL), no temperature available
     const htAGLft = {80:262, 120:394, 180:591};
@@ -1089,22 +1138,11 @@ async function fetchWinds(forceRefresh=false) {
 
     state.winds = allRows;
 
-    const ts = Date.now();
-    windCache[cacheKey(lat,lng)] = {winds:state.winds, surfaceWind:state.surfaceWind, fieldElevFt:state.fieldElevFt, loc:{lat,lng}, ts};
-
     buildWindTable();
-    updateWindStatusAge(ts);
     if (!state.manualHeading) { state.finalHeadingDeg = state.surfaceWind.dirDeg; updateHeadingDisplay(state.surfaceWind.dirDeg); }
     autoSetJumpRunHeading();
     updateWindPyramid(); updateJrPyramid();
-    setStatus(`Winds loaded · SFC ${state.surfaceWind.dirDeg}°@${state.surfaceWind.speedKts}kt`);
-  } catch(e) {
-    document.getElementById('fetch-status').textContent = `Fetch failed: ${e.message}`;
-    setStatus('Wind fetch failed');
-    console.error(e);
-  }
-  btn.disabled = false; btn.textContent = '⬇ Refresh Winds';
-}
+} // end processWindData
 
 function updateWindStatusAge(ts) {
   const sw = state.surfaceWind;
@@ -1153,7 +1191,16 @@ function onForecastOffsetChange(v) {
   state.forecastOffset = parseInt(v) || 0;
   const lbl = document.getElementById('forecast-offset-label');
   if (lbl) lbl.textContent = state.forecastOffset === 0 ? 'Now' : `+${state.forecastOffset}h`;
-  if (state.target) fetchWinds(true).then(calculate);
+  if (!state.target) return;
+  // Re-process cached raw data if available — no network needed
+  const cached = findCachedWinds(state.target.lat, state.target.lng);
+  if (cached) {
+    processWindData(cached.rawData, cached.fieldElevFt);
+    calculate();
+  } else {
+    // No cache — fetch fresh
+    fetchWinds(true).then(calculate);
+  }
 }
 
 function snapToWind() {
@@ -1175,13 +1222,21 @@ function updateHeadingDisplay(deg) {
   updateWindPyramid(); updateJrPyramid();
 }
 function onHeadingInput(v) {
+  if (v === '' || v === null) return; // blank — blur will restore
   const d = ((parseInt(v) % 360) + 360) % 360;
   if (isNaN(d)) return;
   state.manualHeading = true;
   state.finalHeadingDeg = d;
+  document.getElementById('heading-bar-val').value = d; // normalize display
   document.getElementById('heading-bar-slider').value = d;
   updateWindPyramid();
   calculate();
+}
+function onHeadingBlur() {
+  // Restore current heading if field left blank or out of range
+  if (state.finalHeadingDeg !== null) {
+    document.getElementById('heading-bar-val').value = Math.round(state.finalHeadingDeg);
+  }
 }
 
 function updateWindPyramid() {
@@ -1214,6 +1269,12 @@ function setLegMode(leg, mode) {
     const btn = document.getElementById(`${leg}-${m}`);
     if (btn) btn.classList.toggle('active', m === mode);
   });
+  saveSettings();
+  if (state.pattern) calculate();
+}
+
+function toggleZPattern(checked) {
+  state.zPattern = checked;
   saveSettings();
   if (state.pattern) calculate();
 }
@@ -1401,13 +1462,20 @@ function updateJumpRunDisplay(deg) {
   updateJrPyramid();
 }
 function onJrHdgInput(v) {
+  if (v === '' || v === null) return;
   const d = ((parseInt(v) % 360) + 360) % 360;
   if (isNaN(d)) return;
   state.manualJumpRun = true;
   state.jumpRunHdgDeg = d;
+  document.getElementById('jr-hdg-display').value = d; // normalize
   document.getElementById('jr-hdg-slider').value = d;
   updateJrPyramid();
   calculate();
+}
+function onJrHdgBlur() {
+  if (state.jumpRunHdgDeg !== null) {
+    document.getElementById('jr-hdg-display').value = Math.round(state.jumpRunHdgDeg);
+  }
 }
 
 function updateJrPyramid() {
@@ -1559,30 +1627,25 @@ function calculate() {
   const dStillFt = (altE-altB) * perfDW.glide;
   const driftN   = wD.n*(tD/60)*6076, driftE = wD.e*(tD/60)*6076;
   let dwHdg, dDisp;
-  const isZPattern = state.legModes.dw === 'z';
+  // Target track direction: Z=upwind (fTrackUnit), normal=downwind (-fTrackUnit)
+  const dwTrackSign = state.zPattern ? 1 : -1;
+  const isZPattern  = state.zPattern;
+
   if (state.legModes.dw === 'crab') {
-    // Crab antiparallel to final ground track
-    const b1 = 2*(fTrackUnit.n*driftN + fTrackUnit.e*driftE);
+    // Crab: solve heading that produces target track direction
+    const tN = dwTrackSign * fTrackUnit.n, tE = dwTrackSign * fTrackUnit.e;
+    const b1 = 2*(tN*driftN + tE*driftE);
     const c1 = driftN**2+driftE**2 - dStillFt**2;
     const d1 = b1**2-4*c1;
     const k1 = d1>=0 ? (-b1+Math.sqrt(Math.max(0,d1)))/2 : dStillFt;
-    dwHdg = (Math.atan2(-(k1*fTrackUnit.e)-driftE, -(k1*fTrackUnit.n)-driftN)*R2D+360)%360;
-    dDisp = {dN: -(k1*fTrackUnit.n), dE: -(k1*fTrackUnit.e)};
-  } else if (isZPattern) {
-    // Z: fly parallel to final (upwind direction = fTrackUnit)
-    const b2 = -2*(fTrackUnit.n*driftN + fTrackUnit.e*driftE);
-    const c2 = driftN**2+driftE**2 - dStillFt**2;
-    const d2 = b2**2-4*c2;
-    const k2 = d2>=0 ? (-b2+Math.sqrt(Math.max(0,d2)))/2 : dStillFt;
-    const zRN = k2*fTrackUnit.n - driftN, zRE = k2*fTrackUnit.e - driftE;
-    dwHdg = (Math.atan2(zRE,zRN)*R2D+360)%360;
-    dDisp = {dN: zRN+driftN, dE: zRE+driftE};
+    const rN = tN*k1 - driftN, rE = tE*k1 - driftE;
+    dwHdg = (Math.atan2(rE,rN)*R2D+360)%360;
+    dDisp = {dN: rN+driftN, dE: rE+driftE};
   } else {
-    // Drift antiparallel
-    dwHdg = (fHdg+180)%360;
+    // Drift: steer in target track direction, drift freely
+    dwHdg = state.zPattern ? fHdg : (fHdg+180)%360;
     dDisp = {dN: hdgVec(dwHdg).n*dStillFt + driftN, dE: hdgVec(dwHdg).e*dStillFt + driftE};
   }
-  // entry = tBase - dDisp (pilot flies dDisp to reach tBase)
   const entry = offsetLL(tBase.lat, tBase.lng, -dDisp.dN, -dDisp.dE);
 
   // ── Steered heading endpoint lines ──
@@ -2159,6 +2222,14 @@ function loadSettings() {
       ['dw','b','f'].forEach(leg => {
         if (saved[leg]) setLegMode(leg, saved[leg]);
       });
+    }
+
+    // Z pattern
+    const zp = localStorage.getItem(storageKey('z_pattern'));
+    if (zp === 'true') {
+      state.zPattern = true;
+      const cb = document.getElementById('dw-z-check');
+      if (cb) cb.checked = true;
     }
 
     // Per-leg custom perf flags and values
