@@ -1333,20 +1333,21 @@ function updatePerfSections() {
   ['dw','b','f'].forEach(leg => {
     const cb = document.getElementById(`${leg}-custom-perf`);
     const section = document.getElementById(`${leg}-perf`);
-    if (cb && section) {
-      state.legCustomPerf[leg] = cb.checked;
-      section.style.display = cb.checked ? 'block' : 'none';
-      if (cb.checked) {
-        // Always re-seed from global defaults when enabling
-        const glideEl = document.getElementById(`${leg}-glide`);
-        const speedEl = document.getElementById(`${leg}-speed`);
-        const sinkEl  = document.getElementById(`${leg}-sink`);
-        if (glideEl) { glideEl.value = document.getElementById('glide').value || '2.5'; glideEl.style.color='var(--text)'; }
-        if (speedEl) { speedEl.value = document.getElementById('canopy-speed').value || '28'; speedEl.style.color='var(--text)'; }
-        if (sinkEl)  { sinkEl.value = ''; sinkEl.style.color='var(--muted)'; }
-        legLastEdited[leg] = ['glide','speed'];
-        updateLegCanopyCalc(leg);
-      }
+    if (!cb || !section) return;
+    const wasOpen = section.style.display !== 'none';
+    const isOpen  = cb.checked;
+    state.legCustomPerf[leg] = isOpen;
+    section.style.display = isOpen ? 'block' : 'none';
+    // Only seed from global defaults when newly enabling — not on re-renders
+    if (isOpen && !wasOpen) {
+      const glideEl = document.getElementById(`${leg}-glide`);
+      const speedEl = document.getElementById(`${leg}-speed`);
+      const sinkEl  = document.getElementById(`${leg}-sink`);
+      if (glideEl) { glideEl.value = document.getElementById('glide').value || '2.5'; glideEl.style.color='var(--text)'; }
+      if (speedEl) { speedEl.value = document.getElementById('canopy-speed').value || '28'; speedEl.style.color='var(--text)'; }
+      if (sinkEl)  { sinkEl.value = ''; sinkEl.style.color='var(--muted)'; }
+      legLastEdited[leg] = ['glide','speed'];
+      updateLegCanopyCalc(leg);
     }
   });
   saveSettings();
@@ -1440,19 +1441,19 @@ function updateCanopyCalc() {
     const calc = Math.round((s / g) * 10) / 10;
     sinkEl.value = calc;
     sinkEl.style.color = 'var(--muted)';
-    noteEl.textContent = `Calculated vertical speed: ${calc} kts`;
+    if (noteEl) noteEl.textContent = `Calculated vertical speed: ${calc} kts`;
   } else if (third === 'speed' && !isNaN(g) && !isNaN(k)) {
     const calc = Math.round(k * g * 10) / 10;
     speedEl.value = calc;
     speedEl.style.color = 'var(--muted)';
-    noteEl.textContent = `Calculated horiz speed: ${calc} kts`;
+    if (noteEl) noteEl.textContent = `Calculated horiz speed: ${calc} kts`;
   } else if (third === 'glide' && !isNaN(s) && !isNaN(k)) {
     const calc = Math.round((s / k) * 10) / 10;
     glideEl.value = calc;
     glideEl.style.color = 'var(--muted)';
-    noteEl.textContent = `Calculated glide: ${calc}:1`;
+    if (noteEl) noteEl.textContent = `Calculated glide: ${calc}:1`;
   } else {
-    noteEl.textContent = '';
+    if (noteEl) noteEl.textContent = '';
   }
   // Reset calculated field color when user edits it
   [['glide',glideEl],['speed',speedEl],['sink',sinkEl]].forEach(([f,el])=>{
