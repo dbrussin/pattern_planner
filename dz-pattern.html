@@ -174,7 +174,13 @@
   }
   .overlay-header h2 { font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
   .overlay-close { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 0 2px; line-height: 1; }
-  .overlay-body { padding: 12px 14px 16px; }
+  .overlay-body { padding: 12px 14px 16px; overflow-x: hidden; }
+  .overlay-panel, .overlay-body, .overlay-body * { box-sizing: border-box; }
+
+  /* ── Remove number input spinners globally ── */
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type=number] { -moz-appearance: textfield; }
 
   /* ── INPUTS ── */
   .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
@@ -305,7 +311,7 @@
     style="font-family:'Space Mono',monospace;font-size:13px;color:var(--accent);
     background:transparent;border:none;border-bottom:1px solid var(--border);
     width:42px;text-align:center;padding:2px 0;position:relative;z-index:2;
-    touch-action:manipulation;-webkit-appearance:none;"
+    touch-action:manipulation;"
     oninput="onHeadingInput(this.value)" onblur="onHeadingBlur()">
   <div id="heading-bar-slider-wrap">
     <input type="range" id="heading-bar-slider" min="0" max="359" step="1" value="0" oninput="onHeadingSlider(this.value)">
@@ -397,6 +403,7 @@
           <label style="font-size:10px;color:var(--muted);flex:1;">Z pattern (fly upwind on downwind leg)</label>
           <input type="checkbox" id="dw-z-check" onchange="toggleZPattern(this.checked)">
         </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
           <label style="font-size:10px;color:var(--muted);flex:1;">Custom performance</label>
           <input type="checkbox" id="dw-custom-perf" onchange="updatePerfSections()">
         </div>
@@ -406,7 +413,7 @@
             <div class="input-group"><label>Horiz (kts)</label><input type="number" id="dw-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('dw','speed')"></div>
             <div class="input-group"><label>Vert (kts)</label><input type="number" id="dw-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('dw','sink')"></div>
           </div>
-          <div class="field-note" id="dw-perf-note"></div>
+
         </div>
       </div>
       <!-- Base leg -->
@@ -429,7 +436,7 @@
             <div class="input-group"><label>Horiz (kts)</label><input type="number" id="b-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('b','speed')"></div>
             <div class="input-group"><label>Vert (kts)</label><input type="number" id="b-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('b','sink')"></div>
           </div>
-          <div class="field-note" id="b-perf-note"></div>
+
         </div>
       </div>
       <!-- Final leg -->
@@ -452,7 +459,7 @@
             <div class="input-group"><label>Horiz (kts)</label><input type="number" id="f-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('f','speed')"></div>
             <div class="input-group"><label>Vert (kts)</label><input type="number" id="f-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('f','sink')"></div>
           </div>
-          <div class="field-note" id="f-perf-note"></div>
+
         </div>
       </div>
     </div>
@@ -472,7 +479,7 @@
         <input type="number" id="canopy-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onCanopyInput('sink')">
       </div>
     </div>
-    <div class="field-note" id="canopy-calc-note"></div>
+
     <div class="field-note" style="margin-top:4px;">Enter any two — third is calculated. Used for all legs unless overridden above.</div>
 
     <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
@@ -531,65 +538,77 @@
 
     <div class="help-section">
       <div class="help-heading">Getting Started</div>
-      <p>Tap anywhere on the map to set a landing target. The app fetches winds aloft for that location and draws a suggested landing pattern. Tap again to move the target.</p>
+      <p>Tap anywhere on the map to set a landing target. The app fetches winds aloft for that location and draws a suggested landing pattern. Tap again to move the target. Use 🔍 to search for a drop zone by name.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Final Heading</div>
-      <p>The heading bar at the bottom controls the final approach direction. By default it points into the surface wind. Drag the slider to override. The yellow pyramid marks the into-wind heading — tap it to snap back.</p>
+      <p>The heading bar at the bottom controls the final approach direction. By default it snaps to the surface wind direction. Drag the slider or tap the number field to type a heading directly. The yellow pyramid marks the into-wind heading — tap it to snap back. Toggle L/R hand pattern with the L/R buttons.</p>
     </div>
 
     <div class="help-section">
-      <div class="help-heading">Pattern</div>
-      <p><b>Drifting:</b> base leg is steered 90° to final and wind carries the canopy to the turn point. <b>Traditional:</b> base leg crabs into wind to hold a true 90° ground track. Toggle L/R hand in the heading bar. Pattern altitudes are set in Settings.</p>
+      <div class="help-heading">Pattern Legs</div>
+      <p>Each leg — Downwind (orange), Base (teal), Final (yellow) — has an independent <b>Crab</b> or <b>Drift</b> setting.</p>
+      <p style="margin-top:4px;"><b>Crab:</b> the app solves for a steered heading that produces the target ground track, accounting for wind. A dashed white line shows the steered heading direction when it differs meaningfully from the ground track.</p>
+      <p style="margin-top:4px;"><b>Drift:</b> the canopy is steered on a nominal heading and the wind carries it to the turn point. No crab correction is applied.</p>
+      <p style="margin-top:4px;">Defaults: Downwind = Crab, Base = Drift, Final = Crab.</p>
+      <p style="margin-top:4px;"><b>Z Pattern:</b> a checkbox on the Downwind leg. When enabled, the first leg flies upwind (toward the DZ) rather than downwind — used when the jumper exits far downwind of the target and needs to fly back toward it before turning base. Z pattern is independent of the Crab/Drift setting.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Canopy Performance</div>
-      <p>Enter glide ratio, horizontal speed, and vertical speed — any two calculates the third. Use still-air, no-wind values. Vertical speed equals sink rate (FlySight reports this directly).</p>
+      <p>The <b>Default Canopy Performance</b> section (bottom of Settings) sets glide ratio, horizontal speed, and vertical speed — enter any two and the third is calculated. Use still-air, no-wind values. Vertical speed equals sink rate (FlySight reports this directly).</p>
+      <p style="margin-top:4px;">Each leg also has an optional <b>Custom performance</b> checkbox. When enabled, that leg uses its own glide/speed/sink values instead of the defaults — useful for modeling braked flight on downwind and base with a full-flight final, for example. Enabling it pre-fills from the current defaults.</p>
+    </div>
+
+    <div class="help-section">
+      <div class="help-heading">Pattern Altitudes</div>
+      <p>Set entry, base turn, and final turn altitudes (ft AGL) in Settings. The app computes leg lengths from these altitudes and the canopy glide ratio for each leg.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Safety Regions (Canopy)</div>
-      <p>Three amber shaded rings around the pattern entry point show where a canopy pilot must be at each altitude to reach the entry point. They shift upwind to account for drift. Region Buffer shrinks them by a percentage for a safety margin.</p>
+      <p>Three amber rings around the pattern entry point show where a canopy pilot must be at each altitude to reach the entry point under canopy. They shift upwind to account for accumulated drift during descent. The yellow ring marks the required opening altitude position. Region Buffer (%) in Settings shrinks all rings by that fraction as a safety margin.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Safety Regions (Opening &amp; Exit)</div>
-      <p>The yellow ring shows where a pilot must open to reach pattern entry under canopy. The blue dashed ring shows where a pilot must exit the aircraft to open within the opening region. Freefall drift is calculated using actual winds aloft at each altitude band.</p>
+      <p>The yellow ring shows where a pilot must open to reach pattern entry under canopy. The blue dashed ring shows where the pilot must exit the aircraft to open within the opening region. Freefall drift is integrated across altitude bands using actual winds aloft at each level.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Jump Run</div>
-      <p>A suggested jump run is drawn through the exit region center, into the wind at exit altitude. The blue dashed line shows the track. The heading slider in Settings overrides the auto heading — the teal pyramid marks the into-wind position.</p>
-      <p style="margin-top:4px;"><b>Offset:</b> perpendicular distance from the landing spot to the jump run. Shown in muted color when auto-calculated. Enter a value to override (positive = right of flight path).</p>
-      <p style="margin-top:4px;"><b>🟢 Green light:</b> where the jump run enters the exit circle — distance prior to or past the projected landing spot reference. <b>🔴 Red light:</b> where the jump run exits the exit circle.</p>
-      <p style="margin-top:4px;"><b>Exit separation:</b> suggested seconds between groups based on horizontal separation distance and jump run ground speed.</p>
+      <p>A suggested jump run is drawn through the exit region center, into the wind at exit altitude. The teal pyramid in the heading slider marks the into-wind position — tap it to snap. The heading field is also directly editable.</p>
+      <p style="margin-top:4px;"><b>Offset:</b> perpendicular distance from the landing spot to the jump run line. Auto-calculated when blank (shown in muted color). Enter a value to override — positive is right of flight path looking forward. Delete the value to return to auto.</p>
+      <p style="margin-top:4px;"><b>🟢/🔴:</b> distances prior to and past the foot of perpendicular from the landing target to the jump run line, measured at the exit circle boundary. Positive = prior to (upwind of) the reference point.</p>
+      <p style="margin-top:4px;"><b>Exit separation:</b> suggested time between groups based on the exit separation distance setting and jump run ground speed.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Winds Aloft</div>
-      <p>Winds are fetched from Open-Meteo using GFS+HRRR (US) or GFS (international). Teal rows are real model data points. Grey rows are interpolated. The surface wind comes from the HRRR 10m wind at the current hour. Data updates hourly for US locations.</p>
+      <p>Winds are fetched from Open-Meteo (GFS for all locations). Teal rows are real model data points at pressure levels or fixed heights; grey rows are interpolated between them. The surface wind comes from the 10m wind field.</p>
+      <p style="margin-top:4px;">The <b>Forecast</b> slider lets you view winds up to +12 hours ahead. The effective forecast time appears in the center of the title bar — in muted color for current hour, teal for a future hour. Changing the forecast slider re-processes the cached data with no new network request. Moving to a new location resets to the current hour.</p>
+      <p style="margin-top:4px;">Pull down from the top of the map to refresh wind data.</p>
     </div>
 
     <div class="help-section">
-      <div class="help-heading">Layers</div>
-      <p>Use the 👁 button to toggle individual map layers — jump run, exit region, canopy regions, pattern labels, and map legend — independently.</p>
+      <div class="help-heading">Display Options (👁)</div>
+      <p>Toggle individual map layers on and off: Jump Run, Exit Region, Canopy Regions, Pattern Labels, and Map Legend. Settings are saved between sessions.</p>
     </div>
 
     <div class="help-section">
-      <div class="help-heading">Drop Zone Search</div>
-      <p>Tap 🔍 to search for a drop zone by name. Results come from the USPA dropzone database. Selecting a DZ sets the map view and landing target to that location.</p>
+      <div class="help-heading">Settings Persistence</div>
+      <p>All settings are automatically saved to your device and restored on next visit. Use <b>Reset All Settings &amp; Clear Data</b> at the bottom of Settings to wipe everything and start fresh — this also clears your terms agreement so you will be asked to agree again.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Terms &amp; Disclaimer</div>
       <p style="color:var(--accent);font-weight:700;margin-bottom:6px;">DEVELOPMENT VERSION — NOT FOR OPERATIONAL USE</p>
       <p>This application is experimental software provided for informational and educational purposes only. It must not be used to plan, execute, or inform any actual skydive, parachute operation, aircraft jump run, or any other aviation or parachuting activity.</p>
-      <p style="margin-top:6px;"><b>Assumption of Risk.</b> Skydiving, parachuting, and all related activities involve extreme risk of serious injury or death. You acknowledge that you are solely responsible for all decisions made before, during, and after any jump.</p>
-      <p style="margin-top:6px;"><b>No Warranty.</b> This software is provided "as is" without warranty of any kind. Wind data, pattern calculations, safety region estimates, and all other outputs may be inaccurate, incomplete, delayed, or wrong. Do not rely on them.</p>
-      <p style="margin-top:6px;"><b>Release of Liability.</b> To the fullest extent permitted by applicable law, you release and hold harmless the developer, contributors, and data providers from any and all claims, damages, losses, or liability arising from your use of this application.</p>
-      <p style="margin-top:6px;">By using this application you confirm you have read, understood, and agreed to these terms.</p>
+      <p style="margin-top:6px;"><b>Assumption of Risk.</b> Skydiving, parachuting, and all related activities involve extreme risk of serious injury or death. You are solely responsible for all decisions made before, during, and after any jump.</p>
+      <p style="margin-top:6px;"><b>No Warranty.</b> All outputs — wind data, pattern geometry, safety regions, jump run suggestions — are provided "as is" and may be inaccurate, incomplete, or wrong. Do not rely on them.</p>
+      <p style="margin-top:6px;"><b>Release of Liability.</b> To the fullest extent permitted by law, you release the developer, contributors, and data providers from any and all claims arising from your use of this application.</p>
+      <p style="margin-top:6px;"><b>Not a substitute</b> for proper training, current currency, or the judgment of a qualified instructor or safety officer.</p>
     </div>
 
     <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;">
@@ -1286,6 +1305,17 @@ function updatePerfSections() {
     if (cb && section) {
       state.legCustomPerf[leg] = cb.checked;
       section.style.display = cb.checked ? 'block' : 'none';
+      if (cb.checked) {
+        // Always re-seed from global defaults when enabling
+        const glideEl = document.getElementById(`${leg}-glide`);
+        const speedEl = document.getElementById(`${leg}-speed`);
+        const sinkEl  = document.getElementById(`${leg}-sink`);
+        if (glideEl) { glideEl.value = document.getElementById('glide').value || '2.5'; glideEl.style.color='var(--text)'; }
+        if (speedEl) { speedEl.value = document.getElementById('canopy-speed').value || '28'; speedEl.style.color='var(--text)'; }
+        if (sinkEl)  { sinkEl.value = ''; sinkEl.style.color='var(--muted)'; }
+        legLastEdited[leg] = ['glide','speed'];
+        updateLegCanopyCalc(leg);
+      }
     }
   });
   saveSettings();
@@ -1586,7 +1616,7 @@ function calculate() {
   let fDisp, fHdgActual;
   if (state.legModes.f === 'crab') {
     const dfN = wF.n*(tF/60)*6076, dfE = wF.e*(tF/60)*6076;
-    const bfc = 2*(fVec.n*dfN + fVec.e*dfE);
+    const bfc = -2*(fVec.n*dfN + fVec.e*dfE); // b = -2*(t·drift)
     const cfc = dfN**2+dfE**2 - fStillFt**2;
     const dfc = bfc**2-4*cfc;
     const kf  = dfc>=0 ? (-bfc+Math.sqrt(Math.max(0,dfc)))/2 : fStillFt;
@@ -1609,7 +1639,7 @@ function calculate() {
     const bTN = state.hand==='left' ? -fTrackUnit.e :  fTrackUnit.e;
     const bTE = state.hand==='left' ?  fTrackUnit.n : -fTrackUnit.n;
     const dbN = wB.n*(tB/60)*6076, dbE = wB.e*(tB/60)*6076;
-    const bc = 2*(bTN*dbN + bTE*dbE);
+    const bc = -2*(bTN*dbN + bTE*dbE); // b = -2*(t·drift)
     const cc = dbN**2+dbE**2 - bStillFt**2;
     const bd = bc**2-4*cc;
     const bk = bd>=0 ? (-bc+Math.sqrt(Math.max(0,bd)))/2 : bStillFt;
@@ -1634,7 +1664,7 @@ function calculate() {
   if (state.legModes.dw === 'crab') {
     // Crab: solve heading that produces target track direction
     const tN = dwTrackSign * fTrackUnit.n, tE = dwTrackSign * fTrackUnit.e;
-    const b1 = 2*(tN*driftN + tE*driftE);
+    const b1 = -2*(tN*driftN + tE*driftE); // b = -2*(t·drift)
     const c1 = driftN**2+driftE**2 - dStillFt**2;
     const d1 = b1**2-4*c1;
     const k1 = d1>=0 ? (-b1+Math.sqrt(Math.max(0,d1)))/2 : dStillFt;
@@ -1658,9 +1688,9 @@ function calculate() {
   const fSteered  = offsetLL(tFinal.lat, tFinal.lng, hdgVec(fHdgActual).n*fStillFt, hdgVec(fHdgActual).e*fStillFt);
   const dwSteered = offsetLL(entry.lat,  entry.lng,  hdgVec(dwHdg).n*dStillFt,      hdgVec(dwHdg).e*dStillFt);
 
-  const bDrift  = hdgDiff(bHdg,  trackHdgDeg(bDisp));
-  const fDrift  = hdgDiff(fHdg,  trackHdgDeg(fDisp));
-  const dwDrift = hdgDiff(dwHdg, trackHdgDeg(dDisp));
+  const bDrift  = hdgDiff(bHdg,       trackHdgDeg(bDisp));
+  const fDrift  = hdgDiff(fHdgActual, fHdg);  // crab angle: steered vs desired ground track
+  const dwDrift = hdgDiff(dwHdg,      trackHdgDeg(dDisp));
 
   // ── Wind components ──
   function windComp(legHdgDeg, disp) {
