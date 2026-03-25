@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pattern Planner</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -21,6 +21,7 @@
     --base-color: #4df4c8;
     --downwind-color: #f4944d;
     --header-h: 48px;
+    --heading-bar-h: 52px;
     --icon-bar-w: 48px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -31,7 +32,6 @@
     position: fixed; top: 0; left: 0; right: 0; height: var(--header-h); z-index: 500;
     display: flex; align-items: center; gap: 8px; padding: 0 10px;
     background: #12151a; border-bottom: 1px solid var(--border);
-    position: fixed; /* keep fixed, also acts as containing block for absolute child */
   }
   #header h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.06em; color: var(--accent); text-transform: uppercase; white-space: nowrap; flex: 1; }
   #header h1 span { color: var(--text); font-weight: 400; }
@@ -57,8 +57,8 @@
     background: var(--panel2); border: 1px solid var(--border); border-radius: 4px;
     z-index: 2001; max-height: 240px; overflow-y: auto;
   }
-  #dz-dropdown.open { display: block; }
   #dz-dropdown { display: none; }
+  #dz-dropdown.open { display: block; }
   #locate-btn {
     background: var(--panel2); border: 1px solid var(--border); border-radius: 4px;
     color: var(--muted); width: 36px; height: 36px; display: flex; align-items: center;
@@ -106,7 +106,7 @@
   .hand-toggle button.active { background: var(--accent); color: var(--bg); }
 
   /* ── MAP ── */
-  #map { position: fixed; top: var(--header-h); left: 0; right: 0; bottom: 52px; z-index: 1; }
+  #map { position: fixed; top: var(--header-h); left: 0; right: 0; bottom: var(--heading-bar-h); z-index: 1; }
 
   /* ── MAP HINT / STATUS ── */
   #map-hint, #status-pill {
@@ -355,20 +355,20 @@
 
     <div class="section-label" style="margin-top:0;border-top:none;padding-top:0;">Pattern Altitudes (ft AGL)</div>
     <div class="input-grid">
-      <div class="input-group"><label>Enter Pattern</label><input type="number" id="alt-enter" value="900" min="200" max="3000" step="50" oninput="calculate()"></div>
-      <div class="input-group"><label>Turn Base</label><input type="number" id="alt-base" value="600" min="100" max="2000" step="50" oninput="calculate()"></div>
-      <div class="input-group"><label>Turn Final</label><input type="number" id="alt-final" value="300" min="50" max="1000" step="50" oninput="calculate()"></div>
+      <div class="input-group"><label for="alt-enter">Enter Pattern</label><input type="number" id="alt-enter" value="900" min="200" max="3000" step="50" oninput="calculate()"></div>
+      <div class="input-group"><label for="alt-base">Turn Base</label><input type="number" id="alt-base" value="600" min="100" max="2000" step="50" oninput="calculate()"></div>
+      <div class="input-group"><label for="alt-final">Turn Final</label><input type="number" id="alt-final" value="300" min="50" max="1000" step="50" oninput="calculate()"></div>
       <div class="input-group"><label>Land</label><input type="number" value="0" disabled style="opacity:0.4;"></div>
     </div>
 
     <div class="section-label">Jump Run</div>
     <div class="input-grid">
-      <div class="input-group"><label>Exit Alt (ft AGL)</label><input type="number" id="alt-exit" value="13500" min="1000" max="25000" step="500" oninput="calculate()"></div>
-      <div class="input-group"><label>Opening Alt (ft AGL)</label><input type="number" id="alt-open" value="3000" min="500" max="8000" step="100" oninput="calculate()"></div>
-      <div class="input-group"><label>Freefall Speed (mph)</label><input type="number" id="ff-speed" value="120" min="60" max="250" step="5" oninput="calculate()"></div>
-      <div class="input-group"><label>Aircraft IAS (kts)</label><input type="number" id="jr-airspeed" value="80" min="40" max="200" step="5" oninput="calculate()"></div>
-      <div class="input-group"><label>Region Buffer (%)</label><input type="number" id="safety-margin" value="10" min="0" max="40" step="1" oninput="calculate()"></div>
-      <div class="input-group"><label>Exit Separation (ft)</label><input type="number" id="exit-sep" value="1500" min="500" max="5000" step="100" oninput="calculate()"></div>
+      <div class="input-group"><label for="alt-exit">Exit Alt (ft AGL)</label><input type="number" id="alt-exit" value="13500" min="1000" max="25000" step="500" oninput="calculate()"></div>
+      <div class="input-group"><label for="alt-open">Opening Alt (ft AGL)</label><input type="number" id="alt-open" value="3000" min="500" max="8000" step="100" oninput="calculate()"></div>
+      <div class="input-group"><label for="ff-speed">Freefall Speed (mph)</label><input type="number" id="ff-speed" value="120" min="60" max="250" step="5" oninput="calculate()"></div>
+      <div class="input-group"><label for="jr-airspeed">Aircraft IAS (kts)</label><input type="number" id="jr-airspeed" value="80" min="40" max="200" step="5" oninput="calculate()"></div>
+      <div class="input-group"><label for="safety-margin">Region Buffer (%)</label><input type="number" id="safety-margin" value="10" min="0" max="40" step="1" oninput="calculate()"></div>
+      <div class="input-group"><label for="exit-sep">Exit Separation (ft)</label><input type="number" id="exit-sep" value="1500" min="500" max="5000" step="100" oninput="calculate()"></div>
       <div class="input-group">
         <label>Jump Run Offset (nm)
           <span onclick="resetJrOffset()" title="Reset to calculated"
@@ -424,11 +424,11 @@
         </div>
         <div id="dw-perf" style="display:none;">
           <div class="input-grid" style="margin-top:4px;">
-            <div class="input-group"><label>Glide (:1)</label><input type="number" id="dw-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('dw','glide')"></div>
-            <div class="input-group"><label>Horiz (kts)</label><input type="number" id="dw-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('dw','speed')"></div>
-            <div class="input-group"><label>Vert (kts)</label><input type="number" id="dw-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('dw','sink')"></div>
+            <div class="input-group"><label for="dw-glide">Glide (:1)</label><input type="number" id="dw-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('dw','glide')"></div>
+            <div class="input-group"><label for="dw-speed">Horiz (kts)</label><input type="number" id="dw-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('dw','speed')"></div>
+            <div class="input-group"><label for="dw-sink">Vert (kts)</label><input type="number" id="dw-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('dw','sink')"></div>
           </div>
-
+          <div id="dw-perf-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
         </div>
       </div>
       <!-- Base leg -->
@@ -447,11 +447,11 @@
         </div>
         <div id="b-perf" style="display:none;">
           <div class="input-grid" style="margin-top:4px;">
-            <div class="input-group"><label>Glide (:1)</label><input type="number" id="b-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('b','glide')"></div>
-            <div class="input-group"><label>Horiz (kts)</label><input type="number" id="b-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('b','speed')"></div>
-            <div class="input-group"><label>Vert (kts)</label><input type="number" id="b-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('b','sink')"></div>
+            <div class="input-group"><label for="b-glide">Glide (:1)</label><input type="number" id="b-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('b','glide')"></div>
+            <div class="input-group"><label for="b-speed">Horiz (kts)</label><input type="number" id="b-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('b','speed')"></div>
+            <div class="input-group"><label for="b-sink">Vert (kts)</label><input type="number" id="b-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('b','sink')"></div>
           </div>
-
+          <div id="b-perf-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
         </div>
       </div>
       <!-- Final leg -->
@@ -470,11 +470,11 @@
         </div>
         <div id="f-perf" style="display:none;">
           <div class="input-grid" style="margin-top:4px;">
-            <div class="input-group"><label>Glide (:1)</label><input type="number" id="f-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('f','glide')"></div>
-            <div class="input-group"><label>Horiz (kts)</label><input type="number" id="f-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('f','speed')"></div>
-            <div class="input-group"><label>Vert (kts)</label><input type="number" id="f-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('f','sink')"></div>
+            <div class="input-group"><label for="f-glide">Glide (:1)</label><input type="number" id="f-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('f','glide')"></div>
+            <div class="input-group"><label for="f-speed">Horiz (kts)</label><input type="number" id="f-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('f','speed')"></div>
+            <div class="input-group"><label for="f-sink">Vert (kts)</label><input type="number" id="f-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('f','sink')"></div>
           </div>
-
+          <div id="f-perf-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
         </div>
       </div>
     </div>
@@ -482,20 +482,21 @@
     <div class="section-label">Default Canopy Performance (still air, no wind)</div>
     <div class="input-grid">
       <div class="input-group">
-        <label>Glide Ratio (:1)</label>
+        <label for="glide">Glide Ratio (:1)</label>
         <input type="number" id="glide" value="2.5" min="1" max="10" step="0.1" oninput="onCanopyInput('glide')">
       </div>
       <div class="input-group">
-        <label>Horiz Speed (kts)</label>
+        <label for="canopy-speed">Horiz Speed (kts)</label>
         <input type="number" id="canopy-speed" value="28" min="10" max="60" step="0.5" oninput="onCanopyInput('speed')">
       </div>
       <div class="input-group">
-        <label>Vertical Speed (kts)</label>
+        <label for="canopy-sink">Vertical Speed (kts)</label>
         <input type="number" id="canopy-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onCanopyInput('sink')">
       </div>
     </div>
 
-    <div class="field-note" style="margin-top:4px;">Enter any two — third is calculated. Used for all legs unless overridden above.</div>
+    <div id="canopy-calc-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
+    <div class="field-note" style="margin-top:2px;">Enter any two — third is calculated. Used for all legs unless overridden above.</div>
 
     <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
       <button onclick="resetAllSettings()" style="
@@ -739,7 +740,6 @@ const state = {
   winds: [],
   surfaceWind: null,
   pattern: null,
-  labelsVisible: true,
   forecastOffset: 0,
   layers: { jumpRun:true, exitRegion:true, canopyRegions:true, patternLabels:true, legend:true },
   fitDone: false,
@@ -873,20 +873,35 @@ function buildWindTable() {
     const row = document.createElement('div');
     const cls = w.aglFt === 0 ? 'sfc' : w.real ? 'real' : 'interpolated';
     row.className = `wind-row ${cls}`;
-    const tempStr = w.tempC !== null && w.tempC !== undefined ? Math.round(w.tempC) + '°' : '';
-    row.innerHTML = `
-      <div class="alt-label">${w.label}</div>
-      <input type="number" min="0" max="360" step="1" value="${w.dirDeg !== null ? w.dirDeg : ''}" placeholder="---"
-        onchange="updateWindByIdx(${i},'dirDeg',this.value)">
-      <input type="number" min="0" max="200" step="1" value="${w.speedKts !== null ? w.speedKts : ''}" placeholder="---"
-        onchange="updateWindByIdx(${i},'speedKts',this.value)">
-      <div class="temp-label">${tempStr}</div>`;
+
+    const altEl = document.createElement('div');
+    altEl.className = 'alt-label';
+    altEl.textContent = w.label;
+
+    const dirEl = document.createElement('input');
+    dirEl.type = 'number'; dirEl.min = '0'; dirEl.max = '360'; dirEl.step = '1';
+    dirEl.placeholder = '---';
+    if (w.dirDeg !== null) dirEl.value = w.dirDeg;
+    dirEl.addEventListener('change', () => updateWindByIdx(i, 'dirDeg', dirEl.value));
+
+    const spdEl = document.createElement('input');
+    spdEl.type = 'number'; spdEl.min = '0'; spdEl.max = '200'; spdEl.step = '1';
+    spdEl.placeholder = '---';
+    if (w.speedKts !== null) spdEl.value = w.speedKts;
+    spdEl.addEventListener('change', () => updateWindByIdx(i, 'speedKts', spdEl.value));
+
+    const tempEl = document.createElement('div');
+    tempEl.className = 'temp-label';
+    if (w.tempC !== null && w.tempC !== undefined) tempEl.textContent = Math.round(w.tempC) + '°';
+
+    row.appendChild(altEl); row.appendChild(dirEl); row.appendChild(spdEl); row.appendChild(tempEl);
     c.appendChild(row);
   });
 }
 
 function updateWindByIdx(i, field, val) {
   if (!state.winds[i]) return;
+  _sortedWindsCache = null; // invalidate sorted winds cache
   state.winds[i][field] = val === '' ? null : parseFloat(val);
   if (state.winds[i].aglFt === 0) {
     if (!state.surfaceWind) state.surfaceWind = {dirDeg: null, speedKts: null};
@@ -895,8 +910,6 @@ function updateWindByIdx(i, field, val) {
   calculate();
 }
 
-// Legacy stub — calculate() still calls getWindAtAGL which reads state.winds by altitude
-function updateWind(i, field, val) { updateWindByIdx(i, field, val); }
 
 // ─── OVERLAY MANAGEMENT ──────────────────────────────────────────────────────
 function toggleOverlay(name) {
@@ -908,7 +921,7 @@ function toggleOverlay(name) {
   document.querySelectorAll('.map-icon-btn').forEach(b => b.classList.remove('active'));
   if (!isOpen) {
     panel.classList.add('open');
-    btn.classList.add('active');
+    if (btn) btn.classList.add('active');
     setTimeout(() => { updateWindPyramid(); updateJrPyramid(); }, 50);
   }
 }
@@ -926,14 +939,21 @@ const tileSources = [
   {url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', opts:{maxZoom:20, attribution:'© Esri'}},
   {url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', opts:{maxZoom:19, attribution:'© OpenStreetMap'}},
 ];
-let tileIdx = 0;
+let tileIdx = 0, tileErrorCount = 0;
 let tileLayer = L.tileLayer(tileSources[0].url, tileSources[0].opts).addTo(map);
-tileLayer.on('tileerror', () => {
-  if (++tileIdx < tileSources.length) {
-    map.removeLayer(tileLayer);
-    tileLayer = L.tileLayer(tileSources[tileIdx].url, tileSources[tileIdx].opts).addTo(map);
-  }
-});
+function registerTileErrorHandler() {
+  tileLayer.on('tileerror', () => {
+    // Only switch providers after 3 consecutive errors to avoid flipping on transient failures
+    if (++tileErrorCount >= 3 && tileIdx + 1 < tileSources.length) {
+      tileErrorCount = 0;
+      map.removeLayer(tileLayer);
+      tileIdx++;
+      tileLayer = L.tileLayer(tileSources[tileIdx].url, tileSources[tileIdx].opts).addTo(map);
+      registerTileErrorHandler(); // re-register on the new layer
+    }
+  });
+}
+registerTileErrorHandler();
 L.control.zoom({position:'bottomright'}).addTo(map);
 navigator.geolocation?.getCurrentPosition(p => map.setView([p.coords.latitude, p.coords.longitude], 14), ()=>{});
 
@@ -994,7 +1014,11 @@ async function fetchElevation(lat, lng) {
   try {
     const d = await (await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lng}`)).json();
     if (d.elevation?.[0] != null) state.fieldElevFt = Math.round(d.elevation[0] * 3.28084);
-  } catch(e) { console.warn('Elevation fetch failed', e); }
+    else setStatus('Elevation unavailable — AGL altitudes may be inaccurate');
+  } catch(e) {
+    console.warn('Elevation fetch failed', e);
+    setStatus('Elevation unavailable — AGL altitudes may be inaccurate');
+  }
 }
 
 // ─── WINDS FETCH ──────────────────────────────────────────────────────────────
@@ -1002,8 +1026,15 @@ async function fetchElevation(lat, lng) {
 // (true geopotential height differs from geometric by <0.3% below 30,000ft)
 function geopotentialToFtMSL(gpm) { return Math.round(gpm * 3.28084); }
 
+let _fetchInProgress = false;
+let _fetchAbortController = null;
 async function fetchWinds(forceRefresh=false) {
   if (!state.target) return;
+  if (_fetchInProgress) {
+    // Cancel the previous request and allow the new one to proceed
+    _fetchAbortController?.abort();
+    _fetchInProgress = false;
+  }
 
   // Check cache — key-only lookup, no distance check needed
   if (!forceRefresh) {
@@ -1012,12 +1043,15 @@ async function fetchWinds(forceRefresh=false) {
       if (cached.fieldElevFt != null) state.fieldElevFt = cached.fieldElevFt;
       processWindData(cached.rawData, cached.fieldElevFt);
       updateWindStatusAge(cached.ts);
-      setStatus(`Winds from cache · SFC ${state.surfaceWind.dirDeg}°@${state.surfaceWind.speedKts}kt`);
+      setStatus(`Winds from cache · SFC ${state.surfaceWind?.dirDeg ?? '?'}°@${state.surfaceWind?.speedKts ?? '?'}kt`);
       return;
     }
   }
 
   const btn = document.getElementById('fetch-btn');
+  _fetchInProgress = true;
+  _fetchAbortController = new AbortController();
+  const signal = _fetchAbortController.signal;
   btn.disabled = true; btn.textContent = '⏳ Fetching…';
   try {
     const {lat, lng} = state.target;
@@ -1028,8 +1062,13 @@ async function fetchWinds(forceRefresh=false) {
 
     // forecast_days=2 ensures +12h is always available regardless of current hour
     const url = `https://api.open-meteo.com/v1/gfs?latitude=${lat}&longitude=${lng}&hourly=${plWindVars},${plHgtVars},${plTmpVars},${htVars},windspeed_10m,winddirection_10m&wind_speed_unit=kn&forecast_days=2&timezone=auto`;
-    const rawData = await (await fetch(url)).json();
+    const rawData = await (await fetch(url, {signal})).json();
 
+    if (!rawData?.hourly?.time?.length) {
+      document.getElementById('fetch-status').textContent = 'Wind data unavailable for this location';
+      setStatus('Wind data unavailable');
+      return;
+    }
     const fieldElevFt = state.fieldElevFt || 0;
     const ts = Date.now();
     saveWindCache(lat, lng, {rawData, fieldElevFt, ts});
@@ -1039,22 +1078,34 @@ async function fetchWinds(forceRefresh=false) {
     updateWindStatusAge(ts);
     setStatus(`Winds loaded · SFC ${state.surfaceWind.dirDeg}°@${state.surfaceWind.speedKts}kt`);
   } catch(e) {
+    if (e.name === 'AbortError') return; // superseded by a newer request
     document.getElementById('fetch-status').textContent = `Fetch failed: ${e.message}`;
     setStatus('Wind fetch failed');
     console.error(e);
+  } finally {
+    _fetchInProgress = false;
+    btn.disabled = false; btn.textContent = '⬇ Refresh Winds';
   }
-  btn.disabled = false; btn.textContent = '⬇ Refresh Winds';
 }
 
 // Process raw API data for a given forecast offset — no network needed
 function processWindData(d, fieldElevFt) {
-  // Find base hour index (current local time)
-  const now = new Date();
-  const pad = n => String(n).padStart(2,'0');
-  const localHourStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:00`;
-  let hi = d.hourly.time.indexOf(localHourStr);
-  if (hi < 0) {
-    const nowMs = now.getTime();
+  // Find base hour index by comparing UTC timestamps so the client's local
+  // timezone doesn't affect which forecast hour is selected (BUG-5).
+  // d.hourly.time entries are in the API's timezone=auto format (no Z suffix);
+  // we derive the UTC offset from the utc_offset_seconds field if present,
+  // otherwise fall back to nearest-timestamp search.
+  const nowMs = Date.now();
+  let hi = -1;
+  if (d.utc_offset_seconds != null) {
+    // Convert each hourly string to UTC ms using the API-reported offset
+    hi = d.hourly.time.reduce((best, t, i) => {
+      const apiMs = new Date(t).getTime() - d.utc_offset_seconds * 1000;
+      const bestMs = new Date(d.hourly.time[best]).getTime() - d.utc_offset_seconds * 1000;
+      return Math.abs(apiMs - nowMs) < Math.abs(bestMs - nowMs) ? i : best;
+    }, 0);
+  } else {
+    // Fallback: nearest timestamp (works when client TZ matches API TZ)
     hi = d.hourly.time.reduce((best, t, i) =>
       Math.abs(new Date(t).getTime() - nowMs) < Math.abs(new Date(d.hourly.time[best]).getTime() - nowMs) ? i : best, 0);
   }
@@ -1202,6 +1253,7 @@ function processWindData(d, fieldElevFt) {
     });
 
     state.winds = allRows;
+    _sortedWindsCache = null; // invalidate sorted winds cache
 
     buildWindTable();
     if (!state.manualHeading) { state.finalHeadingDeg = state.surfaceWind.dirDeg; updateHeadingDisplay(state.surfaceWind.dirDeg); }
@@ -1219,7 +1271,7 @@ function updateWindStatusAge(ts) {
 }
 
 // Auto-refresh if wind data is stale and page is visible
-setInterval(() => {
+const _windRefreshInterval = setInterval(() => {
   if (!state.target || document.hidden) return;
   const cached = findCachedWinds(state.target.lat, state.target.lng);
   if (!cached) { fetchWinds().then(calculate); return; }
@@ -1286,16 +1338,17 @@ function updateHeadingDisplay(deg) {
   document.getElementById('heading-bar-slider').value = d;
   updateWindPyramid(); updateJrPyramid();
 }
+let _headingInputTimer = null;
 function onHeadingInput(v) {
   if (v === '' || v === null) return; // blank — blur will restore
   const d = ((parseInt(v) % 360) + 360) % 360;
   if (isNaN(d)) return;
   state.manualHeading = true;
   state.finalHeadingDeg = d;
-  document.getElementById('heading-bar-val').value = d; // normalize display
   document.getElementById('heading-bar-slider').value = d;
   updateWindPyramid();
-  calculate();
+  clearTimeout(_headingInputTimer);
+  _headingInputTimer = setTimeout(calculate, 150);
 }
 function onHeadingBlur() {
   // Restore current heading if field left blank or out of range
@@ -1532,7 +1585,9 @@ function onJrOffsetInput() {
 }
 function resetJrOffset() {
   state.manualJrOffset = false;
-  document.getElementById('jr-offset').style.color = 'var(--muted)';
+  const el = document.getElementById('jr-offset');
+  el.value = '';
+  el.style.color = 'var(--muted)';
   calculate();
 }
 function snapJumpRunToWind() {
@@ -1545,16 +1600,17 @@ function updateJumpRunDisplay(deg) {
   document.getElementById('jr-hdg-slider').value = Math.round(deg);
   updateJrPyramid();
 }
+let _jrHdgInputTimer = null;
 function onJrHdgInput(v) {
   if (v === '' || v === null) return;
   const d = ((parseInt(v) % 360) + 360) % 360;
   if (isNaN(d)) return;
   state.manualJumpRun = true;
   state.jumpRunHdgDeg = d;
-  document.getElementById('jr-hdg-display').value = d; // normalize
   document.getElementById('jr-hdg-slider').value = d;
   updateJrPyramid();
-  calculate();
+  clearTimeout(_jrHdgInputTimer);
+  _jrHdgInputTimer = setTimeout(calculate, 150);
 }
 function onJrHdgBlur() {
   if (state.jumpRunHdgDeg !== null) {
@@ -1600,12 +1656,23 @@ function windVec(from,spd) { const r=(from+180)*D2R; return {n:Math.cos(r)*spd,e
 function vecLen(v) { return Math.sqrt(v.n**2+v.e**2); }
 function normalize(v) { const l=vecLen(v)||1; return {n:v.n/l,e:v.e/l}; }
 
-function getWindAtAGL(agl) {
-  const msl = agl + state.fieldElevFt;
-  const sorted = state.winds
+// Cache sorted winds for the current draw cycle — rebuilt when state.winds changes.
+// This avoids re-sorting inside the 200ft integration loop (PERF-1).
+let _sortedWindsCache = null;
+let _sortedWindsElevFt = null;
+function getSortedWinds() {
+  if (_sortedWindsCache && _sortedWindsElevFt === state.fieldElevFt) return _sortedWindsCache;
+  _sortedWindsCache = state.winds
     .filter(w => w.dirDeg !== null && w.speedKts !== null && isFinite(w.dirDeg) && isFinite(w.speedKts))
     .map(w => ({altFt: w.aglFt + state.fieldElevFt, dirDeg: w.dirDeg, speedKts: w.speedKts}))
     .sort((a,b) => a.altFt - b.altFt);
+  _sortedWindsElevFt = state.fieldElevFt;
+  return _sortedWindsCache;
+}
+
+function getWindAtAGL(agl) {
+  const msl = agl + state.fieldElevFt;
+  const sorted = getSortedWinds();
   if (!sorted.length) return {n:0, e:0};
   const r = interpolateWind(sorted, msl);
   if (!isFinite(r.dir) || !isFinite(r.speed)) return {n:0, e:0};
@@ -1620,12 +1687,18 @@ function calculate() {
   const altE   = parseFloat(document.getElementById('alt-enter').value);
   const altB   = parseFloat(document.getElementById('alt-base').value);
   const altF   = parseFloat(document.getElementById('alt-final').value);
-  const altExit    = parseFloat(document.getElementById('alt-exit').value)   || 13500;
-  const altOpen    = parseFloat(document.getElementById('alt-open').value)   || 3000;
-  const ffSpeedMph = parseFloat(document.getElementById('ff-speed').value)   || 120;
-  const safetyPct  = (parseFloat(document.getElementById('safety-margin').value) || 0) / 100;
-  const jrAirspeedKts = parseFloat(document.getElementById('jr-airspeed').value) || 80;
-  const exitSepFt     = parseFloat(document.getElementById('exit-sep').value) || 1500;
+  const _altExit    = parseFloat(document.getElementById('alt-exit').value);
+  const _altOpen    = parseFloat(document.getElementById('alt-open').value);
+  const _ffSpeed    = parseFloat(document.getElementById('ff-speed').value);
+  const _safety     = parseFloat(document.getElementById('safety-margin').value);
+  const _jrAirspeed = parseFloat(document.getElementById('jr-airspeed').value);
+  const _exitSep    = parseFloat(document.getElementById('exit-sep').value);
+  const altExit    = isNaN(_altExit)    ? 13500 : _altExit;
+  const altOpen    = isNaN(_altOpen)    ? 3000  : _altOpen;
+  const ffSpeedMph = isNaN(_ffSpeed)    ? 120   : _ffSpeed;
+  const safetyPct  = (isNaN(_safety)    ? 0     : _safety) / 100;
+  const jrAirspeedKts = isNaN(_jrAirspeed) ? 80   : _jrAirspeed;
+  const exitSepFt     = isNaN(_exitSep)    ? 1500 : _exitSep;
 
   if (isNaN(glide)||isNaN(cSpd)||isNaN(altE)||isNaN(altB)||isNaN(altF)) return;
   if (altB>=altE||altF>=altB) { setStatus('Altitudes must be: Enter > Base > Final'); return; }
@@ -1834,6 +1907,40 @@ function legLabel(disp, wc, color) {
   });
 }
 
+// Compute integrated wind drift (ft N, ft E) during descent from altTopAGL to altBotAGL.
+function integratedDrift(altTopAGL, altBotAGL, descentFtMin) {
+  if (altTopAGL <= altBotAGL) return {dN:0, dE:0};
+  const STEP = 200;
+  let dN = 0, dE = 0;
+  for (let agl = altBotAGL; agl < altTopAGL; agl += STEP) {
+    const bandTop = Math.min(agl + STEP, altTopAGL);
+    const midAGL  = (agl + bandTop) / 2;
+    const bandAlt = bandTop - agl;
+    const w = getWindAtAGL(midAGL);
+    const tMin = bandAlt / descentFtMin;
+    dN += w.n * (tMin / 60) * 6076;
+    dE += w.e * (tMin / 60) * 6076;
+  }
+  return {dN, dE};
+}
+
+// Average wind speed/direction across an altitude band (for zone labels).
+function avgWindInBand(altBotAGL, altTopAGL) {
+  const STEP = 200;
+  let sumN = 0, sumE = 0, count = 0;
+  for (let agl = altBotAGL; agl < altTopAGL; agl += STEP) {
+    const mid = (agl + Math.min(agl+STEP, altTopAGL)) / 2;
+    const w = getWindAtAGL(mid);
+    sumN += w.n; sumE += w.e; count++;
+  }
+  if (!count) return {spd:0, dir:0};
+  const avgN = sumN/count, avgE = sumE/count;
+  return {
+    spd: Math.round(Math.sqrt(avgN**2+avgE**2)),
+    dir: Math.round((Math.atan2(avgE,avgN)*R2D+360)%360),
+  };
+}
+
 function drawPattern() {
   clearPattern();
   const p = state.pattern; if (!p) return;
@@ -1850,52 +1957,15 @@ function drawPattern() {
   if (bDrift  > DRIFT_THRESH) addL(L.polyline([ll(tBase),  ll(bSteered)],  dash));
   if (fDrift  > DRIFT_THRESH) addL(L.polyline([ll(tFinal), ll(fSteered)],  dash));
 
-  // Turn point markers + altitude labels (show/hide with labelsVisible)
+  // Turn point markers
   addL(L.marker(ll(entry),  {icon:pinIcon('#f4944d'), zIndexOffset:100}));
   addL(L.marker(ll(tBase),  {icon:pinIcon('#4df4c8'), zIndexOffset:100}));
   addL(L.marker(ll(tFinal), {icon:pinIcon('#e8f44d'), zIndexOffset:100}));
 
-  if (state.labelsVisible) {
-    // ── Shared zone helpers (used by canopy/exit regions) ──
+  // ── Shared zone helpers, canopy/exit regions, jump run, pattern labels ──
+  {
     const dRate  = (p.cSpd / p.glide) * 101.269;
     const margin = 1 - p.safetyPct;
-
-    // Helper: compute integrated wind drift (ft N, ft E) while descending
-    // from altTopAGL to altBotAGL at a given descent rate (ft/min).
-    // Uses our multi-level wind data, integrating across bands.
-    function integratedDrift(altTopAGL, altBotAGL, descentFtMin) {
-      const totalAlt = altTopAGL - altBotAGL;
-      if (totalAlt <= 0) return {dN:0, dE:0};
-      // Sample wind at midpoints of each 200ft sub-band
-      const STEP = 200;
-      let dN = 0, dE = 0;
-      for (let agl = altBotAGL; agl < altTopAGL; agl += STEP) {
-        const bandTop = Math.min(agl + STEP, altTopAGL);
-        const midAGL  = (agl + bandTop) / 2;
-        const bandAlt = bandTop - agl;
-        const w = getWindAtAGL(midAGL);
-        const tMin = bandAlt / descentFtMin;
-        dN += w.n * (tMin / 60) * 6076;
-        dE += w.e * (tMin / 60) * 6076;
-      }
-      return {dN, dE};
-    }
-
-    // Helper: average wind speed/direction in an altitude band (for labels)
-    function avgWindInBand(altBotAGL, altTopAGL) {
-      const STEP = 200;
-      let sumN = 0, sumE = 0, count = 0;
-      for (let agl = altBotAGL; agl < altTopAGL; agl += STEP) {
-        const mid = (agl + Math.min(agl+STEP, altTopAGL)) / 2;
-        const w = getWindAtAGL(mid);
-        sumN += w.n; sumE += w.e; count++;
-      }
-      if (!count) return {spd:0, dir:0};
-      const avgN = sumN/count, avgE = sumE/count;
-      const spd = Math.round(Math.sqrt(avgN**2+avgE**2));
-      const dir = Math.round((Math.atan2(avgE,avgN)*R2D+360)%360);
-      return {spd, dir};
-    }
 
     // Helper: draw one circle zone
     function drawZone(centerAGL, radiusFt, driftAGL, borderColor, fillColor, fillOpacity, borderOpacity, borderWidth) {
@@ -2143,7 +2213,7 @@ function drawPattern() {
     addL(L.marker(ll(bMid),  {icon:legLabel(p.bDisp, p.bWC, '#4df4c8'), interactive:false, zIndexOffset:50}));
     addL(L.marker(ll(fMid),  {icon:legLabel(p.fDisp, p.fWC, '#e8f44d'), interactive:false, zIndexOffset:50}));
     } // end patternLabels
-  } // end labelsVisible
+  } // end labels block
 
   // Wind arrow
   const wSfc = getWindAtAGL(0), ws = vecLen(wSfc);
@@ -2207,7 +2277,7 @@ function setHand(h) {
 // ─── DZ SEARCH ────────────────────────────────────────────────────────────────
 const DZ_CACHE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-let dzList=[], dzIdx=-1;
+let dzList=null, dzIdx=-1; // null = still loading
 (async()=>{
   // Try localStorage first
   try {
@@ -2231,7 +2301,7 @@ let dzList=[], dzIdx=-1;
     try {
       localStorage.setItem(storageKey('dz_list'), JSON.stringify({list: dzList, ts: Date.now()}));
     } catch(e) {}
-  } catch(e){ console.warn('DZ data failed',e); }
+  } catch(e){ dzList=[]; console.warn('DZ data failed',e); }
 })();
 
 const dzEl=document.getElementById('dz-search'), dzDd=document.getElementById('dz-dropdown');
@@ -2239,6 +2309,7 @@ const dzEl=document.getElementById('dz-search'), dzDd=document.getElementById('d
 dzEl.addEventListener('input',()=>{
   const q=dzEl.value.trim().toLowerCase();
   if (q.length<2){closeDd();return;}
+  if (dzList===null){showDd([{name:'Loading drop zones…',city:'',state:'',lat:null,lng:null}]);return;}
   const res=dzList.filter(d=>d.name.toLowerCase().includes(q)||d.city.toLowerCase().includes(q)||d.state.toLowerCase().includes(q)).slice(0,12);
   showDd(res.length?res:[{name:`Search "${dzEl.value}"`,city:'via location search',state:'',lat:null,lng:null,geo:true}]);
 });
@@ -2254,7 +2325,9 @@ function showDd(results){
   dzIdx=-1;dzDd.innerHTML='';
   results.forEach(dz=>{
     const el=document.createElement('div');el.className='dz-item';
-    el.innerHTML=`<div class="dz-name">${dz.name}</div><div class="dz-loc">${[dz.city,dz.state].filter(Boolean).join(', ')}</div>`;
+    const nameEl=document.createElement('div');nameEl.className='dz-name';nameEl.textContent=dz.name;
+    const locEl=document.createElement('div');locEl.className='dz-loc';locEl.textContent=[dz.city,dz.state].filter(Boolean).join(', ');
+    el.appendChild(nameEl);el.appendChild(locEl);
     el.addEventListener('click',()=>pickDZ(dz));
     dzDd.appendChild(el);
   });
@@ -2293,7 +2366,8 @@ function agreeToWaiver() {
   document.getElementById('waiver-modal').style.display = 'none';
 }
 function declineWaiver() {
-  document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0c0f;color:#666;font-family:sans-serif;font-size:14px;text-align:center;padding:20px;">You must agree to the terms to use Pattern Planner.</div>';
+  const modal = document.getElementById('waiver-modal');
+  modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-family:sans-serif;font-size:14px;text-align:center;padding:20px;">You must agree to the terms to use Pattern Planner.</div>';
 }
 
 // ─── SETTINGS PERSISTENCE ─────────────────────────────────────────────────────
@@ -2320,7 +2394,7 @@ function loadSettings() {
     if (legModesStr) {
       const saved = JSON.parse(legModesStr);
       ['dw','b','f'].forEach(leg => {
-        if (saved[leg]) setLegMode(leg, saved[leg]);
+        if (['crab','drift'].includes(saved[leg])) setLegMode(leg, saved[leg]);
       });
     }
 
@@ -2390,8 +2464,10 @@ document.querySelectorAll('input').forEach(el => {
   const indicator = document.getElementById('pull-indicator');
 
   document.addEventListener('touchstart', e => {
-    // Only start pull if touch begins near top of map area
-    if (e.touches[0].clientY < 120) { startY = e.touches[0].clientY; pulling = true; }
+    // Only start pull if touch begins in the top portion of the map area.
+    // Use header height + 80px buffer so this works regardless of notch / orientation.
+    const headerH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 48;
+    if (e.touches[0].clientY < headerH + 80) { startY = e.touches[0].clientY; pulling = true; }
   }, {passive: true});
 
   document.addEventListener('touchmove', e => {
