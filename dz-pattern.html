@@ -554,13 +554,13 @@
 
     <div class="help-section">
       <div class="help-heading">Getting Started</div>
-      <p>Tap anywhere on the map to set a landing target. The app fetches winds aloft for that location and draws a suggested landing pattern. Tap again to move the target.</p>
-      <p style="margin-top:4px;">Tap 🔍 to search. Type a drop zone name to find it in the USPA database, or type any city, address, or landmark to move the map there. Search navigates the map to that location — tap the map to set the landing target once you've found the right spot.</p>
+      <p>Tap or click anywhere on the map to set a landing target. The app fetches winds aloft for that location and draws a suggested landing pattern. Tap or click again to move the target.</p>
+      <p style="margin-top:4px;">Tap or click 🔍 to open search. Type a drop zone name to find it in the USPA database, or type any city, address, or landmark to navigate the map there — then tap or click the map to place your landing target. Tap the crosshair button (<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>) in the search bar to jump the map to your current GPS location and close the search bar.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Final Heading</div>
-      <p>The heading bar at the bottom controls the final approach direction. By default it snaps to the surface wind direction. Drag the slider or tap the number field to type a heading directly. The <span style="color:var(--accent)">▲</span> marks the into-wind heading — tap it to snap back. Toggle L/R hand pattern with the L/R buttons.</p>
+      <p>The heading bar at the bottom controls the final approach direction. By default it snaps to the surface wind direction. Drag the slider or tap/click the number field to type a heading directly. The <span style="color:var(--accent)">▲</span> marks the into-wind heading — tap or click it to snap back. Toggle L/R hand pattern with the L/R buttons.</p>
     </div>
 
     <div class="help-section">
@@ -569,43 +569,44 @@
       <p style="margin-top:4px;"><b>Crab:</b> the app solves for a steered heading that produces the target ground track, accounting for wind. A dashed white line shows the steered heading direction when it differs meaningfully from the ground track.</p>
       <p style="margin-top:4px;"><b>Drift:</b> the canopy is steered on a nominal heading and the wind carries it toward the turn point. A dashed white line shows the steered heading direction when wind drift is significant.</p>
       <p style="margin-top:4px;">Defaults: Downwind = Crab, Base = Drift, Final = Crab.</p>
-      <p style="margin-top:4px;"><b>Z Pattern:</b> a checkbox on the Downwind leg. When enabled, the first leg flies upwind (toward the DZ) rather than downwind — used when the jumper exits far downwind of the target and needs to fly back toward it before turning base. Z pattern is independent of the Crab/Drift setting.</p>
+      <p style="margin-top:4px;"><b>Z Pattern:</b> a checkbox on the Downwind leg. When enabled, the first leg flies upwind rather than downwind — used when the jumper exits far downwind of the target and needs to fly back toward it before turning base. Z pattern is independent of the Crab/Drift setting.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Canopy Performance</div>
-      <p>The <b>Default Canopy Performance</b> section (bottom of Settings) sets glide ratio, horizontal speed, and vertical speed — enter any two and the third is calculated. Use still-air, no-wind values. Vertical speed equals sink rate (FlySight reports this directly).</p>
+      <p>The <b>Default Canopy Performance</b> section (bottom of Settings) sets glide ratio, horizontal speed, and vertical speed — enter any two and the third is calculated. Use still-air, no-wind values. Vertical speed equals sink rate (available from FlySight, Deep and Steep Insight, and similar logging devices).</p>
       <p style="margin-top:4px;">Each leg also has an optional <b>Custom performance</b> checkbox. When enabled, that leg uses its own glide/speed/sink values instead of the defaults — useful for modeling braked flight on downwind and base with a full-flight final, for example. Enabling it pre-fills from the current defaults.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Pattern Altitudes</div>
-      <p>Set entry, base turn, and final turn altitudes (ft AGL) in Settings. The app computes leg lengths from these altitudes and the canopy glide ratio for each leg.</p>
+      <p>Set entry, base turn, and final turn altitudes (ft AGL) in Settings. These define the length of each leg — the higher the entry altitude and the better the glide ratio, the longer the pattern. The landing target is always 0 ft AGL.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Safety Regions (Canopy)</div>
-      <p>Three amber rings around the pattern entry point show where a canopy pilot must be at each altitude to reach the entry point under canopy. They shift upwind to account for accumulated drift during descent. The yellow ring marks the required opening altitude position. Region Buffer (%) in Settings shrinks all rings by that fraction as a safety margin.</p>
+      <p>Three amber rings around the pattern entry point show where a canopy pilot must be at each altitude milestone to reach the entry point under canopy. All rings shift in the wind drift direction to account for accumulated drift during descent. Region Buffer (%) in Settings shrinks all rings by that fraction as a safety margin.</p>
+      <p style="margin-top:4px;">The yellow ring marks the required opening altitude position — you must open within this ring to reach pattern entry under canopy.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Safety Regions (Opening &amp; Exit)</div>
-      <p>The yellow ring shows where a pilot must open to reach pattern entry under canopy. The blue dashed ring shows where the pilot must exit the aircraft to open within the opening region. Freefall drift is integrated across altitude bands using actual winds aloft at each level, assuming purely vertical descent — results are not applicable to tracking, angle, or movement dives.</p>
+      <p>The blue dashed ring shows where you must exit the aircraft so that freefall drift carries you into the opening ring. Freefall drift is integrated across altitude bands using actual winds aloft at each level, assuming purely vertical descent — results are not applicable to tracking, angle, or movement dives.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Jump Run</div>
-      <p>A suggested jump run is drawn through the exit region center, into the wind at exit altitude. The <span style="color:var(--accent2)">▲</span> marks the into-wind heading — tap it to snap. The heading field is also directly editable.</p>
+      <p>A suggested jump run is drawn through the exit region center, into the wind at exit altitude. The <span style="color:var(--accent2)">▲</span> marks the into-wind heading — tap or click it to snap. The heading field is also directly editable.</p>
       <p style="margin-top:4px;"><b>Offset:</b> perpendicular distance from the landing spot to the jump run line. Auto-calculated when blank (shown in muted color). Enter a value to override — positive is right of flight path looking forward. Delete the value to return to auto.</p>
-      <p style="margin-top:4px;"><b>🟢/🔴:</b> distances prior to and past the foot of perpendicular from the landing target to the jump run line, measured at the exit circle boundary. Positive = prior to (upwind of) the reference point.</p>
+      <p style="margin-top:4px;"><b>🟢/🔴 green/red light distances:</b> how far before (🟢) and after (🔴) the aircraft is directly over the landing area when it crosses the exit circle boundary. Measured along the jump run.</p>
       <p style="margin-top:4px;"><b>Exit separation:</b> suggested time between groups based on the exit separation distance setting and jump run ground speed.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Winds Aloft</div>
-      <p>Winds are fetched from Open-Meteo (GFS). Teal rows are real model data points at pressure levels or fixed heights; grey rows are interpolated. The surface wind comes from the 10m wind field. Winds refresh automatically every 20 minutes while the app is open. Individual values in the wind table can be edited manually to test different wind scenarios.</p>
-      <p style="margin-top:4px;">The <b>Forecast</b> slider lets you view winds up to +12 hours ahead. The effective forecast time appears in the center of the title bar — muted for current hour, teal for a future hour. Moving to a new location resets the forecast to the current hour.</p>
-      <p style="margin-top:4px;">Pull down from the title bar to manually refresh wind data.</p>
+      <p>Winds are fetched from Open-Meteo (GFS). Teal rows are real model data points at pressure levels or fixed heights; grey rows are interpolated. The surface wind comes from the 10m wind field. Winds are cached for 20 minutes — the app checks every minute and automatically fetches fresh data when the cache expires. Individual values in the wind table can be edited manually to test different wind scenarios.</p>
+      <p style="margin-top:4px;">The <b>Forecast</b> slider lets you view winds up to +12 hours ahead. The effective forecast time appears in the center of the top bar — muted for current hour, teal for a future hour. Moving to a new location resets the forecast to the current hour.</p>
+      <p style="margin-top:4px;">Pull down on the top bar to manually refresh wind data.</p>
     </div>
 
     <div class="help-section">
@@ -2457,17 +2458,19 @@ document.querySelectorAll('input').forEach(el => {
   el.addEventListener('change', saveSettings);
   el.addEventListener('input',  saveSettings);
 });
-// ── Pull-to-refresh — intercepts downward pull on map, refreshes winds only ──
+// ── Pull-to-refresh — pull down on the header bar to refresh winds ──
 (function() {
   const PULL_THRESHOLD = 70; // px needed to trigger refresh
   let startY = 0, pulling = false;
   const indicator = document.getElementById('pull-indicator');
+  const header    = document.getElementById('header');
 
   document.addEventListener('touchstart', e => {
-    // Only start pull if touch begins in the top portion of the map area.
-    // Use header height + 80px buffer so this works regardless of notch / orientation.
-    const headerH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 48;
-    if (e.touches[0].clientY < headerH + 80) { startY = e.touches[0].clientY; pulling = true; }
+    // Only trigger when the touch starts inside the header bar itself
+    if (header && header.contains(e.target)) {
+      startY = e.touches[0].clientY;
+      pulling = true;
+    }
   }, {passive: true});
 
   document.addEventListener('touchmove', e => {
