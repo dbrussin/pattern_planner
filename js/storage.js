@@ -104,6 +104,10 @@ function loadSettings() {
       });
     }
 
+    // Sync state.driftThresh from persisted input value
+    const dtEl = document.getElementById('drift-thresh');
+    if (dtEl && dtEl.value !== '') state.driftThresh = parseInt(dtEl.value) || 5;
+
     // Layer visibility — done last so setHand/setLegMode don't clobber pp_layers
     const layersStr = localStorage.getItem(storageKey('layers'));
     if (layersStr) {

@@ -17,7 +17,8 @@ const state = {
   surfaceWind: null,
   pattern: null,
   forecastOffset: 0,
-  layers: { jumpRun: true, exitRegion: true, canopyRegions: true, patternLabels: true, legend: true },
+  layers: { jumpRun: true, exitRegion: true, canopyRegions: true, turnAltLabels: true, legDistances: true, legHeadings: true, legArrows: true, legend: true },
+  driftThresh: 5,  // degrees — show steered heading line when crab/drift exceeds this
   fitDone: false,
   // Per-leg modes: 'crab' | 'drift'
   legModes: { dw: 'crab', b: 'drift', f: 'crab' },
@@ -31,5 +32,5 @@ const PERSIST_INPUTS = [
   'alt-enter', 'alt-base', 'alt-final',
   'alt-exit', 'alt-open', 'ff-speed',
   'jr-airspeed', 'exit-sep', 'safety-margin',
-  'glide', 'canopy-speed',
+  'glide', 'canopy-speed', 'drift-thresh',
 ];

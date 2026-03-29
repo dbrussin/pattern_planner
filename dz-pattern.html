@@ -14,11 +14,26 @@
 <!-- HEADER -->
 <div id="header">
   <h1>Pattern <span>Planner</span></h1>
-  <div id="forecast-time-label" style="
-    font-family:'Space Mono',monospace;font-size:10px;letter-spacing:0.04em;
-    color:var(--muted);white-space:nowrap;
+  <div id="forecast-header-ctrl" style="
     position:absolute;left:50%;transform:translateX(-50%);
-    pointer-events:none;display:none;"></div>
+    display:none;flex-direction:column;align-items:center;gap:1px;z-index:1;">
+    <div style="display:flex;align-items:center;gap:2px;">
+      <button onclick="adjustForecastOffset(-1)" title="Previous hour" style="
+        background:none;border:none;color:var(--muted);font-size:15px;font-weight:700;
+        cursor:pointer;padding:1px 5px;line-height:1;touch-action:manipulation;
+        font-family:'Barlow Condensed',sans-serif;">−</button>
+      <div id="forecast-time-label" onclick="jumpForecastToNow()" title="Click to reset to current hour" style="
+        font-family:'Space Mono',monospace;font-size:10px;letter-spacing:0.04em;
+        color:var(--muted);white-space:nowrap;cursor:pointer;"></div>
+      <button onclick="adjustForecastOffset(1)" title="Next hour" style="
+        background:none;border:none;color:var(--muted);font-size:15px;font-weight:700;
+        cursor:pointer;padding:1px 5px;line-height:1;touch-action:manipulation;
+        font-family:'Barlow Condensed',sans-serif;">+</button>
+    </div>
+    <div id="wind-loaded-age" style="
+      font-family:'Space Mono',monospace;font-size:8px;color:var(--muted);
+      white-space:nowrap;line-height:1;"></div>
+  </div>
   <div onclick="toggleSearch()" id="dz-search-icon" title="Search drop zones"
     style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;
     color:var(--muted);font-size:17px;cursor:pointer;flex-shrink:0;">🔍</div>
@@ -113,6 +128,7 @@
       <div class="input-group"><label for="jr-airspeed">Aircraft IAS (kts)</label><input type="number" id="jr-airspeed" value="80" min="40" max="200" step="5" oninput="calculate()"></div>
       <div class="input-group"><label for="safety-margin">Region Buffer (%)</label><input type="number" id="safety-margin" value="10" min="0" max="40" step="1" oninput="calculate()"></div>
       <div class="input-group"><label for="exit-sep">Exit Separation (ft)</label><input type="number" id="exit-sep" value="1500" min="500" max="5000" step="100" oninput="calculate()"></div>
+      <div class="input-group"><label for="drift-thresh">Steered Hdg Threshold (°)</label><input type="number" id="drift-thresh" value="5" min="0" max="45" step="1" oninput="onDriftThreshChange(this.value)"></div>
       <div class="input-group">
         <label>Jump Run Offset (nm)
           <span onclick="resetJrOffset()" title="Reset to calculated"
@@ -159,7 +175,7 @@
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-          <label style="font-size:12px;color:var(--muted);flex:1;">Z pattern (fly upwind on downwind leg)</label>
+          <label style="font-size:12px;color:var(--muted);flex:1;">Z pattern (downwind leg same direction as final)</label>
           <input type="checkbox" id="dw-z-check" onchange="toggleZPattern(this.checked)">
         </div>
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
@@ -264,6 +280,8 @@
   <div class="overlay-body">
     <div class="field-note" style="margin-bottom:10px;">Toggle map layers on and off.</div>
     <div style="display:flex;flex-direction:column;gap:8px;">
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-top:2px;">Airspace</div>
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <span style="font-size:14px;font-weight:600;color:var(--text);">Jump Run</span>
         <div id="layer-jumpRun" class="layer-toggle active" onclick="toggleLayer('jumpRun')">On</div>
@@ -276,10 +294,26 @@
         <span style="font-size:14px;font-weight:600;color:var(--text);">Canopy Regions</span>
         <div id="layer-canopyRegions" class="layer-toggle active" onclick="toggleLayer('canopyRegions')">On</div>
       </div>
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-top:4px;">Pattern Labels</div>
       <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:14px;font-weight:600;color:var(--text);">Pattern Labels</span>
-        <div id="layer-patternLabels" class="layer-toggle active" onclick="toggleLayer('patternLabels')">On</div>
+        <span style="font-size:14px;font-weight:600;color:var(--text);">Turn Altitudes</span>
+        <div id="layer-turnAltLabels" class="layer-toggle active" onclick="toggleLayer('turnAltLabels')">On</div>
       </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:14px;font-weight:600;color:var(--text);">Leg Distances &amp; Wind</span>
+        <div id="layer-legDistances" class="layer-toggle active" onclick="toggleLayer('legDistances')">On</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:14px;font-weight:600;color:var(--text);">Headings &amp; Steer</span>
+        <div id="layer-legHeadings" class="layer-toggle active" onclick="toggleLayer('legHeadings')">On</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:14px;font-weight:600;color:var(--text);">Leg Arrows</span>
+        <div id="layer-legArrows" class="layer-toggle active" onclick="toggleLayer('legArrows')">On</div>
+      </div>
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-top:4px;">Other</div>
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <span style="font-size:14px;font-weight:600;color:var(--text);">Map Legend</span>
         <div id="layer-legend" class="layer-toggle active" onclick="toggleLayer('legend')">On</div>
@@ -313,7 +347,7 @@
       <p style="margin-top:4px;"><b>Crab:</b> the app solves for a steered heading that produces the target ground track, accounting for wind. A dashed white line shows the steered heading direction when it differs meaningfully from the ground track.</p>
       <p style="margin-top:4px;"><b>Drift:</b> the canopy is steered on a nominal heading and the wind carries it toward the turn point. A dashed white line shows the steered heading direction when wind drift is significant.</p>
       <p style="margin-top:4px;">Defaults: Downwind = Crab, Base = Drift, Final = Crab.</p>
-      <p style="margin-top:4px;"><b>Z Pattern:</b> a checkbox on the Downwind leg. When enabled, the first leg flies upwind rather than downwind — used when the jumper exits far downwind of the target and needs to fly back toward it before turning base. Z pattern is independent of the Crab/Drift setting.</p>
+      <p style="margin-top:4px;"><b>Z Pattern:</b> a checkbox on the Downwind leg. When enabled, the downwind leg flies in the same direction as the final approach leg — rather than the opposite direction as in a normal pattern. This produces a Z-shaped pattern instead of the usual C shape, and is used when the opening point is downwind of the target so the jumper needs to fly toward the landing area before turning base. Z pattern is independent of the Crab/Drift setting.</p>
     </div>
 
     <div class="help-section">
@@ -355,7 +389,7 @@
 
     <div class="help-section">
       <div class="help-heading">Display Options (👁)</div>
-      <p>Toggle individual map layers on and off: Jump Run, Exit Region, Canopy Regions, Pattern Labels, and Map Legend. The map legend shows the color coding for each leg and explains the dashed white line (steered heading). Settings are saved between sessions.</p>
+      <p>Toggle individual map layers on and off. Airspace layers: Jump Run, Exit Region, Canopy Regions. Pattern label layers: <b>Turn Altitudes</b> (entry/base/final altitudes at turn points), <b>Leg Distances &amp; Wind</b> (distance, wind component, and seconds per leg), <b>Headings &amp; Steer</b> (track heading and steered heading per leg — the steered heading dashed line is colored to match its leg), <b>Leg Arrows</b> (directional chevrons). The steered heading threshold (°) in Settings controls when steered heading lines appear. Settings are saved between sessions.</p>
     </div>
 
     <div class="help-section">

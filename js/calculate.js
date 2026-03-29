@@ -173,7 +173,7 @@ function calculate() {
   const entry = offsetLL(tBase.lat, tBase.lng, -dDisp.dN, -dDisp.dE);
 
   // ── Steered heading endpoint lines ──
-  const DRIFT_THRESH = 5; // degrees — only show steered heading line when drift is meaningful
+  const DRIFT_THRESH = state.driftThresh ?? 5;
 
   function trackHdgDeg(disp) { return (Math.atan2(disp.dE, disp.dN) * R2D + 360) % 360; }
   function hdgDiff(a, b) { let d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; }
@@ -215,6 +215,12 @@ function calculate() {
     bSteered, fSteered, dwSteered,
     bDrift, fDrift, dwDrift, DRIFT_THRESH,
     fHdg, fHdgActual, bHdg, dwHdg,
+    fTrackHdg: fHdg,
+    bTrackHdg: trackHdgDeg(bDisp),
+    dwTrackHdg: trackHdgDeg(dDisp),
+    tF_sec: Math.round(tF * 60),
+    tB_sec: Math.round(tB * 60),
+    tD_sec: Math.round(tD * 60),
     fDisp, bDisp, dDisp,
     fWC, bWC, dWC,
     glide: perfF.glide, cSpd: perfF.cSpd,  // default for safety region calcs

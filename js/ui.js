@@ -52,6 +52,9 @@ function onForecastOffsetChange(v) {
   state.forecastOffset = parseInt(v) || 0;
   const lbl = document.getElementById('forecast-offset-label');
   if (lbl) lbl.textContent = state.forecastOffset === 0 ? 'Now' : `+${state.forecastOffset}h`;
+  // Sync the winds overlay slider
+  const slider = document.getElementById('forecast-offset');
+  if (slider) slider.value = state.forecastOffset;
   if (!state.target) return;
   const cached = findCachedWinds(state.target.lat, state.target.lng);
   if (cached) {
@@ -60,6 +63,17 @@ function onForecastOffsetChange(v) {
   } else {
     fetchWinds(true).then(calculate);
   }
+}
+
+function adjustForecastOffset(delta) {
+  const newVal = Math.max(0, Math.min(12, (state.forecastOffset || 0) + delta));
+  if (newVal === state.forecastOffset) return;
+  onForecastOffsetChange(newVal);
+}
+
+function jumpForecastToNow() {
+  if (state.forecastOffset === 0) return;
+  onForecastOffsetChange(0);
 }
 
 function snapToWind() {
@@ -358,6 +372,11 @@ function autoSetJumpRunHeading() {
       updateJumpRunDisplay(dir);
     }
   }
+}
+
+function onDriftThreshChange(v) {
+  state.driftThresh = parseInt(v) || 0;
+  if (state.pattern) drawPattern();
 }
 
 // ── Layer toggles ─────────────────────────────────────────────────────────────

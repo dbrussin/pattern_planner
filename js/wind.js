@@ -116,15 +116,16 @@ function processWindData(d, fieldElevFt) {
   // Update header forecast time label
   const effectiveDate = new Date(d.hourly.time[hi]);
   const timeLabel     = document.getElementById('forecast-time-label');
+  const headerCtrl    = document.getElementById('forecast-header-ctrl');
   if (timeLabel) {
     const hh    = String(effectiveDate.getHours()).padStart(2, '0');
     const mo    = effectiveDate.toLocaleString('en', {month: 'short'});
     const dd    = effectiveDate.getDate();
     const isNow = (state.forecastOffset || 0) === 0;
     timeLabel.textContent = isNow ? `${mo} ${dd}  ${hh}:00` : `+${state.forecastOffset}h  ${mo} ${dd}  ${hh}:00`;
-    timeLabel.style.display = 'block';
-    timeLabel.style.color   = isNow ? 'var(--muted)' : 'var(--accent2)';
+    timeLabel.style.color = isNow ? 'var(--muted)' : 'var(--accent2)';
   }
+  if (headerCtrl) headerCtrl.style.display = 'flex';
 
   // Surface wind
   state.surfaceWind = {
@@ -317,6 +318,8 @@ function updateWindStatusAge(ts) {
   const offsetStr = state.forecastOffset > 0 ? ` · +${state.forecastOffset}h forecast` : '';
   document.getElementById('fetch-status').textContent =
     `SFC: ${sw.dirDeg}° @ ${sw.speedKts}kt · Elev ${state.fieldElevFt}ft MSL\nLoaded ${ageStr}${offsetStr} · teal = real data · grey = interpolated`;
+  const ageEl = document.getElementById('wind-loaded-age');
+  if (ageEl) ageEl.textContent = `loaded ${ageStr}`;
 }
 
 // ── Auto-refresh ──────────────────────────────────────────────────────────────

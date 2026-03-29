@@ -16,7 +16,7 @@ function pinIcon(color) {
   });
 }
 
-function legLabel(disp, wc, color) {
+function legLabel(disp, wc, color, legSec) {
   const dist = dft(disp);
   const {along, cross} = wc;
 
@@ -36,10 +36,44 @@ function legLabel(disp, wc, color) {
   const pri  = primary   ? `<div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:600;color:${color};text-shadow:${shadow};">${primary}</div>` : '';
   const sec  = secondary ? `<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:400;color:${color};text-shadow:${shadow};">${secondary}</div>` : '';
   const calm = (!primary && !secondary) ? `<div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;color:${color};text-shadow:${shadow};">calm</div>` : '';
+  const secLine = legSec != null ? `<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:400;color:${color};opacity:0.75;text-shadow:${shadow};">${legSec}s</div>` : '';
 
   return L.divIcon({
-    html: `<div style="text-align:center;pointer-events:none;line-height:1.3;">${distLine}${pri}${sec}${calm}</div>`,
-    iconSize: [100, 56], iconAnchor: [50, 28], className: '',
+    html: `<div style="text-align:center;pointer-events:none;line-height:1.3;">${distLine}${pri}${sec}${calm}${secLine}</div>`,
+    iconSize: [100, 72], iconAnchor: [50, 36], className: '',
+  });
+}
+
+function hdgLabelIcon(trackHdg, steerHdg, showSteer, color) {
+  const shadow = '0 1px 4px #000,0 0 8px #000';
+  const trackLine = `<div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:600;color:${color};text-shadow:${shadow};white-space:nowrap;">track ${Math.round(trackHdg)}°</div>`;
+  const steerLine = showSteer
+    ? `<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:400;color:${color};opacity:0.7;text-shadow:${shadow};white-space:nowrap;">steer ${Math.round(steerHdg)}°</div>`
+    : '';
+  return L.divIcon({
+    html: `<div style="text-align:center;pointer-events:none;line-height:1.3;">${trackLine}${steerLine}</div>`,
+    iconSize: [130, 40], iconAnchor: [65, 20], className: '',
+  });
+}
+
+function steerLineLabelIcon(steerHdg, color) {
+  const shadow = '0 1px 4px #000,0 0 8px #000';
+  return L.divIcon({
+    html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:600;color:${color};opacity:0.85;text-shadow:${shadow};white-space:nowrap;pointer-events:none;">steer ${Math.round(steerHdg)}°</div>`,
+    iconSize: [100, 16], iconAnchor: [50, 8], className: '',
+  });
+}
+
+function legChevron(from, to, trackHdg, color) {
+  const mid = midLL(from, to);
+  const chevronSvg = `<svg width="14" height="14" viewBox="0 0 12 12" style="display:block;">
+    <polyline points="3,10 6,2 9,10" fill="none" stroke="${color}"
+      stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+      transform="rotate(${Math.round(trackHdg)},6,6)"/>
+  </svg>`;
+  return L.marker(ll(mid), {
+    icon: L.divIcon({html: chevronSvg, iconSize: [14, 14], iconAnchor: [7, 7], className: ''}),
+    interactive: false, zIndexOffset: 43,
   });
 }
 
@@ -48,18 +82,18 @@ function legLabel(disp, wc, color) {
 function drawPattern() {
   clearPattern();
   const p = state.pattern; if (!p) return;
-  const {entry, tBase, tFinal, landing, bSteered, fSteered, dwSteered, bDrift, fDrift, dwDrift, DRIFT_THRESH} = p;
+  const {entry, tBase, tFinal, landing, bSteered, fSteered, dwSteered, bDrift, fDrift, dwDrift} = p;
+  const DRIFT_THRESH = state.driftThresh ?? 5;
 
   // Ground track lines (solid)
   addL(L.polyline([ll(entry),  ll(tBase)],   {color: '#f4944d', weight: 3, opacity: 0.9}));
   addL(L.polyline([ll(tBase),  ll(tFinal)],  {color: '#4df4c8', weight: 3, opacity: 0.9}));
   addL(L.polyline([ll(tFinal), ll(landing)], {color: '#e8f44d', weight: 3, opacity: 0.95}));
 
-  // Steered heading lines (dashed) when drift is significant
-  const dash = {color: 'rgba(255,255,255,0.5)', weight: 2, dashArray: '6 4'};
-  if (dwDrift > DRIFT_THRESH) addL(L.polyline([ll(entry),  ll(dwSteered)], dash));
-  if (bDrift  > DRIFT_THRESH) addL(L.polyline([ll(tBase),  ll(bSteered)],  dash));
-  if (fDrift  > DRIFT_THRESH) addL(L.polyline([ll(tFinal), ll(fSteered)],  dash));
+  // Steered heading lines (dashed, colored to match leg) when drift is significant
+  if (dwDrift > DRIFT_THRESH) addL(L.polyline([ll(entry),  ll(dwSteered)], {color: 'rgba(244,148,77,0.6)',  weight: 2, dashArray: '6 4'}));
+  if (bDrift  > DRIFT_THRESH) addL(L.polyline([ll(tBase),  ll(bSteered)],  {color: 'rgba(77,244,200,0.6)',  weight: 2, dashArray: '6 4'}));
+  if (fDrift  > DRIFT_THRESH) addL(L.polyline([ll(tFinal), ll(fSteered)],  {color: 'rgba(232,244,77,0.6)',  weight: 2, dashArray: '6 4'}));
 
   // Turn point markers
   addL(L.marker(ll(entry),  {icon: pinIcon('#f4944d'), zIndexOffset: 100}));
@@ -78,8 +112,7 @@ function drawPattern() {
       const ctr   = offsetLL(entry.lat, entry.lng, -drift.dN, -drift.dE);
       addL(L.circle([ctr.lat, ctr.lng], {
         radius: r, color: borderColor, weight: borderWidth,
-        fill: fillOpacity > 0, fillColor, fillOpacity, interactive: false,
-        dashArray: fillOpacity === 0 ? '8 5' : null,
+        fill: false, interactive: false,
       }));
       return ctr;
     }
@@ -123,9 +156,9 @@ function drawPattern() {
     if (state.layers.canopyRegions) {
       const hStep3     = canopyRange / 3;
       const ringColors = [
-        {fill: 'rgba(255,160,40,1)', border: 'rgba(255,180,60,0.85)', fillOp: 0.18, bw: 2},
-        {fill: 'rgba(255,160,40,1)', border: 'rgba(255,180,60,0.65)', fillOp: 0.11, bw: 2},
-        {fill: 'rgba(255,160,40,1)', border: 'rgba(255,180,60,0.45)', fillOp: 0.06, bw: 2},
+        {fill: 'rgba(255,160,40,1)', border: 'rgba(255,180,60,0.85)', fillOp: 0, bw: 2},
+        {fill: 'rgba(255,160,40,1)', border: 'rgba(255,180,60,0.65)', fillOp: 0, bw: 2},
+        {fill: 'rgba(255,160,40,1)', border: 'rgba(255,180,60,0.45)', fillOp: 0, bw: 2},
       ];
 
       [2, 1, 0].forEach(i => {
@@ -264,36 +297,63 @@ function drawPattern() {
       }));
     } // end jumpRun
 
-    // ── Pattern labels ──
-    if (state.layers.patternLabels) {
-      const turnLabelIcon = (txt, color) => L.divIcon({
-        html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;
-          color:${color};text-shadow:0 1px 5px #000,0 0 10px #000;white-space:nowrap;
-          letter-spacing:0.04em;pointer-events:none;">${txt}</div>`,
-        iconSize: [100, 20], iconAnchor: [-6, 10], className: '',
-      });
-      addL(L.marker(ll(entry),  {icon: turnLabelIcon(`${p.altE}ft AGL`, '#f4944d'), interactive: false, zIndexOffset: 60}));
-      addL(L.marker(ll(tBase),  {icon: turnLabelIcon(`${p.altB}ft AGL`, '#4df4c8'), interactive: false, zIndexOffset: 60}));
-      addL(L.marker(ll(tFinal), {icon: turnLabelIcon(`${p.altF}ft AGL`, '#e8f44d'), interactive: false, zIndexOffset: 60}));
-
-      // Leg labels at midpoints (offset perpendicular to track)
-      function offsetMid(a, b, disp, perpFt) {
-        const mid      = midLL(a, b);
-        const trackLen = Math.sqrt(disp.dN ** 2 + disp.dE ** 2) || 1;
-        const pN = -disp.dE / trackLen * perpFt;
-        const pE =  disp.dN / trackLen * perpFt;
-        return offsetLL(mid.lat, mid.lng, pN, pE);
-      }
-      const perpFt = 130;
-      const side   = state.hand === 'left' ? 1 : -1;
-      const dwMid  = offsetMid(entry,  tBase,   p.dDisp, side * perpFt);
-      const bMid   = offsetMid(tBase,  tFinal,  p.bDisp, side * perpFt);
-      const fMid   = offsetMid(tFinal, landing, p.fDisp, side * perpFt);
-      addL(L.marker(ll(dwMid), {icon: legLabel(p.dDisp, p.dWC, '#f4944d'), interactive: false, zIndexOffset: 50}));
-      addL(L.marker(ll(bMid),  {icon: legLabel(p.bDisp, p.bWC, '#4df4c8'), interactive: false, zIndexOffset: 50}));
-      addL(L.marker(ll(fMid),  {icon: legLabel(p.fDisp, p.fWC, '#e8f44d'), interactive: false, zIndexOffset: 50}));
-    } // end patternLabels
   } // end zones block
+
+  // ── Shared leg label geometry ──
+  function offsetMid(a, b, disp, perpFt) {
+    const mid      = midLL(a, b);
+    const trackLen = Math.sqrt(disp.dN ** 2 + disp.dE ** 2) || 1;
+    const pN = -disp.dE / trackLen * perpFt;
+    const pE =  disp.dN / trackLen * perpFt;
+    return offsetLL(mid.lat, mid.lng, pN, pE);
+  }
+  const perpFt = 130;
+  const side   = state.hand === 'left' ? 1 : -1;
+
+  // ── Turn altitude labels ──
+  if (state.layers.turnAltLabels) {
+    const turnLabelIcon = (txt, color) => L.divIcon({
+      html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;
+        color:${color};text-shadow:0 1px 5px #000,0 0 10px #000;white-space:nowrap;
+        letter-spacing:0.04em;pointer-events:none;">${txt}</div>`,
+      iconSize: [100, 20], iconAnchor: [-6, 10], className: '',
+    });
+    addL(L.marker(ll(entry),  {icon: turnLabelIcon(`${p.altE}ft AGL`, '#f4944d'), interactive: false, zIndexOffset: 60}));
+    addL(L.marker(ll(tBase),  {icon: turnLabelIcon(`${p.altB}ft AGL`, '#4df4c8'), interactive: false, zIndexOffset: 60}));
+    addL(L.marker(ll(tFinal), {icon: turnLabelIcon(`${p.altF}ft AGL`, '#e8f44d'), interactive: false, zIndexOffset: 60}));
+  }
+
+  // ── Leg distance / wind / timing labels ──
+  if (state.layers.legDistances) {
+    const dwMid = offsetMid(entry,  tBase,   p.dDisp, side * perpFt);
+    const bMid  = offsetMid(tBase,  tFinal,  p.bDisp, side * perpFt);
+    const fMid  = offsetMid(tFinal, landing, p.fDisp, side * perpFt);
+    addL(L.marker(ll(dwMid), {icon: legLabel(p.dDisp, p.dWC, '#f4944d', p.tD_sec), interactive: false, zIndexOffset: 50}));
+    addL(L.marker(ll(bMid),  {icon: legLabel(p.bDisp, p.bWC, '#4df4c8', p.tB_sec), interactive: false, zIndexOffset: 50}));
+    addL(L.marker(ll(fMid),  {icon: legLabel(p.fDisp, p.fWC, '#e8f44d', p.tF_sec), interactive: false, zIndexOffset: 50}));
+  }
+
+  // ── Heading labels (track + steered) ──
+  if (state.layers.legHeadings) {
+    // Track + steer heading labels on opposite perpendicular side from distance labels
+    const dwMidH = offsetMid(entry,  tBase,   p.dDisp, -side * perpFt);
+    const bMidH  = offsetMid(tBase,  tFinal,  p.bDisp, -side * perpFt);
+    const fMidH  = offsetMid(tFinal, landing, p.fDisp, -side * perpFt);
+    addL(L.marker(ll(dwMidH), {icon: hdgLabelIcon(p.dwTrackHdg, p.dwHdg, dwDrift > DRIFT_THRESH, '#f4944d'), interactive: false, zIndexOffset: 50}));
+    addL(L.marker(ll(bMidH),  {icon: hdgLabelIcon(p.bTrackHdg,  p.bHdg,  bDrift  > DRIFT_THRESH, '#4df4c8'), interactive: false, zIndexOffset: 50}));
+    addL(L.marker(ll(fMidH),  {icon: hdgLabelIcon(p.fTrackHdg,  p.fHdgActual, fDrift > DRIFT_THRESH, '#e8f44d'), interactive: false, zIndexOffset: 50}));
+    // Steered heading labels on the steered lines (when drift significant)
+    if (dwDrift > DRIFT_THRESH) addL(L.marker(ll(midLL(entry,  dwSteered)), {icon: steerLineLabelIcon(p.dwHdg, 'rgba(244,148,77,0.9)'),  interactive: false, zIndexOffset: 50}));
+    if (bDrift  > DRIFT_THRESH) addL(L.marker(ll(midLL(tBase,  bSteered)),  {icon: steerLineLabelIcon(p.bHdg,  'rgba(77,244,200,0.9)'),  interactive: false, zIndexOffset: 50}));
+    if (fDrift  > DRIFT_THRESH) addL(L.marker(ll(midLL(tFinal, fSteered)),  {icon: steerLineLabelIcon(p.fHdgActual, 'rgba(232,244,77,0.9)'), interactive: false, zIndexOffset: 50}));
+  }
+
+  // ── Directional arrows on each leg ──
+  if (state.layers.legArrows) {
+    addL(legChevron(entry,  tBase,   p.dwTrackHdg, '#f4944d'));
+    addL(legChevron(tBase,  tFinal,  p.bTrackHdg,  '#4df4c8'));
+    addL(legChevron(tFinal, landing, p.fTrackHdg,  '#e8f44d'));
+  }
 
   // ── Wind arrow at landing target ──
   const wSfc = getWindAtAGL(0), ws = vecLen(wSfc);
