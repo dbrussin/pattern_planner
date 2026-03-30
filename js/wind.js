@@ -251,7 +251,7 @@ function processWindData(d, fieldElevFt) {
   });
 
   state.winds = allRows;
-  _sortedWindsCache = null; // invalidate sorted winds cache
+  _sortedWindsCache = null; _sortedTempCache = null; // invalidate caches
 
   buildWindTable();
   if (!state.manualHeading) { state.finalHeadingDeg = state.surfaceWind.dirDeg; updateHeadingDisplay(state.surfaceWind.dirDeg); }
@@ -300,7 +300,7 @@ function buildWindTable() {
 
 function updateWindByIdx(i, field, val) {
   if (!state.winds[i]) return;
-  _sortedWindsCache = null; // invalidate sorted winds cache
+  _sortedWindsCache = null; _sortedTempCache = null; // invalidate caches
   state.winds[i][field] = val === '' ? null : parseFloat(val);
   if (state.winds[i].aglFt === 0) {
     if (!state.surfaceWind) state.surfaceWind = {dirDeg: null, speedKts: null};

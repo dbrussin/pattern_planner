@@ -87,3 +87,51 @@ function getWindAtAGL(agl) {
   if (!isFinite(r.dir) || !isFinite(r.speed)) return {n: 0, e: 0};
   return windVec(r.dir, r.speed);
 }
+
+// ── Sorted temperature cache ──────────────────────────────────────────────────
+// Parallel to _sortedWindsCache; rebuilt when state.winds changes.
+
+let _sortedTempCache  = null;
+let _sortedTempElevFt = null;
+
+function getSortedTemps() {
+  if (_sortedTempCache && _sortedTempElevFt === state.fieldElevFt) return _sortedTempCache;
+  _sortedTempCache = state.winds
+    .filter(w => w.tempC !== null && w.tempC !== undefined && isFinite(w.tempC))
+    .map(w => ({altFt: w.aglFt + state.fieldElevFt, tempC: w.tempC}))
+    .sort((a, b) => a.altFt - b.altFt);
+  _sortedTempElevFt = state.fieldElevFt;
+  return _sortedTempCache;
+}
+
+// Returns interpolated temperature (°C) at a given AGL altitude, or null if no data.
+function getTempAtAGL(agl) {
+  const msl    = agl + state.fieldElevFt;
+  const sorted = getSortedTemps();
+  if (!sorted.length) return null;
+  if (msl <= sorted[0].altFt) return sorted[0].tempC;
+  const last = sorted[sorted.length - 1];
+  if (msl >= last.altFt) return last.tempC;
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const lo = sorted[i], hi = sorted[i + 1];
+    if (msl >= lo.altFt && msl <= hi.altFt) {
+      const t = (msl - lo.altFt) / (hi.altFt - lo.altFt);
+      return lo.tempC + t * (hi.tempC - lo.tempC);
+    }
+  }
+  return null;
+}
+
+// TAS/IAS ratio at a given AGL altitude.
+// Uses actual temperature from API (when available) and standard atmosphere pressure.
+// Returns 1.0 at field elevation; increases with altitude (~2% per 1000 ft at ISA).
+function tasFactor(agl) {
+  const mslFt = agl + state.fieldElevFt;
+  if (mslFt <= 0) return 1;
+  const tempC      = getTempAtAGL(agl);
+  const T_isa_K    = 288.15 - 0.001981 * mslFt;                        // ISA temp at MSL alt (K)
+  const T_actual_K = tempC !== null ? tempC + 273.15 : T_isa_K;        // actual or ISA fallback
+  const P_ratio    = Math.pow(Math.max(1 - 6.8756e-6 * mslFt, 0.01), 5.2561); // std atmosphere
+  const sigma      = P_ratio * (T_isa_K / Math.max(T_actual_K, 1));    // density ratio
+  return 1 / Math.sqrt(Math.max(sigma, 0.1));
+}

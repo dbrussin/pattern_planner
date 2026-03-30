@@ -12,7 +12,7 @@ function integratedDrift(altTopAGL, altBotAGL, descentFtMin) {
     const midAGL  = (agl + bandTop) / 2;
     const bandAlt = bandTop - agl;
     const w       = getWindAtAGL(midAGL);
-    const tMin    = bandAlt / descentFtMin;
+    const tMin    = bandAlt / (descentFtMin * tasFactor(midAGL));
     dN += w.n * (tMin / 60) * 6076;
     dE += w.e * (tMin / 60) * 6076;
   }
@@ -97,9 +97,9 @@ function calculate() {
   const dRateB  = (perfB.cSpd  / perfB.glide)  * 101.269;
   const dRateDW = (perfDW.cSpd / perfDW.glide) * 101.269;
 
-  const tF = altF / dRateF;
-  const tB = (altB - altF) / dRateB;
-  const tD = (altE - altB) / dRateDW;
+  const tF = altF / (dRateF * tasFactor(altF / 2));
+  const tB = (altB - altF) / (dRateB * tasFactor((altB + altF) / 2));
+  const tD = (altE - altB) / (dRateDW * tasFactor((altE + altB) / 2));
 
   // ── Final leg ──
   const wF       = getWindAtAGL(altF / 2);
@@ -201,7 +201,7 @@ function calculate() {
 
       const xlPerf   = getLegPerf(xl.id);
       const dRateXL  = (xlPerf.cSpd / xlPerf.glide) * 101.269;
-      const tXL      = (xl.alt - topAlt) / dRateXL;
+      const tXL      = (xl.alt - topAlt) / (dRateXL * tasFactor((xl.alt + topAlt) / 2));
       const wXL      = getWindAtAGL((xl.alt + topAlt) / 2);
       const driftXLN = wXL.n * (tXL / 60) * 6076;
       const driftXLE = wXL.e * (tXL / 60) * 6076;

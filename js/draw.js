@@ -260,7 +260,8 @@ function drawPattern() {
       // Ground speed + green/red light distances
       const wJr      = getWindAtAGL(p.altExit);
       const jrWC     = wJr.n * jrVec.n + wJr.e * jrVec.e;
-      const jrGndSpd = Math.round(p.jrAirspeedKts + jrWC);
+      const jrTAS    = p.jrAirspeedKts * tasFactor(p.altExit);
+      const jrGndSpd = Math.round(jrTAS + jrWC);
       const gsFps    = jrGndSpd * 6076 / 3600;
       const sepSec   = gsFps > 0 ? Math.ceil(p.exitSepFt / gsFps) : null;
 
