@@ -62,7 +62,26 @@ function calculate() {
   const exitSepFt     = isNaN(_exitSep)    ? 1500 : _exitSep;
 
   if (isNaN(glide) || isNaN(cSpd) || isNaN(altE) || isNaN(altB) || isNaN(altF)) return;
-  if (altB >= altE || altF >= altB) { setStatus('Altitudes must be: Enter > Base > Final'); return; }
+
+  // ── Altitude sanity checks ────────────────────────────────────────────────
+  if (altExit <= altOpen) { setStatus('Exit altitude must be above Opening altitude'); return; }
+  if (altF < 100) { setStatus('Turn Final must be at least 100 ft AGL'); return; }
+  if (altB < altF + 100) { setStatus('Turn Base must be at least 100 ft above Turn Final'); return; }
+  if (altE < altB + 100) { setStatus('Enter altitude must be at least 100 ft above Turn Base'); return; }
+  if (state.extraLegs && state.extraLegs.length > 0) {
+    const extraAlts = state.extraLegs
+      .map(xl => ({ id: xl.id, alt: parseFloat(document.getElementById(`alt-${xl.id}`)?.value) || xl.defaultAlt }))
+      .filter(xl => xl.alt > 0)
+      .sort((a, b) => a.alt - b.alt);
+    if (extraAlts.length > 0 && extraAlts[0].alt < altE + 100) {
+      setStatus('Lowest extra leg must be at least 100 ft above Enter altitude'); return;
+    }
+    for (let i = 1; i < extraAlts.length; i++) {
+      if (extraAlts[i].alt < extraAlts[i - 1].alt + 100) {
+        setStatus('Extra legs must each be at least 100 ft apart'); return;
+      }
+    }
+  }
 
   let fHdgFromBar = state.finalHeadingDeg;
   if (fHdgFromBar === null) {

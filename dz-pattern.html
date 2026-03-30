@@ -112,7 +112,32 @@
   </div>
   <div class="overlay-body">
 
-    <div class="section-label" style="margin-top:0;border-top:none;padding-top:0;">Jump Run</div>
+    <div class="section-label" style="margin-top:0;border-top:none;padding-top:0;display:flex;align-items:center;justify-content:space-between;">
+      <span>Pattern Legs</span>
+      <button class="add-leg-btn" onclick="addExtraLeg()" style="margin:0;">+ Add Leg</button>
+    </div>
+    <div id="legs-container"></div>
+
+    <div class="section-label">Default Canopy Performance (still air, no wind)</div>
+    <div class="input-grid">
+      <div class="input-group">
+        <label for="glide">Glide Ratio (:1)</label>
+        <input type="number" id="glide" value="2.5" min="1" max="10" step="0.1" oninput="onCanopyInput('glide')">
+      </div>
+      <div class="input-group">
+        <label for="canopy-speed">Horiz Speed (kts)</label>
+        <input type="number" id="canopy-speed" value="28" min="10" max="60" step="0.5" oninput="onCanopyInput('speed')">
+      </div>
+      <div class="input-group">
+        <label for="canopy-sink">Vertical Speed (kts)</label>
+        <input type="number" id="canopy-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onCanopyInput('sink')">
+      </div>
+    </div>
+
+    <div id="canopy-calc-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
+    <div class="field-note" style="margin-top:2px;">Enter any two — third is calculated. Used for all legs unless overridden above.</div>
+
+    <div class="section-label">Jump Run</div>
     <div class="input-grid">
       <div class="input-group"><label for="alt-exit">Exit Alt (ft AGL)</label><input type="number" id="alt-exit" value="13500" min="1000" max="25000" step="500" oninput="calculate()"></div>
       <div class="input-group"><label for="alt-open">Opening Alt (ft AGL)</label><input type="number" id="alt-open" value="3000" min="500" max="8000" step="100" oninput="calculate()"></div>
@@ -153,28 +178,6 @@
           onclick="snapJumpRunToWind()" title="Snap to into-wind heading"></div>
       </div>
     </div>
-
-    <div class="section-label">Pattern Legs</div>
-    <div id="legs-container"></div>
-
-    <div class="section-label">Default Canopy Performance (still air, no wind)</div>
-    <div class="input-grid">
-      <div class="input-group">
-        <label for="glide">Glide Ratio (:1)</label>
-        <input type="number" id="glide" value="2.5" min="1" max="10" step="0.1" oninput="onCanopyInput('glide')">
-      </div>
-      <div class="input-group">
-        <label for="canopy-speed">Horiz Speed (kts)</label>
-        <input type="number" id="canopy-speed" value="28" min="10" max="60" step="0.5" oninput="onCanopyInput('speed')">
-      </div>
-      <div class="input-group">
-        <label for="canopy-sink">Vertical Speed (kts)</label>
-        <input type="number" id="canopy-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onCanopyInput('sink')">
-      </div>
-    </div>
-
-    <div id="canopy-calc-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
-    <div class="field-note" style="margin-top:2px;">Enter any two — third is calculated. Used for all legs unless overridden above.</div>
 
     <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
       <button onclick="resetAllSettings()" style="
@@ -261,22 +264,33 @@
 
     <div class="help-section">
       <div class="help-heading">Pattern Legs</div>
-      <p>Each leg — Downwind (orange), Base (teal), Final (yellow) — has an independent <b>Crab</b> or <b>Drift</b> setting.</p>
+      <p>The standard pattern has three legs — Downwind (orange), Base (teal), Final (yellow) — each with an independent <b>Crab</b> or <b>Drift</b> setting. Additional legs above the downwind can be added with the <b>+ Add Leg</b> button in the Pattern Legs header — see <i>Additional Legs</i> below.</p>
       <p style="margin-top:4px;"><b>Crab:</b> the app solves for a steered heading that produces the target ground track, accounting for wind. A dashed white line shows the steered heading direction when it differs meaningfully from the ground track.</p>
       <p style="margin-top:4px;"><b>Drift:</b> the canopy is steered on a nominal heading and the wind carries it toward the turn point. A dashed white line shows the steered heading direction when wind drift is significant.</p>
       <p style="margin-top:4px;">Defaults: Downwind = Crab, Base = Drift, Final = Crab.</p>
-      <p style="margin-top:4px;"><b>Z Pattern:</b> a checkbox on the Downwind leg. When enabled, the downwind leg flies in the same direction as the final approach leg — rather than the opposite direction as in a normal pattern. This produces a Z-shaped pattern instead of the usual C shape, and is used when the opening point is downwind of the target so the jumper needs to fly toward the landing area before turning base. Z pattern is independent of the Crab/Drift setting.</p>
+      <p style="margin-top:4px;"><b>Z Pattern:</b> a checkbox on the Downwind leg (only shown when no extra legs are present). When enabled, the downwind leg flies in the same direction as the final approach leg — rather than the opposite direction as in a normal pattern. This produces a Z-shaped pattern instead of the usual C shape, and is used when the opening point is downwind of the target so the jumper needs to fly toward the landing area before turning base. Z pattern is independent of the Crab/Drift setting.</p>
+    </div>
+
+    <div class="help-section">
+      <div class="help-heading">Additional Legs</div>
+      <p>Tap <b>+ Add Leg</b> (in the Pattern Legs header) to add a leg above the downwind — useful for high opening altitudes, long spot, or multi-leg approaches. Legs are numbered 4, 5, … and displayed highest-altitude first. Each extra leg has:</p>
+      <p style="margin-top:6px;"><b>Alt (ft AGL)</b> — the altitude at which this leg begins. Must be at least 100 ft above the leg below it; the bottom-most extra leg must be at least 100 ft above the Downwind entry altitude.</p>
+      <p style="margin-top:4px;"><b>Approach Hdg</b> — the nominal heading the canopy flies on this leg (0–359°). Defaults to a 90° turn from the leg below, in the circuit direction. Crab mode solves a steered heading to achieve this ground track; Drift mode steers the nominal heading directly.</p>
+      <p style="margin-top:4px;"><b>Crab / Drift</b> — same as standard legs. Each extra leg is independent.</p>
+      <p style="margin-top:4px;"><b>Custom performance</b> — per-leg canopy glide/speed/sink, same as standard legs.</p>
+      <p style="margin-top:4px;">The <b>×</b> remove button only appears on the most recently added leg. Remove legs from the top down.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Canopy Performance</div>
-      <p>The <b>Default Canopy Performance</b> section (bottom of Settings) sets glide ratio, horizontal speed, and vertical speed — enter any two and the third is calculated. Use still-air, no-wind values. Vertical speed equals sink rate. These values are available from FlySight, Deep and Steep Insight, and similar logging devices.</p>
+      <p>The <b>Default Canopy Performance</b> section (in Settings) sets glide ratio, horizontal speed, and vertical speed — enter any two and the third is calculated. Use still-air, no-wind values. Vertical speed equals sink rate. These values are available from FlySight, Deep and Steep Insight, and similar logging devices.</p>
       <p style="margin-top:4px;">Each leg also has an optional <b>Custom performance</b> checkbox. When enabled, that leg uses its own glide/speed/sink values instead of the defaults — useful for modeling braked flight on downwind and base with a full-flight final, for example. Enabling it pre-fills from the current defaults.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Pattern Altitudes</div>
       <p>Set entry, base turn, and final turn altitudes (ft AGL) in Settings. These define the length of each leg — the higher the entry altitude and the better the glide ratio, the longer the pattern. The landing target is always 0 ft AGL.</p>
+      <p style="margin-top:4px;">Altitudes must be strictly ordered with a minimum 100 ft gap between each leg: Enter &gt; Base + 100, Base &gt; Final + 100. Extra legs above the downwind must each be at least 100 ft apart. The app shows an error in the status bar if any altitude constraint is violated.</p>
     </div>
 
     <div class="help-section">
@@ -293,6 +307,10 @@
     <div class="help-section">
       <div class="help-heading">Jump Run</div>
       <p>A suggested jump run is drawn through the exit region center, into the wind at exit altitude. The <span style="color:var(--accent2)">▲</span> marks the into-wind heading — tap or click it to snap. The heading field is also directly editable.</p>
+      <p style="margin-top:4px;"><b>Exit Alt / Opening Alt:</b> exit altitude must be above opening altitude — the app shows an error if they conflict. These altitudes drive the freefall drift integration and the exit/opening safety rings.</p>
+      <p style="margin-top:4px;"><b>Freefall Speed:</b> vertical descent speed during freefall (mph). Horizontal drift from wind is integrated across altitude bands from exit to opening altitude.</p>
+      <p style="margin-top:4px;"><b>Aircraft IAS:</b> indicated airspeed of the jump aircraft (kts), used to compute jump run ground speed and exit separation timing.</p>
+      <p style="margin-top:4px;"><b>Region Buffer (%):</b> shrinks all safety rings by this fraction as a conservative margin.</p>
       <p style="margin-top:4px;"><b>Offset:</b> perpendicular distance from the landing spot to the jump run line. Auto-calculated when blank (shown in muted color). Enter a value to override — positive is right of flight path looking forward. Delete the value to return to auto.</p>
       <p style="margin-top:4px;"><b>🟢/🔴 green/red light distances:</b> how far before (🟢) and after (🔴) the aircraft is directly over the landing area when it crosses the exit circle boundary. Measured along the jump run.</p>
       <p style="margin-top:4px;"><b>Exit separation:</b> suggested time between groups based on the exit separation distance setting and jump run ground speed.</p>

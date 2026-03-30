@@ -573,13 +573,6 @@ function renderLegs() {
     container.appendChild(card);
   });
 
-  // ── Add Leg button ──
-  const addBtn = document.createElement('button');
-  addBtn.className = 'add-leg-btn';
-  addBtn.textContent = '+ Add Leg';
-  addBtn.onclick = addExtraLeg;
-  container.appendChild(addBtn);
-
   // Restore snapshotted values/states into newly created elements
   Object.entries(snap).forEach(([id, s]) => {
     const el = document.getElementById(id);
