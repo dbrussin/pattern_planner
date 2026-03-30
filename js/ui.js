@@ -665,42 +665,65 @@ function renderLegs() {
     }
   });
 
+  // Refresh slider min/max to reflect current valid ranges
+  updateAllSliderRanges();
   // Pyramid position depends on clientWidth — defer until after layout
   requestAnimationFrame(updateSettingsWindPyramid);
 }
 
 // ── Leg altitude slider sync ──────────────────────────────────────────────────
 
-// Returns the valid [min, max] altitude range for a given leg input, enforcing
-// 100 ft minimum gaps between all legs in altitude order.
+// Returns the valid [min, max] altitude range for a leg input, using the same
+// ordering as the render (extra legs sorted by defaultAlt descending) so that
+// constraint neighbours always match what the user sees on screen.
 function getLegAltConstraints(numId) {
   const MIN_GAP  = 100;
   const altEnter = parseFloat(document.getElementById('alt-enter')?.value) || 900;
   const altBase  = parseFloat(document.getElementById('alt-base')?.value)  || 600;
   const altFinal = parseFloat(document.getElementById('alt-final')?.value) || 300;
 
+  // Extra legs in display order: highest defaultAlt first (same sort as renderLegs)
+  const displayOrder = [...(state.extraLegs || [])].sort((a, b) => b.defaultAlt - a.defaultAlt);
+  const getAlt = xl => parseFloat(document.getElementById(`alt-${xl.id}`)?.value) ?? xl.defaultAlt;
+
   if (numId === 'alt-final') return { min: 100, max: Math.max(100, altBase - MIN_GAP) };
   if (numId === 'alt-base')  return { min: altFinal + MIN_GAP, max: Math.max(altFinal + MIN_GAP, altEnter - MIN_GAP) };
   if (numId === 'alt-enter') {
-    const extras = (state.extraLegs || [])
-      .map(xl => parseFloat(document.getElementById(`alt-${xl.id}`)?.value) || xl.defaultAlt)
-      .sort((a, b) => a - b);
-    const maxVal = extras.length > 0 ? extras[0] - MIN_GAP : 5000;
+    // Lowest displayed extra leg (last in displayOrder) sets our ceiling
+    const lowestXL = displayOrder.length > 0 ? getAlt(displayOrder[displayOrder.length - 1]) : Infinity;
+    const maxVal   = isFinite(lowestXL) ? lowestXL - MIN_GAP : 5000;
     return { min: altBase + MIN_GAP, max: Math.max(altBase + MIN_GAP, maxVal) };
   }
   if (numId.startsWith('alt-xl')) {
-    const xlId  = numId.replace('alt-', '');
-    // Sort ALL extra legs by altitude (using current DOM values including the one being changed)
-    const extras = (state.extraLegs || [])
-      .map(xl => ({ id: xl.id, alt: parseFloat(document.getElementById(`alt-${xl.id}`)?.value) || xl.defaultAlt }))
-      .sort((a, b) => a.alt - b.alt);
-    const idx = extras.findIndex(xl => xl.id === xlId);
+    const xlId = numId.replace('alt-', '');
+    const idx  = displayOrder.findIndex(xl => xl.id === xlId);
     if (idx === -1) return null;
-    const minVal = idx === 0 ? altEnter + MIN_GAP : extras[idx - 1].alt + MIN_GAP;
-    const maxVal = idx === extras.length - 1 ? 5000 : extras[idx + 1].alt - MIN_GAP;
+    // displayOrder[0] = highest. idx-1 = leg above (higher alt), idx+1 = leg below (lower alt)
+    const maxVal = idx === 0                     ? 5000           : getAlt(displayOrder[idx - 1]) - MIN_GAP;
+    const minVal = idx === displayOrder.length-1 ? altEnter + MIN_GAP : getAlt(displayOrder[idx + 1]) + MIN_GAP;
     return { min: minVal, max: Math.max(minVal, maxVal) };
   }
   return null;
+}
+
+// Update the min/max attributes of every altitude slider to reflect current
+// valid ranges, and clamp any values that are now out of bounds.
+function updateAllSliderRanges() {
+  const legIds = ['alt-final', 'alt-base', 'alt-enter'];
+  legIds.forEach(id => applySliderRange(id));
+  (state.extraLegs || []).forEach(xl => applySliderRange(`alt-${xl.id}`));
+}
+
+function applySliderRange(numId) {
+  const c   = getLegAltConstraints(numId);
+  const sl  = document.getElementById(numId + '-sl');
+  const num = document.getElementById(numId);
+  if (!c || !sl || !num) return;
+  sl.min = c.min;
+  sl.max = c.max;
+  const v       = parseFloat(num.value);
+  const clamped = Math.max(c.min, Math.min(c.max, v));
+  if (!isNaN(clamped) && clamped !== v) { num.value = clamped; sl.value = clamped; }
 }
 
 function onLegAlt(numId, src) {
@@ -710,15 +733,10 @@ function onLegAlt(numId, src) {
   if (src === 'slider') { num.value = sl.value; num.style.color = 'var(--text)'; }
   else                  { sl.value  = num.value; }
 
-  // Enforce min/max constraints between adjacent legs
-  const c = getLegAltConstraints(numId);
-  if (c) {
-    const clamped = Math.max(c.min, Math.min(c.max, parseFloat(num.value)));
-    if (!isNaN(clamped) && clamped !== parseFloat(num.value)) {
-      num.value = clamped;
-      sl.value  = clamped;
-    }
-  }
+  // Clamp this input then refresh all slider ranges (adjacent legs may now have
+  // different valid ranges)
+  applySliderRange(numId);
+  updateAllSliderRanges();
 
   saveSettings();
   if (state.target) calculate();
