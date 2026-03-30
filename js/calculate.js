@@ -64,12 +64,13 @@ function calculate() {
   if (isNaN(glide) || isNaN(cSpd) || isNaN(altE) || isNaN(altB) || isNaN(altF)) return;
   if (altB >= altE || altF >= altB) { setStatus('Altitudes must be: Enter > Base > Final'); return; }
 
-  let fHdg = state.finalHeadingDeg;
-  if (fHdg === null) {
+  let fHdgFromBar = state.finalHeadingDeg;
+  if (fHdgFromBar === null) {
     const s = state.winds.find(w => w.dirDeg !== null);
     if (!s) { setStatus('Set winds or a final heading'); return; }
-    fHdg = s.dirDeg;
+    fHdgFromBar = s.dirDeg;
   }
+  const fHdg = state.legHdgOverride?.f != null ? state.legHdgOverride.f : fHdgFromBar;
 
   // Jump run heading (needs fHdg as fallback for calm winds)
   let jrHdg = state.jumpRunHdgDeg;
@@ -129,9 +130,11 @@ function calculate() {
   const bStillFt = (altB - altF) * perfB.glide;
   let bHdg, bDisp;
 
+  const bOverride = state.legHdgOverride?.b;
+  const bTN = bOverride != null ? hdgVec(bOverride).n : (state.hand === 'left' ? -fTrackUnit.e :  fTrackUnit.e);
+  const bTE = bOverride != null ? hdgVec(bOverride).e : (state.hand === 'left' ?  fTrackUnit.n : -fTrackUnit.n);
+
   if (state.legModes.b === 'crab') {
-    const bTN = state.hand === 'left' ? -fTrackUnit.e :  fTrackUnit.e;
-    const bTE = state.hand === 'left' ?  fTrackUnit.n : -fTrackUnit.n;
     const dbN = wB.n * (tB / 60) * 6076, dbE = wB.e * (tB / 60) * 6076;
     const bc  = -2 * (bTN * dbN + bTE * dbE);
     const cc  = dbN ** 2 + dbE ** 2 - bStillFt ** 2;
@@ -141,7 +144,7 @@ function calculate() {
     bHdg  = (Math.atan2(bRE, bRN) * R2D + 360) % 360;
     bDisp = {dN: bRN + dbN, dE: bRE + dbE};
   } else {
-    bHdg  = state.hand === 'left' ? (fHdg + 90) % 360 : (fHdg - 90 + 360) % 360;
+    bHdg  = bOverride ?? (state.hand === 'left' ? (fHdg + 90) % 360 : (fHdg - 90 + 360) % 360);
     bDisp = {dN: hdgVec(bHdg).n * bStillFt + wB.n * (tB / 60) * 6076, dE: hdgVec(bHdg).e * bStillFt + wB.e * (tB / 60) * 6076};
   }
   const tBase = offsetLL(tFinal.lat, tFinal.lng, -bDisp.dN, -bDisp.dE);
@@ -152,25 +155,106 @@ function calculate() {
   const driftN   = wD.n * (tD / 60) * 6076, driftE = wD.e * (tD / 60) * 6076;
   let dwHdg, dDisp;
 
-  // Target track direction: Z=upwind (fTrackUnit), normal=downwind (-fTrackUnit)
-  const dwTrackSign = state.zPattern ? 1 : -1;
-  const isZPattern  = state.zPattern;
+  // Target track direction: override > Z=upwind (fTrackUnit) > normal=downwind (-fTrackUnit)
+  const dwOverride = state.legHdgOverride?.dw;
+  let dwTN, dwTE;
+  if (dwOverride != null) {
+    dwTN = hdgVec(dwOverride).n;
+    dwTE = hdgVec(dwOverride).e;
+  } else {
+    const dwTrackSign = state.zPattern ? 1 : -1;
+    dwTN = dwTrackSign * fTrackUnit.n;
+    dwTE = dwTrackSign * fTrackUnit.e;
+  }
+  const isZPattern = state.zPattern;
 
   if (state.legModes.dw === 'crab') {
-    const tN = dwTrackSign * fTrackUnit.n, tE = dwTrackSign * fTrackUnit.e;
-    const b1 = -2 * (tN * driftN + tE * driftE);
+    const b1 = -2 * (dwTN * driftN + dwTE * driftE);
     const c1 = driftN ** 2 + driftE ** 2 - dStillFt ** 2;
     const d1 = b1 ** 2 - 4 * c1;
     const k1 = d1 >= 0 ? (-b1 + Math.sqrt(Math.max(0, d1))) / 2 : dStillFt;
-    const rN = tN * k1 - driftN, rE = tE * k1 - driftE;
+    const rN = dwTN * k1 - driftN, rE = dwTE * k1 - driftE;
     dwHdg = (Math.atan2(rE, rN) * R2D + 360) % 360;
     dDisp = {dN: rN + driftN, dE: rE + driftE};
   } else {
     // Drift: steer in target track direction, drift freely
-    dwHdg = state.zPattern ? fHdg : (fHdg + 180) % 360;
+    dwHdg = dwOverride ?? (state.zPattern ? fHdg : (fHdg + 180) % 360);
     dDisp = {dN: hdgVec(dwHdg).n * dStillFt + driftN, dE: hdgVec(dwHdg).e * dStillFt + driftE};
   }
   const entry = offsetLL(tBase.lat, tBase.lng, -dDisp.dN, -dDisp.dE);
+
+  // ── Extra legs above downwind ─────────────────────────────────────────────
+  // Each extra leg heading is user-specified via the Approach Hdg input.
+  const extraLegResults = [];
+  {
+    let topPoint = entry;
+    let topAlt   = altE;
+
+    // Sort lowest extra altitude first so we chain correctly upward
+    const extrasSorted = [...(state.extraLegs || [])]
+      .map(xl => ({ ...xl, alt: parseFloat(document.getElementById(`alt-${xl.id}`)?.value) || xl.defaultAlt }))
+      .filter(xl => xl.alt > 0)
+      .sort((a, b) => a.alt - b.alt);
+
+    extrasSorted.forEach((xl, i) => {
+      if (xl.alt <= topAlt) return; // altitude must be above current top
+
+      const xlPerf   = getLegPerf(xl.id);
+      const dRateXL  = (xlPerf.cSpd / xlPerf.glide) * 101.269;
+      const tXL      = (xl.alt - topAlt) / dRateXL;
+      const wXL      = getWindAtAGL((xl.alt + topAlt) / 2);
+      const driftXLN = wXL.n * (tXL / 60) * 6076;
+      const driftXLE = wXL.e * (tXL / 60) * 6076;
+
+      // Approach heading is user-specified via the per-leg heading input
+      const nomHdg = ((parseFloat(document.getElementById(`hdg-${xl.id}`)?.value) || 0) + 3600) % 360;
+
+      const xStillFt = (xl.alt - topAlt) * xlPerf.glide;
+      let xlHdg, xlDisp;
+      const xlMode = state.legModes[xl.id] || 'crab';
+
+      if (xlMode === 'crab') {
+        const tN = hdgVec(nomHdg).n, tE = hdgVec(nomHdg).e;
+        const b1 = -2 * (tN * driftXLN + tE * driftXLE);
+        const c1 = driftXLN ** 2 + driftXLE ** 2 - xStillFt ** 2;
+        const d1 = b1 ** 2 - 4 * c1;
+        const k1 = d1 >= 0 ? (-b1 + Math.sqrt(Math.max(0, d1))) / 2 : xStillFt;
+        const rN = tN * k1 - driftXLN, rE = tE * k1 - driftXLE;
+        xlHdg  = (Math.atan2(rE, rN) * R2D + 360) % 360;
+        xlDisp = { dN: rN + driftXLN, dE: rE + driftXLE };
+      } else {
+        xlHdg  = nomHdg;
+        xlDisp = { dN: hdgVec(xlHdg).n * xStillFt + driftXLN, dE: hdgVec(xlHdg).e * xStillFt + driftXLE };
+      }
+
+      const xlEntry     = offsetLL(topPoint.lat, topPoint.lng, -xlDisp.dN, -xlDisp.dE);
+      const xlTrackUnit = normalize({n: xlDisp.dN, e: xlDisp.dE});
+      const xlCrossVec  = { n: -xlTrackUnit.e, e: xlTrackUnit.n };
+      const xlTrackHdg  = (Math.atan2(xlDisp.dE, xlDisp.dN) * R2D + 360) % 360;
+      let xlDrift = Math.abs(xlHdg - xlTrackHdg) % 360;
+      if (xlDrift > 180) xlDrift = 360 - xlDrift;
+
+      extraLegResults.push({
+        id:       xl.id,
+        entry:    xlEntry,       // top of leg (far from landing, entered first)
+        exit:     topPoint,      // bottom of leg (closer to landing)
+        disp:     xlDisp,
+        hdg:      xlHdg,
+        nomHdg,
+        trackHdg: xlTrackHdg,
+        drift:    xlDrift,
+        altTop:   xl.alt,
+        altBot:   topAlt,
+        color:    xl.color,
+        tSec:     Math.round(tXL * 60),
+        wc:       { along: safeWC(wXL, xlTrackUnit), cross: safeWC(wXL, xlCrossVec) },
+        steered:  offsetLL(xlEntry.lat, xlEntry.lng, hdgVec(xlHdg).n * xStillFt, hdgVec(xlHdg).e * xStillFt),
+      });
+
+      topPoint = xlEntry;
+      topAlt   = xl.alt;
+    });
+  }
 
   // ── Steered heading endpoint lines ──
   const DRIFT_THRESH = state.driftThresh ?? 5;
@@ -229,6 +313,7 @@ function calculate() {
     jrHdg, jrAirspeedKts, exitSepFt,
     isZPattern,
     fieldElevFt: state.fieldElevFt,
+    extraLegs: extraLegResults,
   };
 
   drawPattern();

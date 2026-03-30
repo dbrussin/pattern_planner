@@ -21,8 +21,18 @@ function saveSettings() {
     localStorage.setItem(storageKey('leg_modes'),  JSON.stringify(state.legModes));
     localStorage.setItem(storageKey('leg_custom'), JSON.stringify(state.legCustomPerf));
     localStorage.setItem(storageKey('z_pattern'),  String(state.zPattern));
-    // Per-leg perf inputs
-    ['dw', 'b', 'f'].forEach(leg => {
+    // Extra legs — save metadata + current altitude values
+    const xlData = state.extraLegs.map(xl => ({
+      id:    xl.id,
+      color: xl.color,
+      alt:   parseFloat(document.getElementById(`alt-${xl.id}`)?.value) || xl.defaultAlt,
+      hdg:   parseInt(document.getElementById(`hdg-${xl.id}`)?.value)   ?? xl.nomHdg ?? 0,
+    }));
+    localStorage.setItem(storageKey('extra_legs'),       JSON.stringify(xlData));
+    localStorage.setItem(storageKey('next_xl_idx'),      String(state.nextExtraLegIdx));
+    localStorage.setItem(storageKey('leg_hdg_override'), JSON.stringify(state.legHdgOverride || {}));
+    // Per-leg perf inputs (standard + extra legs)
+    [...LEG_DEFS.map(l => l.key), ...state.extraLegs.map(xl => xl.id)].forEach(leg => {
       ['glide', 'speed', 'sink'].forEach(field => {
         const el = document.getElementById(`${leg}-${field}`);
         if (el && el.value !== '') localStorage.setItem(storageKey(`${leg}_${field}`), el.value);
@@ -63,6 +73,16 @@ function loadSettings() {
       if (val !== null && el) { el.value = val; el.style.color = 'var(--text)'; }
     });
 
+    // Leg heading overrides — restore early before renderLegs calls
+    const hdgOverrideStr = localStorage.getItem(storageKey('leg_hdg_override'));
+    if (hdgOverrideStr) {
+      try {
+        const saved = JSON.parse(hdgOverrideStr);
+        if (!state.legHdgOverride) state.legHdgOverride = {};
+        Object.assign(state.legHdgOverride, saved);
+      } catch(e) {}
+    }
+
     // Hand
     const hand = localStorage.getItem(storageKey('hand'));
     if (hand === 'left' || hand === 'right') setHand(hand);
@@ -71,7 +91,7 @@ function loadSettings() {
     const legModesStr = localStorage.getItem(storageKey('leg_modes'));
     if (legModesStr) {
       const saved = JSON.parse(legModesStr);
-      ['dw', 'b', 'f'].forEach(leg => {
+      LEG_DEFS.map(l => l.key).forEach(leg => {
         if (['crab', 'drift'].includes(saved[leg])) setLegMode(leg, saved[leg]);
       });
     }
@@ -88,13 +108,16 @@ function loadSettings() {
     const legCustomStr = localStorage.getItem(storageKey('leg_custom'));
     if (legCustomStr) {
       const saved = JSON.parse(legCustomStr);
-      ['dw', 'b', 'f'].forEach(leg => {
+      LEG_DEFS.map(l => l.key).forEach(leg => {
         if (saved[leg]) {
           const cb = document.getElementById(`${leg}-custom-perf`);
           if (cb) cb.checked = true;
           state.legCustomPerf[leg] = true;
           const section = document.getElementById(`${leg}-perf`);
           if (section) section.style.display = 'block';
+          // Open the details panel so restored perf fields are visible
+          const details = cb?.closest('details');
+          if (details) details.open = true;
         }
         ['glide', 'speed', 'sink'].forEach(field => {
           const val = localStorage.getItem(storageKey(`${leg}_${field}`));
@@ -103,6 +126,60 @@ function loadSettings() {
         });
       });
     }
+
+    // Extra legs — must restore before layer visibility so renderLegs() has state
+    const xlStr = localStorage.getItem(storageKey('extra_legs'));
+    if (xlStr) {
+      try {
+        const xlData   = JSON.parse(xlStr);
+        const savedModes = (() => {
+          try { return JSON.parse(localStorage.getItem(storageKey('leg_modes')) || '{}'); } catch(e) { return {}; }
+        })();
+        state.extraLegs      = [];
+        state.nextExtraLegIdx = parseInt(localStorage.getItem(storageKey('next_xl_idx'))) || (xlData.length + 1);
+        const savedCustom = (() => {
+          try { return JSON.parse(localStorage.getItem(storageKey('leg_custom')) || '{}'); } catch(e) { return {}; }
+        })();
+        xlData.forEach(xl => {
+          state.extraLegs.push({ id: xl.id, defaultAlt: xl.alt, color: xl.color, nomHdg: xl.hdg ?? 0 });
+          state.legModes[xl.id]      = savedModes[xl.id] || 'crab';
+          state.legCustomPerf[xl.id] = !!savedCustom[xl.id];
+        });
+        renderLegs(); // re-render with extra legs present
+        // Restore altitude, heading, and custom perf inputs after renderLegs() created them
+        xlData.forEach(xl => {
+          const el = document.getElementById(`alt-${xl.id}`);
+          if (el) { el.value = xl.alt; el.style.color = 'var(--text)'; }
+          const altSlEl = document.getElementById(`alt-${xl.id}-sl`);
+          if (altSlEl) altSlEl.value = xl.alt;
+          const hdg = xl.hdg ?? 0;
+          const hdgEl = document.getElementById(`hdg-${xl.id}`);
+          if (hdgEl) { hdgEl.value = hdg; }
+          const hdgSlEl = document.getElementById(`hdg-sl-${xl.id}`);
+          if (hdgSlEl) { hdgSlEl.value = hdg; }
+          if (savedCustom[xl.id]) {
+            const cb = document.getElementById(`${xl.id}-custom-perf`);
+            if (cb) cb.checked = true;
+            const section = document.getElementById(`${xl.id}-perf`);
+            if (section) section.style.display = 'block';
+            const details = document.getElementById(`leg-details-${xl.id}`);
+            if (details) details.open = true;
+            ['glide', 'speed', 'sink'].forEach(field => {
+              const val = localStorage.getItem(storageKey(`${xl.id}_${field}`));
+              const inp = document.getElementById(`${xl.id}-${field}`);
+              if (val !== null && inp) { inp.value = val; inp.style.color = 'var(--text)'; }
+            });
+          }
+        });
+      } catch(e) { console.warn('extra legs restore error:', e); }
+    }
+
+    // Sync alt sliders after restoring values
+    ['alt-enter', 'alt-base', 'alt-final'].forEach(id => {
+      const num = document.getElementById(id);
+      const sl  = document.getElementById(id + '-sl');
+      if (num && sl && num.value) sl.value = num.value;
+    });
 
     // Sync state.driftThresh from persisted input value
     const dtEl = document.getElementById('drift-thresh');
@@ -124,6 +201,13 @@ function loadSettings() {
       });
     }
   } catch(e) { console.warn('loadSettings error:', e); }
+  // Re-render legs to ensure standard leg override UI is visible, then sync sliders
+  renderLegs();
+  ['alt-enter', 'alt-base', 'alt-final'].forEach(id => {
+    const num = document.getElementById(id);
+    const sl  = document.getElementById(id + '-sl');
+    if (num && sl && num.value) sl.value = num.value;
+  });
   _loadingSettings = false;
 }
 

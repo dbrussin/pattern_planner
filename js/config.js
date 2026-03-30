@@ -17,3 +17,16 @@ const HEIGHT_LEVELS = [80, 120, 180]; // → ~262, 394, 591 ft AGL
 
 // Display rows: interpolated wind altitudes shown in the wind table (ft AGL)
 const INTERP_ALTS_FT = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000, 14000];
+
+// ── Leg definitions — drives the rendered leg cards in the settings overlay ──
+// Adding an entry here automatically adds a leg card to the UI.
+// `key` must match state.legModes and element ID prefixes (e.g. dw-crab, dw-glide).
+// `altId` must match PERSIST_INPUTS and calculate.js element reads.
+// Colors for dynamically added extra legs (cycles if more than 5)
+const EXTRA_LEG_COLORS = ['#c084fc', '#60a5fa', '#fb923c', '#34d399', '#f472b6'];
+
+const LEG_DEFS = [
+  { key: 'dw', label: 'Downwind', color: '#f4944d', altId: 'alt-enter', altLabel: 'Enter Alt (ft AGL)', altDefault: 900,  altMin: 200, altMax: 3000, altStep: 50, hasZPattern: true  },
+  { key: 'b',  label: 'Base',     color: '#4df4c8', altId: 'alt-base',  altLabel: 'Turn Base (ft AGL)', altDefault: 600,  altMin: 100, altMax: 2000, altStep: 50, hasZPattern: false },
+  { key: 'f',  label: 'Final',    color: '#e8f44d', altId: 'alt-final', altLabel: 'Turn Final (ft AGL)', altDefault: 300, altMin: 50,  altMax: 1000, altStep: 50, hasZPattern: false },
+];

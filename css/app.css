@@ -181,7 +181,7 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 input[type=number] { -moz-appearance: textfield; }
 
 /* ── INPUTS ── */
-.input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; align-items: end; }
 .input-group { display: flex; flex-direction: column; gap: 4px; }
 .input-group label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .input-group input {
@@ -231,6 +231,37 @@ input[type=number] { -moz-appearance: textfield; }
   color: var(--muted); transition: all 0.15s; user-select: none;
 }
 .layer-toggle.active { background: var(--accent2); color: var(--bg); border-color: var(--accent2); }
+
+/* ── ADD / REMOVE LEG BUTTONS ── */
+.add-leg-btn {
+  width: 100%; padding: 8px; background: transparent;
+  border: 1px dashed var(--border); border-radius: 4px;
+  color: var(--muted); font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer; transition: border-color 0.15s, color 0.15s; margin-top: 2px;
+}
+.add-leg-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+.leg-remove-btn {
+  background: transparent; border: 1px solid rgba(232,77,77,0.35); border-radius: 3px;
+  color: rgba(232,77,77,0.7); width: 22px; height: 22px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 15px; line-height: 1; padding: 0;
+  font-family: 'Barlow Condensed', sans-serif; transition: background 0.15s;
+}
+.leg-remove-btn:hover { background: rgba(232,77,77,0.15); }
+
+/* ── LEG DETAILS COLLAPSIBLE ── */
+.leg-details { margin-top: 2px; }
+.leg-details-summary {
+  list-style: none; cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted); padding: 3px 0;
+}
+.leg-details-summary::-webkit-details-marker { display: none; }
+.leg-details-arrow { font-size: 9px; transition: transform 0.15s; display: inline-block; }
+.leg-details[open] .leg-details-arrow { transform: rotate(90deg); }
+.leg-details-body { padding-top: 6px; }
 
 /* ── LEG MODE BUTTONS ── */
 .leg-mode-btn {

@@ -20,11 +20,16 @@ const state = {
   layers: { jumpRun: true, exitRegion: true, canopyRegions: true, turnAltLabels: true, legDistances: true, legHeadings: true, legArrows: true, legend: true },
   driftThresh: 5,  // degrees — show steered heading line when crab/drift exceeds this
   fitDone: false,
-  // Per-leg modes: 'crab' | 'drift'
-  legModes: { dw: 'crab', b: 'drift', f: 'crab' },
+  // Per-leg modes: 'crab' | 'drift' — keyed by LEG_DEFS[].key; extra legs add entries dynamically
+  legModes:     Object.fromEntries(LEG_DEFS.map(l => [l.key, l.key === 'b' ? 'drift' : 'crab'])),
   zPattern: false,  // Z pattern is independent of crab/drift
-  // Per-leg custom canopy performance
-  legCustomPerf: { dw: false, b: false, f: false },
+  // Per-leg custom canopy performance — keyed by LEG_DEFS[].key; extra legs add entries dynamically
+  legCustomPerf: Object.fromEntries(LEG_DEFS.map(l => [l.key, false])),
+  // Dynamically added extra legs above downwind: [{id, defaultAlt, color}]
+  extraLegs: [],
+  nextExtraLegIdx: 1,
+  // Per-leg approach heading overrides: null = use computed heading
+  legHdgOverride: {dw: null, b: null, f: null},
 };
 
 // Input IDs that are persisted to localStorage on every change

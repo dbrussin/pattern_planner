@@ -112,15 +112,7 @@
   </div>
   <div class="overlay-body">
 
-    <div class="section-label" style="margin-top:0;border-top:none;padding-top:0;">Pattern Altitudes (ft AGL)</div>
-    <div class="input-grid">
-      <div class="input-group"><label for="alt-enter">Enter Pattern</label><input type="number" id="alt-enter" value="900" min="200" max="3000" step="50" oninput="calculate()"></div>
-      <div class="input-group"><label for="alt-base">Turn Base</label><input type="number" id="alt-base" value="600" min="100" max="2000" step="50" oninput="calculate()"></div>
-      <div class="input-group"><label for="alt-final">Turn Final</label><input type="number" id="alt-final" value="300" min="50" max="1000" step="50" oninput="calculate()"></div>
-      <div class="input-group"><label>Land</label><input type="number" value="0" disabled style="opacity:0.4;"></div>
-    </div>
-
-    <div class="section-label">Jump Run</div>
+    <div class="section-label" style="margin-top:0;border-top:none;padding-top:0;">Jump Run</div>
     <div class="input-grid">
       <div class="input-group"><label for="alt-exit">Exit Alt (ft AGL)</label><input type="number" id="alt-exit" value="13500" min="1000" max="25000" step="500" oninput="calculate()"></div>
       <div class="input-group"><label for="alt-open">Opening Alt (ft AGL)</label><input type="number" id="alt-open" value="3000" min="500" max="8000" step="100" oninput="calculate()"></div>
@@ -163,81 +155,7 @@
     </div>
 
     <div class="section-label">Pattern Legs</div>
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      <!-- Downwind leg -->
-      <div style="background:var(--panel2);border-radius:6px;padding:8px 10px;border:1px solid var(--border);">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          <div style="width:10px;height:10px;border-radius:50%;background:#f4944d;flex-shrink:0;"></div>
-          <span style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);flex:1;">Downwind</span>
-          <div style="display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden;">
-            <button id="dw-crab" class="leg-mode-btn active" onclick="setLegMode('dw','crab')">Crab</button>
-            <button id="dw-drift" class="leg-mode-btn" onclick="setLegMode('dw','drift')">Drift</button>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-          <label style="font-size:12px;color:var(--muted);flex:1;">Z pattern (downwind leg same direction as final)</label>
-          <input type="checkbox" id="dw-z-check" onchange="toggleZPattern(this.checked)">
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-          <label style="font-size:12px;color:var(--muted);flex:1;">Custom performance</label>
-          <input type="checkbox" id="dw-custom-perf" onchange="updatePerfSections()">
-        </div>
-        <div id="dw-perf" style="display:none;">
-          <div class="input-grid" style="margin-top:4px;">
-            <div class="input-group"><label for="dw-glide">Glide (:1)</label><input type="number" id="dw-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('dw','glide')"></div>
-            <div class="input-group"><label for="dw-speed">Horiz (kts)</label><input type="number" id="dw-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('dw','speed')"></div>
-            <div class="input-group"><label for="dw-sink">Vert (kts)</label><input type="number" id="dw-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('dw','sink')"></div>
-          </div>
-          <div id="dw-perf-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
-        </div>
-      </div>
-      <!-- Base leg -->
-      <div style="background:var(--panel2);border-radius:6px;padding:8px 10px;border:1px solid var(--border);">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          <div style="width:10px;height:10px;border-radius:50%;background:#4df4c8;flex-shrink:0;"></div>
-          <span style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);flex:1;">Base</span>
-          <div style="display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden;">
-            <button id="b-crab" class="leg-mode-btn" onclick="setLegMode('b','crab')">Crab</button>
-            <button id="b-drift" class="leg-mode-btn active" onclick="setLegMode('b','drift')">Drift</button>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-          <label style="font-size:12px;color:var(--muted);flex:1;">Custom performance</label>
-          <input type="checkbox" id="b-custom-perf" onchange="updatePerfSections()">
-        </div>
-        <div id="b-perf" style="display:none;">
-          <div class="input-grid" style="margin-top:4px;">
-            <div class="input-group"><label for="b-glide">Glide (:1)</label><input type="number" id="b-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('b','glide')"></div>
-            <div class="input-group"><label for="b-speed">Horiz (kts)</label><input type="number" id="b-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('b','speed')"></div>
-            <div class="input-group"><label for="b-sink">Vert (kts)</label><input type="number" id="b-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('b','sink')"></div>
-          </div>
-          <div id="b-perf-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
-        </div>
-      </div>
-      <!-- Final leg -->
-      <div style="background:var(--panel2);border-radius:6px;padding:8px 10px;border:1px solid var(--border);">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          <div style="width:10px;height:10px;border-radius:50%;background:#e8f44d;flex-shrink:0;"></div>
-          <span style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);flex:1;">Final</span>
-          <div style="display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden;">
-            <button id="f-crab" class="leg-mode-btn active" onclick="setLegMode('f','crab')">Crab</button>
-            <button id="f-drift" class="leg-mode-btn" onclick="setLegMode('f','drift')">Drift</button>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-          <label style="font-size:12px;color:var(--muted);flex:1;">Custom performance</label>
-          <input type="checkbox" id="f-custom-perf" onchange="updatePerfSections()">
-        </div>
-        <div id="f-perf" style="display:none;">
-          <div class="input-grid" style="margin-top:4px;">
-            <div class="input-group"><label for="f-glide">Glide (:1)</label><input type="number" id="f-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('f','glide')"></div>
-            <div class="input-group"><label for="f-speed">Horiz (kts)</label><input type="number" id="f-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('f','speed')"></div>
-            <div class="input-group"><label for="f-sink">Vert (kts)</label><input type="number" id="f-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('f','sink')"></div>
-          </div>
-          <div id="f-perf-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
-        </div>
-      </div>
-    </div>
+    <div id="legs-container"></div>
 
     <div class="section-label">Default Canopy Performance (still air, no wind)</div>
     <div class="input-grid">

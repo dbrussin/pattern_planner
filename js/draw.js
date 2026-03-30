@@ -100,6 +100,16 @@ function drawPattern() {
   addL(L.marker(ll(tBase),  {icon: pinIcon('#4df4c8'), zIndexOffset: 100}));
   addL(L.marker(ll(tFinal), {icon: pinIcon('#e8f44d'), zIndexOffset: 100}));
 
+  // Extra legs above downwind
+  if (p.extraLegs?.length) {
+    p.extraLegs.forEach(xl => {
+      addL(L.polyline([ll(xl.entry), ll(xl.exit)], {color: xl.color, weight: 3, opacity: 0.9}));
+      if (xl.drift > DRIFT_THRESH)
+        addL(L.polyline([ll(xl.entry), ll(xl.steered)], {color: xl.color, weight: 2, opacity: 0.5, dashArray: '6 4'}));
+      addL(L.marker(ll(xl.entry), {icon: pinIcon(xl.color), zIndexOffset: 100}));
+    });
+  }
+
   // ── Zones, jump run, labels ──
   {
     const dRate  = (p.cSpd / p.glide) * 101.269;
@@ -321,6 +331,8 @@ function drawPattern() {
     addL(L.marker(ll(entry),  {icon: turnLabelIcon(`${p.altE}ft AGL`, '#f4944d'), interactive: false, zIndexOffset: 60}));
     addL(L.marker(ll(tBase),  {icon: turnLabelIcon(`${p.altB}ft AGL`, '#4df4c8'), interactive: false, zIndexOffset: 60}));
     addL(L.marker(ll(tFinal), {icon: turnLabelIcon(`${p.altF}ft AGL`, '#e8f44d'), interactive: false, zIndexOffset: 60}));
+    p.extraLegs?.forEach(xl =>
+      addL(L.marker(ll(xl.entry), {icon: turnLabelIcon(`${xl.altTop}ft AGL`, xl.color), interactive: false, zIndexOffset: 60})));
   }
 
   // ── Leg distance / wind / timing labels ──
@@ -331,6 +343,10 @@ function drawPattern() {
     addL(L.marker(ll(dwMid), {icon: legLabel(p.dDisp, p.dWC, '#f4944d', p.tD_sec), interactive: false, zIndexOffset: 50}));
     addL(L.marker(ll(bMid),  {icon: legLabel(p.bDisp, p.bWC, '#4df4c8', p.tB_sec), interactive: false, zIndexOffset: 50}));
     addL(L.marker(ll(fMid),  {icon: legLabel(p.fDisp, p.fWC, '#e8f44d', p.tF_sec), interactive: false, zIndexOffset: 50}));
+    p.extraLegs?.forEach(xl => {
+      const xlMid = offsetMid(xl.entry, xl.exit, xl.disp, side * perpFt);
+      addL(L.marker(ll(xlMid), {icon: legLabel(xl.disp, xl.wc, xl.color, xl.tSec), interactive: false, zIndexOffset: 50}));
+    });
   }
 
   // ── Heading labels (track + steered) ──
@@ -342,10 +358,10 @@ function drawPattern() {
     addL(L.marker(ll(dwMidH), {icon: hdgLabelIcon(p.dwTrackHdg, p.dwHdg, dwDrift > DRIFT_THRESH, '#f4944d'), interactive: false, zIndexOffset: 50}));
     addL(L.marker(ll(bMidH),  {icon: hdgLabelIcon(p.bTrackHdg,  p.bHdg,  bDrift  > DRIFT_THRESH, '#4df4c8'), interactive: false, zIndexOffset: 50}));
     addL(L.marker(ll(fMidH),  {icon: hdgLabelIcon(p.fTrackHdg,  p.fHdgActual, fDrift > DRIFT_THRESH, '#e8f44d'), interactive: false, zIndexOffset: 50}));
-    // Steered heading labels on the steered lines (when drift significant)
-    if (dwDrift > DRIFT_THRESH) addL(L.marker(ll(midLL(entry,  dwSteered)), {icon: steerLineLabelIcon(p.dwHdg, 'rgba(244,148,77,0.9)'),  interactive: false, zIndexOffset: 50}));
-    if (bDrift  > DRIFT_THRESH) addL(L.marker(ll(midLL(tBase,  bSteered)),  {icon: steerLineLabelIcon(p.bHdg,  'rgba(77,244,200,0.9)'),  interactive: false, zIndexOffset: 50}));
-    if (fDrift  > DRIFT_THRESH) addL(L.marker(ll(midLL(tFinal, fSteered)),  {icon: steerLineLabelIcon(p.fHdgActual, 'rgba(232,244,77,0.9)'), interactive: false, zIndexOffset: 50}));
+    p.extraLegs?.forEach(xl => {
+      const xlMidH = offsetMid(xl.entry, xl.exit, xl.disp, -side * perpFt);
+      addL(L.marker(ll(xlMidH), {icon: hdgLabelIcon(xl.trackHdg, xl.hdg, xl.drift > DRIFT_THRESH, xl.color), interactive: false, zIndexOffset: 50}));
+    });
   }
 
   // ── Directional arrows on each leg ──
@@ -353,6 +369,7 @@ function drawPattern() {
     addL(legChevron(entry,  tBase,   p.dwTrackHdg, '#f4944d'));
     addL(legChevron(tBase,  tFinal,  p.bTrackHdg,  '#4df4c8'));
     addL(legChevron(tFinal, landing, p.fTrackHdg,  '#e8f44d'));
+    p.extraLegs?.forEach(xl => addL(legChevron(xl.entry, xl.exit, xl.trackHdg, xl.color)));
   }
 
   // ── Wind arrow at landing target ──
@@ -382,7 +399,9 @@ function drawPattern() {
 
   // fitBounds only on first draw per target — keeps map stable during slider rotation
   if (!state.fitDone) {
-    map.fitBounds(L.latLngBounds([ll(entry), ll(tBase), ll(tFinal), ll(landing)]), {padding: [80, 80]});
+    const fitPts = [ll(entry), ll(tBase), ll(tFinal), ll(landing)];
+    p.extraLegs?.forEach(xl => fitPts.push(ll(xl.entry)));
+    map.fitBounds(L.latLngBounds(fitPts), {padding: [80, 80]});
     state.fitDone = true;
   }
 }

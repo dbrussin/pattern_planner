@@ -145,13 +145,21 @@ function setLegMode(leg, mode) {
 }
 
 function toggleZPattern(checked) {
+  if (checked && state.legHdgOverride?.dw != null) {
+    state.legHdgOverride.dw = null;
+    const cb = document.getElementById('dw-hdg-check');
+    if (cb) cb.checked = false;
+    const row = document.getElementById('dw-hdg-row');
+    if (row) row.style.display = 'none';
+  }
   state.zPattern = checked;
   saveSettings();
   if (state.pattern) calculate();
 }
 
 function updatePerfSections() {
-  ['dw', 'b', 'f'].forEach(leg => {
+  const allLegKeys = [...LEG_DEFS.map(l => l.key), ...state.extraLegs.map(xl => xl.id)];
+  allLegKeys.forEach(leg => {
     const cb      = document.getElementById(`${leg}-custom-perf`);
     const section = document.getElementById(`${leg}-perf`);
     if (!cb || !section) return;
@@ -176,7 +184,7 @@ function updatePerfSections() {
 }
 
 // Per-leg canopy three-way calc
-const legLastEdited = {dw: ['glide', 'speed'], b: ['glide', 'speed'], f: ['glide', 'speed']};
+const legLastEdited = Object.fromEntries(LEG_DEFS.map(l => [l.key, ['glide', 'speed']]));
 
 function onLegCanopyInput(leg, field) {
   const le = legLastEdited[leg];
@@ -407,3 +415,339 @@ function setHand(h) {
   saveSettings();
   if (state.pattern) calculate();
 }
+
+// ── Leg cards (data-driven from LEG_DEFS in config.js) ────────────────────────
+
+function renderLegs() {
+  const container = document.getElementById('legs-container');
+  if (!container) return;
+
+  // Snapshot current input values and checkbox/details states before wiping DOM
+  const snap = {};
+  container.querySelectorAll('input[id]').forEach(el => {
+    snap[el.id] = { value: el.value, checked: el.checked, color: el.style.color || '' };
+  });
+  container.querySelectorAll('details[id]').forEach(el => {
+    snap[el.id] = { open: el.open };
+  });
+
+  container.innerHTML = '';
+
+  // ── Extra legs (highest altitude first = flight order) ──
+  const lifoId       = state.extraLegs[state.extraLegs.length - 1]?.id;
+  const hasExtras    = state.extraLegs.length > 0;
+  const extrasSorted = [...state.extraLegs].sort((a, b) => b.defaultAlt - a.defaultAlt);
+  extrasSorted.forEach(xl => {
+    const mode        = state.legModes[xl.id] || 'crab';
+    const crabActive  = mode === 'crab'  ? ' active' : '';
+    const driftActive = mode === 'drift' ? ' active' : '';
+    const removeBtn   = xl.id === lifoId
+      ? `<button class="leg-remove-btn" onclick="removeExtraLeg('${xl.id}')" title="Remove leg">×</button>`
+      : '';
+    const cpChecked   = state.legCustomPerf[xl.id]  ? 'checked' : '';
+    const perfDisp    = state.legCustomPerf[xl.id]  ? 'block'   : 'none';
+    const detOpen     = state.legCustomPerf[xl.id]  ? 'open'    : '';
+    const legNum      = parseInt(xl.id.replace('xl', '')) + 3;
+    const nomHdg      = xl.nomHdg ?? 0;
+
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--panel2);border-radius:6px;padding:8px 10px;border:1px solid var(--border);';
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div style="width:10px;height:10px;border-radius:50%;background:${xl.color};flex-shrink:0;"></div>
+        <span style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);flex:1;">Leg ${legNum}</span>
+        <div style="display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden;">
+          <button id="${xl.id}-crab"  class="leg-mode-btn${crabActive}"  onclick="setLegMode('${xl.id}','crab')">Crab</button>
+          <button id="${xl.id}-drift" class="leg-mode-btn${driftActive}" onclick="setLegMode('${xl.id}','drift')">Drift</button>
+        </div>
+        ${removeBtn}
+      </div>
+      <div style="margin-bottom:6px;">
+        <label style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px;">Alt (ft AGL)</label>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input type="range" id="alt-${xl.id}-sl" min="200" max="5000" step="50" value="${xl.defaultAlt}" style="flex:1;min-width:0;accent-color:var(--accent);" oninput="onLegAlt('alt-${xl.id}','slider')">
+          <input type="number" id="alt-${xl.id}" value="${xl.defaultAlt}" min="200" max="5000" step="50" style="font-family:'Space Mono',monospace;font-size:14px;color:var(--text);background:transparent;border:none;border-bottom:1px solid var(--border);width:56px;text-align:center;padding:2px 0;flex-shrink:0;" oninput="onLegAlt('alt-${xl.id}','input')">
+        </div>
+      </div>
+      <div style="margin-bottom:6px;">
+        <label style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap;flex-shrink:0;margin-bottom:4px;display:block;">Approach hdg</label>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input type="range" id="hdg-sl-${xl.id}" min="0" max="359" step="1" value="${nomHdg}" style="flex:1;min-width:0;accent-color:var(--accent2);" oninput="onExtraLegHdg('${xl.id}','slider')">
+          <input type="number" id="hdg-${xl.id}" value="${nomHdg}" min="0" max="359" step="1" style="font-family:'Space Mono',monospace;font-size:14px;color:var(--accent2);background:transparent;border:none;border-bottom:1px solid var(--border);width:46px;text-align:center;padding:2px 0;flex-shrink:0;" oninput="onExtraLegHdg('${xl.id}','input')">
+        </div>
+      </div>
+      <details id="leg-details-${xl.id}" class="leg-details" ${detOpen}>
+        <summary class="leg-details-summary"><span class="leg-details-arrow">▸</span>More options</summary>
+        <div class="leg-details-body">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <label style="font-size:12px;color:var(--muted);flex:1;">Custom performance</label>
+            <input type="checkbox" id="${xl.id}-custom-perf" ${cpChecked} onchange="updatePerfSections()">
+          </div>
+          <div id="${xl.id}-perf" style="display:${perfDisp};margin-top:4px;">
+            <div class="input-grid">
+              <div class="input-group"><label for="${xl.id}-glide">Glide (:1)</label><input type="number" id="${xl.id}-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('${xl.id}','glide')"></div>
+              <div class="input-group"><label for="${xl.id}-speed">Horiz (kts)</label><input type="number" id="${xl.id}-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('${xl.id}','speed')"></div>
+              <div class="input-group"><label for="${xl.id}-sink">Vert (kts)</label><input type="number" id="${xl.id}-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('${xl.id}','sink')"></div>
+            </div>
+            <div id="${xl.id}-perf-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
+          </div>
+        </div>
+      </details>
+    `;
+    container.appendChild(card);
+  });
+
+  // ── Standard legs (Downwind, Base, Final) ──
+  // Z-pattern option only shown on downwind, and only when no extra legs exist
+  LEG_DEFS.forEach(def => {
+    const { key, label, color, altId, altLabel, altDefault, altMin, altMax, altStep } = def;
+    const mode        = state.legModes[key];
+    const crabActive  = mode === 'crab'  ? ' active' : '';
+    const driftActive = mode === 'drift' ? ' active' : '';
+
+    const showZ     = !hasExtras && key === 'dw';
+    const zChecked  = showZ && state.zPattern ? 'checked' : '';
+    const cpChecked = state.legCustomPerf[key]  ? 'checked' : '';
+    const perfDisp  = state.legCustomPerf[key]  ? 'block'   : 'none';
+
+    const hdgOverride        = state.legHdgOverride?.[key] ?? null;
+    const hdgOverrideChecked = hdgOverride != null ? 'checked' : '';
+    const hdgOverrideDisp    = hdgOverride != null ? 'flex'    : 'none';
+    const hdgVal             = hdgOverride ?? 0;
+    const zDisabled          = showZ && hdgOverride != null;
+    const detOpen            = (state.legCustomPerf[key] || (showZ && state.zPattern) || hdgOverride != null) ? 'open' : '';
+
+    const zRow = showZ ? `
+      <div id="dw-z-row" style="display:flex;align-items:center;gap:6px;margin-bottom:4px;${zDisabled ? 'opacity:0.4;pointer-events:none;' : ''}">
+        <label style="font-size:12px;color:var(--muted);flex:1;">Z pattern (downwind same direction as final)</label>
+        <input type="checkbox" id="dw-z-check" ${zChecked} ${zDisabled ? 'disabled' : ''} onchange="toggleZPattern(this.checked)">
+      </div>` : '';
+
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--panel2);border-radius:6px;padding:8px 10px;border:1px solid var(--border);';
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;"></div>
+        <span style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);flex:1;">${label}</span>
+        <div style="display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden;">
+          <button id="${key}-crab"  class="leg-mode-btn${crabActive}"  onclick="setLegMode('${key}','crab')">Crab</button>
+          <button id="${key}-drift" class="leg-mode-btn${driftActive}" onclick="setLegMode('${key}','drift')">Drift</button>
+        </div>
+      </div>
+      <div style="margin-bottom:6px;">
+        <label style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px;">${altLabel}</label>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input type="range" id="${altId}-sl" min="${altMin}" max="${altMax}" step="${altStep}" value="${altDefault}" style="flex:1;min-width:0;accent-color:var(--accent);" oninput="onLegAlt('${altId}','slider')">
+          <input type="number" id="${altId}" value="${altDefault}" min="${altMin}" max="${altMax}" step="${altStep}" style="font-family:'Space Mono',monospace;font-size:14px;color:var(--text);background:transparent;border:none;border-bottom:1px solid var(--border);width:56px;text-align:center;padding:2px 0;flex-shrink:0;" oninput="onLegAlt('${altId}','input')">
+        </div>
+      </div>
+      <details id="leg-details-${key}" class="leg-details" ${detOpen}>
+        <summary class="leg-details-summary"><span class="leg-details-arrow">▸</span>More options</summary>
+        <div class="leg-details-body">
+          <div id="${key}-hdg-override-wrap" style="margin-bottom:4px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+              <label style="font-size:12px;color:var(--muted);flex:1;">Override approach hdg</label>
+              <input type="checkbox" id="${key}-hdg-check" ${hdgOverrideChecked} onchange="onLegHdgOverrideToggle('${key}',this.checked)">
+            </div>
+            <div id="${key}-hdg-row" style="display:${hdgOverrideDisp};align-items:center;gap:6px;margin-bottom:4px;">
+              <input type="range" id="${key}-hdg-sl" min="0" max="359" step="1" value="${hdgVal}" style="flex:1;min-width:0;accent-color:var(--accent2);" oninput="onStdLegHdg('${key}','slider')">
+              <input type="number" id="${key}-hdg" value="${hdgVal}" min="0" max="359" step="1" style="font-family:'Space Mono',monospace;font-size:14px;color:var(--accent2);background:transparent;border:none;border-bottom:1px solid var(--border);width:46px;text-align:center;padding:2px 0;flex-shrink:0;" oninput="onStdLegHdg('${key}','input')">
+            </div>
+          </div>
+          ${zRow}
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <label style="font-size:12px;color:var(--muted);flex:1;">Custom performance</label>
+            <input type="checkbox" id="${key}-custom-perf" ${cpChecked} onchange="updatePerfSections()">
+          </div>
+          <div id="${key}-perf" style="display:${perfDisp};margin-top:4px;">
+            <div class="input-grid">
+              <div class="input-group"><label for="${key}-glide">Glide (:1)</label><input type="number" id="${key}-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('${key}','glide')"></div>
+              <div class="input-group"><label for="${key}-speed">Horiz (kts)</label><input type="number" id="${key}-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('${key}','speed')"></div>
+              <div class="input-group"><label for="${key}-sink">Vert (kts)</label><input type="number" id="${key}-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('${key}','sink')"></div>
+            </div>
+            <div id="${key}-perf-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
+          </div>
+        </div>
+      </details>
+    `;
+    container.appendChild(card);
+  });
+
+  // ── Add Leg button ──
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-leg-btn';
+  addBtn.textContent = '+ Add Leg';
+  addBtn.onclick = addExtraLeg;
+  container.appendChild(addBtn);
+
+  // Restore snapshotted values/states into newly created elements
+  Object.entries(snap).forEach(([id, s]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.tagName === 'DETAILS')       el.open    = s.open;
+    else if (el.type === 'checkbox')    el.checked = s.checked;
+    else if (s.value !== undefined && s.value !== '') {
+      el.value       = s.value;
+      if (s.color) el.style.color = s.color;
+    }
+  });
+}
+
+// ── Leg altitude slider sync ──────────────────────────────────────────────────
+
+function onLegAlt(numId, src) {
+  const sl  = document.getElementById(numId + '-sl');
+  const num = document.getElementById(numId);
+  if (!sl || !num) return;
+  if (src === 'slider') { num.value = sl.value; num.style.color = 'var(--text)'; }
+  else                  { sl.value  = num.value; }
+  saveSettings();
+  if (state.target) calculate();
+}
+
+// ── Extra leg heading sync ────────────────────────────────────────────────────
+
+function onExtraLegHdg(id, src) {
+  const sl  = document.getElementById(`hdg-sl-${id}`);
+  const inp = document.getElementById(`hdg-${id}`);
+  if (!sl || !inp) return;
+  if (src === 'slider') { inp.value = sl.value; }
+  else                  { sl.value  = ((parseInt(inp.value) || 0) + 360) % 360; }
+  const xl = state.extraLegs.find(x => x.id === id);
+  if (xl) xl.nomHdg = parseInt(inp.value) || 0;
+  saveSettings();
+  if (state.pattern) calculate();
+}
+
+// ── Add / remove extra legs ────────────────────────────────────────────────────
+
+function addExtraLeg() {
+  // Default altitude: highest existing alt + 300, capped at 5000
+  const existingAlts = state.extraLegs.map(xl => {
+    const el = document.getElementById(`alt-${xl.id}`);
+    return el ? (parseFloat(el.value) || xl.defaultAlt) : xl.defaultAlt;
+  });
+  const baseAlt  = existingAlts.length
+    ? Math.max(...existingAlts)
+    : (parseFloat(document.getElementById('alt-enter')?.value) || 900);
+  const newAlt   = Math.min(baseAlt + 300, 5000);
+
+  const idx   = state.nextExtraLegIdx++;
+  const id    = `xl${idx}`;
+  const color = EXTRA_LEG_COLORS[(idx - 1) % EXTRA_LEG_COLORS.length];
+
+  // Default approach heading: 90° rotation from previous leg in circuit direction
+  const sign = state.hand === 'left' ? 1 : -1;
+  let prevNomHdg;
+  if (state.extraLegs.length > 0) {
+    const lastXl = state.extraLegs[state.extraLegs.length - 1];
+    const hdgInp = document.getElementById(`hdg-${lastXl.id}`);
+    prevNomHdg = hdgInp ? (parseInt(hdgInp.value) || lastXl.nomHdg || 0) : (lastXl.nomHdg || 0);
+  } else {
+    prevNomHdg = state.pattern?.dwTrackHdg ?? ((state.pattern?.fHdg ?? 0) + 180) % 360;
+  }
+  const nomHdg = Math.round((prevNomHdg + sign * 90 + 3600) % 360);
+
+  state.extraLegs.push({ id, defaultAlt: newAlt, color, nomHdg });
+  state.legModes[id]      = 'crab';
+  state.legCustomPerf[id] = false;
+  if (!legLastEdited[id]) legLastEdited[id] = ['glide', 'speed'];
+
+  renderLegs();
+
+  // Set altitude + heading for the newly created inputs (snap won't have them yet)
+  const newEl = document.getElementById(`alt-${id}`);
+  if (newEl) newEl.value = newAlt;
+  const newSlEl = document.getElementById(`alt-${id}-sl`);
+  if (newSlEl) newSlEl.value = newAlt;
+  const hdgEl = document.getElementById(`hdg-${id}`);
+  if (hdgEl) hdgEl.value = nomHdg;
+  const hdgSlEl = document.getElementById(`hdg-sl-${id}`);
+  if (hdgSlEl) hdgSlEl.value = nomHdg;
+
+  // Attach save listeners to any new inputs not yet covered
+  document.querySelectorAll('#legs-container input').forEach(el => {
+    if (!el._ppSave) {
+      el.addEventListener('change', saveSettings);
+      el.addEventListener('input',  saveSettings);
+      el._ppSave = true;
+    }
+  });
+
+  saveSettings();
+  if (state.target) calculate();
+}
+
+function removeExtraLeg(id) {
+  const idx = state.extraLegs.findIndex(xl => xl.id === id);
+  if (idx === -1) return;
+  state.extraLegs.splice(idx, 1);
+  delete state.legModes[id];
+  delete state.legCustomPerf[id];
+  delete legLastEdited[id];
+  state.nextExtraLegIdx = parseInt(id.replace('xl', ''));
+  renderLegs();
+  saveSettings();
+  if (state.target) calculate();
+}
+
+// ── Standard leg heading override ─────────────────────────────────────────────
+
+function onStdLegHdg(key, src) {
+  const sl  = document.getElementById(`${key}-hdg-sl`);
+  const inp = document.getElementById(`${key}-hdg`);
+  if (!sl || !inp) return;
+  if (src === 'slider') inp.value = sl.value;
+  else sl.value = ((parseInt(inp.value) || 0) + 360) % 360;
+  if (!state.legHdgOverride) state.legHdgOverride = {};
+  state.legHdgOverride[key] = parseInt(inp.value) || 0;
+  saveSettings();
+  if (state.pattern) calculate();
+}
+
+function onLegHdgOverrideToggle(key, checked) {
+  if (!state.legHdgOverride) state.legHdgOverride = {};
+  if (checked) {
+    // Pre-populate with current computed track heading
+    let defaultHdg = 0;
+    if (state.pattern) {
+      if      (key === 'dw') defaultHdg = Math.round(state.pattern.dwTrackHdg ?? (state.pattern.fHdg + 180) % 360 ?? 180);
+      else if (key === 'b')  defaultHdg = Math.round(state.pattern.bTrackHdg  ?? state.pattern.bHdg  ?? 0);
+      else if (key === 'f')  defaultHdg = Math.round(state.pattern.fTrackHdg  ?? state.pattern.fHdgActual ?? 0);
+    }
+    state.legHdgOverride[key] = defaultHdg;
+    const row = document.getElementById(`${key}-hdg-row`);
+    if (row) row.style.display = 'flex';
+    const sl  = document.getElementById(`${key}-hdg-sl`);
+    const inp = document.getElementById(`${key}-hdg`);
+    if (sl)  sl.value  = defaultHdg;
+    if (inp) inp.value = defaultHdg;
+    // Downwind: if Z pattern is on, turn it off (conflict)
+    if (key === 'dw' && state.zPattern) {
+      state.zPattern = false;
+      const zCb = document.getElementById('dw-z-check');
+      if (zCb) zCb.checked = false;
+    }
+    updateZRowState();
+  } else {
+    state.legHdgOverride[key] = null;
+    const row = document.getElementById(`${key}-hdg-row`);
+    if (row) row.style.display = 'none';
+    if (key === 'dw') updateZRowState();
+  }
+  saveSettings();
+  if (state.pattern) calculate();
+}
+
+function updateZRowState() {
+  const zRow = document.getElementById('dw-z-row');
+  if (!zRow) return;
+  const disabled = state.legHdgOverride?.dw != null;
+  zRow.style.opacity       = disabled ? '0.4' : '';
+  zRow.style.pointerEvents = disabled ? 'none' : '';
+  const zCb = document.getElementById('dw-z-check');
+  if (zCb) zCb.disabled = disabled;
+}
+
+// Render leg cards immediately — must run before app.js calls loadSettings()
+renderLegs();
