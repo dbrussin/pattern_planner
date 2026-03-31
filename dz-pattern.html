@@ -14,33 +14,16 @@
 <!-- HEADER -->
 <div id="header">
   <h1>Pattern <span>Planner</span></h1>
-  <div id="forecast-header-ctrl" style="
-    position:absolute;left:50%;transform:translateX(-50%);
-    display:none;flex-direction:column;align-items:center;gap:1px;z-index:1;">
-    <div style="display:flex;align-items:center;gap:2px;">
-      <button onclick="adjustForecastOffset(-1)" title="Previous hour" style="
-        background:none;border:none;color:var(--muted);font-size:15px;font-weight:700;
-        cursor:pointer;padding:1px 5px;line-height:1;touch-action:manipulation;
-        font-family:'Barlow Condensed',sans-serif;">−</button>
-      <div id="forecast-time-label" onclick="jumpForecastToNow()" title="Click to reset to current hour" style="
-        font-family:'Space Mono',monospace;font-size:10px;letter-spacing:0.04em;
-        color:var(--muted);white-space:nowrap;cursor:pointer;"></div>
-      <button onclick="adjustForecastOffset(1)" title="Next hour" style="
-        background:none;border:none;color:var(--muted);font-size:15px;font-weight:700;
-        cursor:pointer;padding:1px 5px;line-height:1;touch-action:manipulation;
-        font-family:'Barlow Condensed',sans-serif;">+</button>
+  <div id="forecast-header-ctrl" class="forecast-ctrl">
+    <div class="forecast-btn-row">
+      <button onclick="adjustForecastOffset(-1)" title="Previous hour" class="forecast-btn">−</button>
+      <div id="forecast-time-label" onclick="jumpForecastToNow()" title="Click to reset to current hour"></div>
+      <button onclick="adjustForecastOffset(1)" title="Next hour" class="forecast-btn">+</button>
     </div>
-    <div id="wind-loaded-age" style="
-      font-family:'Space Mono',monospace;font-size:8px;color:var(--muted);
-      white-space:nowrap;line-height:1;"></div>
+    <div id="wind-loaded-age"></div>
   </div>
-  <div onclick="toggleSearch()" id="dz-search-icon" title="Search drop zones"
-    style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;
-    color:var(--muted);font-size:17px;cursor:pointer;flex-shrink:0;">🔍</div>
-  <div onclick="toggleOverlay('help')" title="Help"
-    style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;
-    border:1px solid var(--border);border-radius:50%;color:var(--text);font-size:13px;
-    cursor:pointer;flex-shrink:0;font-weight:700;background:var(--panel2);">?</div>
+  <div onclick="toggleSearch()" id="dz-search-icon" title="Search drop zones">🔍</div>
+  <div onclick="toggleOverlay('help')" title="Help" class="header-help-btn">?</div>
 </div>
 
 <!-- FLOATING SEARCH BAR -->
@@ -82,10 +65,6 @@
 <div id="heading-bar">
   <div id="heading-bar-label">Final Hdg</div>
   <input type="number" id="heading-bar-val" min="0" max="359" step="1"
-    style="font-family:'Space Mono',monospace;font-size:16px;color:var(--accent);
-    background:transparent;border:none;border-bottom:1px solid var(--border);
-    width:46px;text-align:center;padding:2px 0;position:relative;z-index:2;
-    touch-action:manipulation;"
     oninput="onHeadingInput(this.value)" onblur="onHeadingBlur()">
   <div id="heading-bar-slider-wrap">
     <input type="range" id="heading-bar-slider" min="0" max="359" step="1" value="0" oninput="onHeadingSlider(this.value)">
@@ -112,7 +91,7 @@
   </div>
   <div class="overlay-body">
 
-    <div class="section-label" style="margin-top:0;border-top:none;padding-top:0;display:flex;align-items:center;justify-content:space-between;">
+    <div class="section-label section-label--action">
       <span>Pattern Legs</span>
       <button class="add-leg-btn" onclick="addExtraLeg()">+ Add Leg</button>
     </div>
@@ -134,8 +113,8 @@
       </div>
     </div>
 
-    <div id="canopy-calc-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
-    <div class="field-note" style="margin-top:2px;">Enter any two — third is calculated. Used for all legs unless overridden above.</div>
+    <div id="canopy-calc-note" class="field-note"></div>
+    <div class="field-note field-note-sm">Enter any two — third is calculated. Used for all legs unless overridden above.</div>
 
     <div class="section-label">Jump Run</div>
     <div class="input-grid">
@@ -156,35 +135,23 @@
       </div>
     </div>
     <div class="field-note">Freefall assumes vertical descent — horizontal drift from wind only.</div>
-    <div id="jr-heading-row" style="display:flex;align-items:center;gap:8px;margin-top:8px;
-      padding:8px 10px;background:var(--panel2);border-radius:4px;border:1px solid var(--border);">
-      <span style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap;flex-shrink:0;">Jump Run</span>
+    <div id="jr-heading-row" class="jr-row">
+      <span class="jr-row-label">Jump Run</span>
       <input type="number" id="jr-hdg-display" min="0" max="359" step="1"
-        style="font-family:'Space Mono',monospace;font-size:16px;color:var(--accent2);
-        background:transparent;border:none;border-bottom:1px solid var(--border);
-        width:46px;text-align:center;padding:2px 0;flex-shrink:0;position:relative;z-index:1;"
+        class="jr-hdg-input"
         oninput="onJrHdgInput(this.value)" onblur="onJrHdgBlur()">
-      <div style="flex:1;position:relative;padding-bottom:10px;min-width:0;">
+      <div class="jr-slider-wrap">
         <input type="range" id="jr-hdg-slider" min="0" max="359" step="1" value="0"
-          style="width:100%;accent-color:var(--accent2);display:block;"
+          class="jr-slider"
           oninput="onJumpRunSlider(this.value)">
-        <div id="jr-wind-pyramid" style="position:absolute;bottom:0;width:0;height:0;
-          border-left:7px solid transparent;border-right:7px solid transparent;
-          border-bottom:12px solid var(--accent2);transform:translateX(-50%);
-          pointer-events:none;display:none;
-          filter:drop-shadow(0 0 3px rgba(77,244,200,0.5));"></div>
-        <div id="jr-wind-pyramid-hit" style="position:absolute;bottom:0;width:28px;height:14px;
-          transform:translateX(-50%);cursor:pointer;display:none;"
+        <div id="jr-wind-pyramid"></div>
+        <div id="jr-wind-pyramid-hit"
           onclick="snapJumpRunToWind()" title="Snap to into-wind heading"></div>
       </div>
     </div>
 
-    <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
-      <button onclick="resetAllSettings()" style="
-        width:100%;padding:9px;background:transparent;
-        border:1px solid rgba(232,77,77,0.5);border-radius:4px;
-        color:rgba(232,77,77,0.8);font-family:'Barlow Condensed',sans-serif;
-        font-size:14px;font-weight:700;letter-spacing:0.06em;cursor:pointer;">
+    <div class="settings-reset-wrap">
+      <button onclick="resetAllSettings()" class="settings-reset-btn">
         Reset All Settings &amp; Clear Data
       </button>
     </div>
@@ -200,43 +167,43 @@
   </div>
   <div class="overlay-body">
     <div class="field-note" style="margin-bottom:10px;">Toggle map layers on and off.</div>
-    <div style="display:flex;flex-direction:column;gap:8px;">
+    <div class="layers-list">
 
-      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-top:2px;">Airspace</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:14px;font-weight:600;color:var(--text);">Jump Run</span>
+      <div class="layer-section-header">Airspace</div>
+      <div class="layer-row">
+        <span class="layer-label">Jump Run</span>
         <div id="layer-jumpRun" class="layer-toggle active" onclick="toggleLayer('jumpRun')">On</div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:14px;font-weight:600;color:var(--text);">Exit Region</span>
+      <div class="layer-row">
+        <span class="layer-label">Exit Region</span>
         <div id="layer-exitRegion" class="layer-toggle active" onclick="toggleLayer('exitRegion')">On</div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:14px;font-weight:600;color:var(--text);">Canopy Regions</span>
+      <div class="layer-row">
+        <span class="layer-label">Canopy Regions</span>
         <div id="layer-canopyRegions" class="layer-toggle active" onclick="toggleLayer('canopyRegions')">On</div>
       </div>
 
-      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-top:4px;">Pattern Labels</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:14px;font-weight:600;color:var(--text);">Turn Altitudes</span>
+      <div class="layer-section-header">Pattern Labels</div>
+      <div class="layer-row">
+        <span class="layer-label">Turn Altitudes</span>
         <div id="layer-turnAltLabels" class="layer-toggle active" onclick="toggleLayer('turnAltLabels')">On</div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:14px;font-weight:600;color:var(--text);">Leg Distances &amp; Wind</span>
+      <div class="layer-row">
+        <span class="layer-label">Leg Distances &amp; Wind</span>
         <div id="layer-legDistances" class="layer-toggle active" onclick="toggleLayer('legDistances')">On</div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:14px;font-weight:600;color:var(--text);">Headings &amp; Steer</span>
+      <div class="layer-row">
+        <span class="layer-label">Headings &amp; Steer</span>
         <div id="layer-legHeadings" class="layer-toggle active" onclick="toggleLayer('legHeadings')">On</div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:14px;font-weight:600;color:var(--text);">Leg Arrows</span>
+      <div class="layer-row">
+        <span class="layer-label">Leg Arrows</span>
         <div id="layer-legArrows" class="layer-toggle active" onclick="toggleLayer('legArrows')">On</div>
       </div>
 
-      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-top:4px;">Other</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:14px;font-weight:600;color:var(--text);">Map Legend</span>
+      <div class="layer-section-header">Other</div>
+      <div class="layer-row">
+        <span class="layer-label">Map Legend</span>
         <div id="layer-legend" class="layer-toggle active" onclick="toggleLayer('legend')">On</div>
       </div>
     </div>
@@ -244,17 +211,17 @@
 </div>
 
 <!-- HELP OVERLAY -->
-<div class="overlay-panel" id="overlay-help" style="width:min(360px,calc(100vw - 72px));">
+<div class="overlay-panel" id="overlay-help">
   <div class="overlay-header">
     <h2>Help</h2>
     <button class="overlay-close" onclick="closeOverlay('help')">✕</button>
   </div>
-  <div class="overlay-body" style="font-size:13px;line-height:1.65;color:var(--text);">
+  <div class="overlay-body">
 
     <div class="help-section">
       <div class="help-heading">Getting Started</div>
       <p>Tap or click anywhere on the map to set a landing target. The app fetches winds aloft for that location and draws a suggested landing pattern. Tap or click again to move the target.</p>
-      <p style="margin-top:4px;">Tap or click 🔍 to open search. Type a drop zone name to find it in the USPA database, or type any city, address, or landmark to navigate the map there — then tap or click the map to place your landing target. Tap the crosshair button (<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>) in the search bar to jump the map to your current GPS location and close the search bar.</p>
+      <p class="help-para">Tap or click 🔍 to open search. Type a drop zone name to find it in the USPA database, or type any city, address, or landmark to navigate the map there — then tap or click the map to place your landing target. Tap the crosshair button (<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>) in the search bar to jump the map to your current GPS location and close the search bar.</p>
     </div>
 
     <div class="help-section">
@@ -265,38 +232,38 @@
     <div class="help-section">
       <div class="help-heading">Pattern Legs</div>
       <p>The standard pattern has three legs — Downwind (orange), Base (teal), Final (yellow) — each with an independent <b>Crab</b> or <b>Drift</b> setting. Additional legs above the downwind can be added with the <b>+ Add Leg</b> button in the Pattern Legs header — see <i>Additional Legs</i> below.</p>
-      <p style="margin-top:4px;"><b>Crab:</b> the app solves for a steered heading that produces the target ground track, accounting for wind. A dashed white line shows the steered heading direction when it differs meaningfully from the ground track.</p>
-      <p style="margin-top:4px;"><b>Drift:</b> the canopy is steered on a nominal heading and the wind carries it toward the turn point. A dashed white line shows the steered heading direction when wind drift is significant.</p>
-      <p style="margin-top:4px;">Defaults: Downwind = Crab, Base = Drift, Final = Crab.</p>
-      <p style="margin-top:4px;"><b>Z Pattern:</b> a checkbox on the Downwind leg (only shown when no extra legs are present). When enabled, the downwind leg flies in the same direction as the final approach leg — rather than the opposite direction as in a normal pattern. This produces a Z-shaped pattern instead of the usual C shape, and is used when the opening point is downwind of the target so the jumper needs to fly toward the landing area before turning base. Z pattern is independent of the Crab/Drift setting.</p>
+      <p class="help-para"><b>Crab:</b> the app solves for a steered heading that produces the target ground track, accounting for wind. A dashed white line shows the steered heading direction when it differs meaningfully from the ground track.</p>
+      <p class="help-para"><b>Drift:</b> the canopy is steered on a nominal heading and the wind carries it toward the turn point. A dashed white line shows the steered heading direction when wind drift is significant.</p>
+      <p class="help-para">Defaults: Downwind = Crab, Base = Drift, Final = Crab.</p>
+      <p class="help-para"><b>Z Pattern:</b> a checkbox on the Downwind leg (only shown when no extra legs are present). When enabled, the downwind leg flies in the same direction as the final approach leg — rather than the opposite direction as in a normal pattern. This produces a Z-shaped pattern instead of the usual C shape, and is used when the opening point is downwind of the target so the jumper needs to fly toward the landing area before turning base. Z pattern is independent of the Crab/Drift setting.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Additional Legs</div>
       <p>Tap <b>+ Add Leg</b> (in the Pattern Legs header) to add a leg above the downwind — useful for high opening altitudes, long spot, or multi-leg approaches. Legs are numbered 4, 5, … and displayed highest-altitude first. Each extra leg has:</p>
-      <p style="margin-top:6px;"><b>Alt (ft AGL)</b> — the altitude at which this leg begins. Must be at least 100 ft above the leg below it; the bottom-most extra leg must be at least 100 ft above the Downwind entry altitude.</p>
-      <p style="margin-top:4px;"><b>Approach Hdg</b> — the nominal heading the canopy flies on this leg (0–359°). Defaults to a 90° turn from the leg below, in the circuit direction. Crab mode solves a steered heading to achieve this ground track; Drift mode steers the nominal heading directly.</p>
-      <p style="margin-top:4px;"><b>Crab / Drift</b> — same as standard legs. Each extra leg is independent.</p>
-      <p style="margin-top:4px;"><b>Custom performance</b> — per-leg canopy glide/speed/sink, same as standard legs.</p>
-      <p style="margin-top:4px;">The <b>×</b> remove button only appears on the most recently added leg. Remove legs from the top down.</p>
+      <p class="help-para-lg"><b>Alt (ft AGL)</b> — the altitude at which this leg begins. Must be at least 100 ft above the leg below it; the bottom-most extra leg must be at least 100 ft above the Downwind entry altitude.</p>
+      <p class="help-para"><b>Approach Hdg</b> — the nominal heading the canopy flies on this leg (0–359°). Defaults to a 90° turn from the leg below, in the circuit direction. Crab mode solves a steered heading to achieve this ground track; Drift mode steers the nominal heading directly.</p>
+      <p class="help-para"><b>Crab / Drift</b> — same as standard legs. Each extra leg is independent.</p>
+      <p class="help-para"><b>Custom performance</b> — per-leg canopy glide/speed/sink, same as standard legs.</p>
+      <p class="help-para">The <b>×</b> remove button only appears on the most recently added leg. Remove legs from the top down.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Canopy Performance</div>
       <p>The <b>Default Canopy Performance</b> section (in Settings) sets glide ratio, horizontal speed, and vertical speed — enter any two and the third is calculated. Use still-air, no-wind values. Vertical speed equals sink rate. These values are available from FlySight, Deep and Steep Insight, and similar logging devices.</p>
-      <p style="margin-top:4px;">Each leg also has an optional <b>Custom performance</b> checkbox. When enabled, that leg uses its own glide/speed/sink values instead of the defaults — useful for modeling braked flight on downwind and base with a full-flight final, for example. Enabling it pre-fills from the current defaults.</p>
+      <p class="help-para">Each leg also has an optional <b>Custom performance</b> checkbox. When enabled, that leg uses its own glide/speed/sink values instead of the defaults — useful for modeling braked flight on downwind and base with a full-flight final, for example. Enabling it pre-fills from the current defaults.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Pattern Altitudes</div>
       <p>Set entry, base turn, and final turn altitudes (ft AGL) in Settings. These define the length of each leg — the higher the entry altitude and the better the glide ratio, the longer the pattern. The landing target is always 0 ft AGL.</p>
-      <p style="margin-top:4px;">Altitudes must be strictly ordered with a minimum 100 ft gap between each leg: Enter &gt; Base + 100, Base &gt; Final + 100. Extra legs above the downwind must each be at least 100 ft apart. The app shows an error in the status bar if any altitude constraint is violated.</p>
+      <p class="help-para">Altitudes must be strictly ordered with a minimum 100 ft gap between each leg: Enter &gt; Base + 100, Base &gt; Final + 100. Extra legs above the downwind must each be at least 100 ft apart. The app shows an error in the status bar if any altitude constraint is violated.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Safety Regions (Canopy)</div>
       <p>Three amber rings around the pattern entry point show where a canopy pilot must be at each altitude milestone to reach the entry point under canopy. All rings shift in the wind drift direction to account for accumulated drift during descent. Region Buffer (%) in Settings shrinks all rings by that fraction as a safety margin.</p>
-      <p style="margin-top:4px;">The yellow ring marks the required opening altitude position — you must open within this ring to reach pattern entry under canopy.</p>
+      <p class="help-para">The yellow ring marks the required opening altitude position — you must open within this ring to reach pattern entry under canopy.</p>
     </div>
 
     <div class="help-section">
@@ -307,20 +274,20 @@
     <div class="help-section">
       <div class="help-heading">Jump Run</div>
       <p>A suggested jump run is drawn through the exit region center, into the wind at exit altitude. The <span style="color:var(--accent2)">▲</span> marks the into-wind heading — tap or click it to snap. The heading field is also directly editable.</p>
-      <p style="margin-top:4px;"><b>Exit Alt / Opening Alt:</b> exit altitude must be above opening altitude — the app shows an error if they conflict. These altitudes drive the freefall drift integration and the exit/opening safety rings.</p>
-      <p style="margin-top:4px;"><b>Freefall Speed:</b> vertical descent speed during freefall (mph). Horizontal drift from wind is integrated across altitude bands from exit to opening altitude.</p>
-      <p style="margin-top:4px;"><b>Aircraft IAS:</b> indicated airspeed of the jump aircraft (kts), used to compute jump run ground speed and exit separation timing.</p>
-      <p style="margin-top:4px;"><b>Region Buffer (%):</b> shrinks all safety rings by this fraction as a conservative margin.</p>
-      <p style="margin-top:4px;"><b>Offset:</b> perpendicular distance from the landing spot to the jump run line. Auto-calculated when blank (shown in muted color). Enter a value to override — positive is right of flight path looking forward. Delete the value to return to auto.</p>
-      <p style="margin-top:4px;"><b>🟢/🔴 green/red light distances:</b> how far before (🟢) and after (🔴) the aircraft is directly over the landing area when it crosses the exit circle boundary. Measured along the jump run.</p>
-      <p style="margin-top:4px;"><b>Exit separation:</b> suggested time between groups based on the exit separation distance setting and jump run ground speed.</p>
+      <p class="help-para"><b>Exit Alt / Opening Alt:</b> exit altitude must be above opening altitude — the app shows an error if they conflict. These altitudes drive the freefall drift integration and the exit/opening safety rings.</p>
+      <p class="help-para"><b>Freefall Speed:</b> vertical descent speed during freefall (mph). Horizontal drift from wind is integrated across altitude bands from exit to opening altitude.</p>
+      <p class="help-para"><b>Aircraft IAS:</b> indicated airspeed of the jump aircraft (kts), used to compute jump run ground speed and exit separation timing.</p>
+      <p class="help-para"><b>Region Buffer (%):</b> shrinks all safety rings by this fraction as a conservative margin.</p>
+      <p class="help-para"><b>Offset:</b> perpendicular distance from the landing spot to the jump run line. Auto-calculated when blank (shown in muted color). Enter a value to override — positive is right of flight path looking forward. Delete the value to return to auto.</p>
+      <p class="help-para"><b>🟢/🔴 green/red light distances:</b> how far before (🟢) and after (🔴) the aircraft is directly over the landing area when it crosses the exit circle boundary. Measured along the jump run.</p>
+      <p class="help-para"><b>Exit separation:</b> suggested time between groups based on the exit separation distance setting and jump run ground speed.</p>
     </div>
 
     <div class="help-section">
       <div class="help-heading">Winds Aloft</div>
       <p>Winds are fetched from Open-Meteo (GFS). Teal rows are real model data points at pressure levels or fixed heights; grey rows are interpolated. The surface wind comes from the 10m wind field. Winds are cached for 20 minutes — the app checks every minute and automatically fetches fresh data when the cache expires. Individual values in the wind table can be edited manually to test different wind scenarios.</p>
-      <p style="margin-top:4px;">The <b>Forecast</b> slider lets you view winds up to +12 hours ahead. The effective forecast time appears in the center of the top bar — muted for current hour, teal for a future hour. Moving to a new location resets the forecast to the current hour.</p>
-      <p style="margin-top:4px;">Pull down on the top bar to manually refresh wind data.</p>
+      <p class="help-para">The <b>Forecast</b> slider lets you view winds up to +12 hours ahead. The effective forecast time appears in the center of the top bar — muted for current hour, teal for a future hour. Moving to a new location resets the forecast to the current hour.</p>
+      <p class="help-para">Pull down on the top bar to manually refresh wind data.</p>
     </div>
 
     <div class="help-section">
@@ -337,78 +304,65 @@
       <div class="help-heading">Terms &amp; Disclaimer</div>
       <p style="color:var(--accent);font-weight:700;margin-bottom:6px;">DEVELOPMENT VERSION — NOT FOR OPERATIONAL USE</p>
       <p>This application is experimental software provided for informational and educational purposes only. It must not be used to plan, execute, or inform any actual skydive, parachute operation, aircraft jump run, or any other aviation or parachuting activity.</p>
-      <p style="margin-top:6px;"><b>Assumption of Risk.</b> Skydiving, parachuting, and all related activities involve extreme risk of serious injury or death. You are solely responsible for all decisions made before, during, and after any jump.</p>
-      <p style="margin-top:6px;"><b>No Warranty.</b> All outputs — wind data, pattern geometry, safety regions, jump run suggestions — are provided "as is" and may be inaccurate, incomplete, or wrong. Do not rely on them.</p>
-      <p style="margin-top:6px;"><b>Release of Liability.</b> To the fullest extent permitted by law, you release the developer, contributors, and data providers from any and all claims arising from your use of this application.</p>
-      <p style="margin-top:6px;"><b>Not a substitute</b> for proper training, current currency, or the judgment of a qualified instructor or safety officer.</p>
+      <p class="help-para-lg"><b>Assumption of Risk.</b> Skydiving, parachuting, and all related activities involve extreme risk of serious injury or death. You are solely responsible for all decisions made before, during, and after any jump.</p>
+      <p class="help-para-lg"><b>No Warranty.</b> All outputs — wind data, pattern geometry, safety regions, jump run suggestions — are provided "as is" and may be inaccurate, incomplete, or wrong. Do not rely on them.</p>
+      <p class="help-para-lg"><b>Release of Liability.</b> To the fullest extent permitted by law, you release the developer, contributors, and data providers from any and all claims arising from your use of this application.</p>
+      <p class="help-para-lg"><b>Not a substitute</b> for proper training, current currency, or the judgment of a qualified instructor or safety officer.</p>
     </div>
 
-    <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;">
+    <div class="help-footer">
       Pattern Planner · Wind data: open-meteo.com · DZ data: USPA
     </div>
   </div>
 </div>
 
 <!-- WAIVER MODAL -->
-<div id="waiver-modal" style="
-  display:none;position:fixed;inset:0;z-index:2000;
-  background:rgba(0,0,0,0.85);backdrop-filter:blur(4px);
-  align-items:center;justify-content:center;padding:16px;">
-  <div style="
-    background:var(--panel);border:1px solid var(--border);border-radius:12px;
-    width:min(480px,100%);max-height:90vh;display:flex;flex-direction:column;
-    overflow:hidden;">
-    <div style="padding:16px 18px 10px;border-bottom:1px solid var(--border);flex-shrink:0;">
-      <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);margin-bottom:4px;">Pattern Planner</div>
-      <div style="font-size:14px;font-weight:700;color:var(--text);">Terms of Use &amp; Disclaimer</div>
+<div id="waiver-modal" class="waiver-modal">
+  <div class="waiver-card">
+    <div class="waiver-header">
+      <div class="waiver-brand">Pattern Planner</div>
+      <div class="waiver-title">Terms of Use &amp; Disclaimer</div>
     </div>
-    <div style="overflow-y:auto;padding:16px 18px;flex:1;-webkit-overflow-scrolling:touch;">
+    <div class="waiver-body">
 
-      <div style="background:rgba(232,77,77,0.15);border:1px solid rgba(232,77,77,0.4);border-radius:6px;padding:10px 12px;margin-bottom:14px;">
-        <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#e84d4d;margin-bottom:4px;">Development Version — Not For Operational Use</div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.6;">This is experimental software under active development. It has not been tested, validated, or certified for any purpose. It must not be used to plan, execute, or inform any actual skydive, parachute operation, aircraft jump run, or any other aviation or parachuting activity.</div>
+      <div class="waiver-warning">
+        <div class="waiver-warning-title">Development Version — Not For Operational Use</div>
+        <div class="waiver-warning-text">This is experimental software under active development. It has not been tested, validated, or certified for any purpose. It must not be used to plan, execute, or inform any actual skydive, parachute operation, aircraft jump run, or any other aviation or parachuting activity.</div>
       </div>
 
-      <div style="font-size:12px;color:var(--text);line-height:1.7;">
+      <div class="waiver-content">
 
-        <div style="font-weight:700;color:var(--accent2);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;">1. Assumption of Risk</div>
-        <p style="color:var(--muted);font-size:11px;margin-bottom:10px;">Skydiving, parachuting, BASE jumping, and all related activities are inherently dangerous and involve serious risk of injury, permanent disability, or death. You acknowledge that you are a voluntary participant who is solely responsible for all decisions made before, during, and after any jump or flight activity. No output from this application reduces, transfers, or shares that responsibility.</p>
+        <div class="waiver-section-title">1. Assumption of Risk</div>
+        <p class="waiver-section-text">Skydiving, parachuting, BASE jumping, and all related activities are inherently dangerous and involve serious risk of injury, permanent disability, or death. You acknowledge that you are a voluntary participant who is solely responsible for all decisions made before, during, and after any jump or flight activity. No output from this application reduces, transfers, or shares that responsibility.</p>
 
-        <div style="font-weight:700;color:var(--accent2);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;">2. No Warranty; Accuracy Not Guaranteed</div>
-        <p style="color:var(--muted);font-size:11px;margin-bottom:10px;">This application and all of its outputs — including but not limited to wind data, pattern geometry, safety region estimates, jump run suggestions, green/red light distances, and canopy performance calculations — are provided "AS IS" and "AS AVAILABLE" without warranty of any kind, express or implied. Wind forecasts are derived from third-party model data that may be delayed, inaccurate, or unavailable. All calculations rely on assumptions and simplifications that may not reflect actual atmospheric or flight conditions. Do not rely on any output of this application for any operational decision.</p>
+        <div class="waiver-section-title">2. No Warranty; Accuracy Not Guaranteed</div>
+        <p class="waiver-section-text">This application and all of its outputs — including but not limited to wind data, pattern geometry, safety region estimates, jump run suggestions, green/red light distances, and canopy performance calculations — are provided "AS IS" and "AS AVAILABLE" without warranty of any kind, express or implied. Wind forecasts are derived from third-party model data that may be delayed, inaccurate, or unavailable. All calculations rely on assumptions and simplifications that may not reflect actual atmospheric or flight conditions. Do not rely on any output of this application for any operational decision.</p>
 
-        <div style="font-weight:700;color:var(--accent2);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;">3. Release of Liability</div>
-        <p style="color:var(--muted);font-size:11px;margin-bottom:10px;">To the fullest extent permitted by applicable law in your jurisdiction, you hereby release, waive, discharge, and covenant not to sue the developer of this application, its contributors, affiliates, data providers, and any associated parties (collectively, "Released Parties") from any and all liability, claims, demands, actions, or causes of action whatsoever, including claims based on negligence, arising out of or related to your use of or reliance on this application, whether or not such claims are known, suspected, or unanticipated at the time of this agreement.</p>
+        <div class="waiver-section-title">3. Release of Liability</div>
+        <p class="waiver-section-text">To the fullest extent permitted by applicable law in your jurisdiction, you hereby release, waive, discharge, and covenant not to sue the developer of this application, its contributors, affiliates, data providers, and any associated parties (collectively, "Released Parties") from any and all liability, claims, demands, actions, or causes of action whatsoever, including claims based on negligence, arising out of or related to your use of or reliance on this application, whether or not such claims are known, suspected, or unanticipated at the time of this agreement.</p>
 
-        <div style="font-weight:700;color:var(--accent2);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;">4. Indemnification</div>
-        <p style="color:var(--muted);font-size:11px;margin-bottom:10px;">You agree to indemnify, defend, and hold harmless the Released Parties from and against any claims, damages, losses, costs, or expenses (including reasonable legal fees) arising out of your use of this application, your violation of these terms, or your violation of any applicable law or regulation.</p>
+        <div class="waiver-section-title">4. Indemnification</div>
+        <p class="waiver-section-text">You agree to indemnify, defend, and hold harmless the Released Parties from and against any claims, damages, losses, costs, or expenses (including reasonable legal fees) arising out of your use of this application, your violation of these terms, or your violation of any applicable law or regulation.</p>
 
-        <div style="font-weight:700;color:var(--accent2);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;">5. Not a Substitute for Training or Judgment</div>
-        <p style="color:var(--muted);font-size:11px;margin-bottom:10px;">This application is not a substitute for proper skydiving training, current currency, situational awareness, or the judgment of a qualified instructor, coach, or safety officer. Always follow the rules and guidance of your drop zone, your national governing body (e.g., USPA), and applicable aviation regulations.</p>
+        <div class="waiver-section-title">5. Not a Substitute for Training or Judgment</div>
+        <p class="waiver-section-text">This application is not a substitute for proper skydiving training, current currency, situational awareness, or the judgment of a qualified instructor, coach, or safety officer. Always follow the rules and guidance of your drop zone, your national governing body (e.g., USPA), and applicable aviation regulations.</p>
 
-        <div style="font-weight:700;color:var(--accent2);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;">6. Governing Law; Severability</div>
-        <p style="color:var(--muted);font-size:11px;margin-bottom:10px;">These terms shall be governed by applicable law. If any provision of these terms is found to be unenforceable in any jurisdiction, that provision shall be modified to the minimum extent necessary to make it enforceable, and the remaining provisions shall continue in full force. The unenforceability of any provision in one jurisdiction shall not affect its enforceability elsewhere.</p>
+        <div class="waiver-section-title">6. Governing Law; Severability</div>
+        <p class="waiver-section-text">These terms shall be governed by applicable law. If any provision of these terms is found to be unenforceable in any jurisdiction, that provision shall be modified to the minimum extent necessary to make it enforceable, and the remaining provisions shall continue in full force. The unenforceability of any provision in one jurisdiction shall not affect its enforceability elsewhere.</p>
 
-        <div style="font-weight:700;color:var(--accent2);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;">7. Updates to These Terms</div>
-        <p style="color:var(--muted);font-size:11px;margin-bottom:10px;">These terms may be updated from time to time. If the terms are updated, you will be asked to review and agree again before continued use of the application.</p>
+        <div class="waiver-section-title">7. Updates to These Terms</div>
+        <p class="waiver-section-text">These terms may be updated from time to time. If the terms are updated, you will be asked to review and agree again before continued use of the application.</p>
 
       </div>
     </div>
-    <div style="padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:8px;">
-      <div style="font-size:10px;color:var(--muted);line-height:1.5;font-family:'Space Mono',monospace;">
+    <div class="waiver-footer">
+      <div class="waiver-confirm-text">
         By tapping "I Understand and Agree" you confirm that you have read and understood these terms and agree to be bound by them.
       </div>
-      <button onclick="agreeToWaiver()" style="
-        width:100%;padding:12px;background:var(--accent);color:var(--bg);border:none;
-        border-radius:6px;font-family:'Barlow Condensed',sans-serif;font-size:14px;
-        font-weight:700;letter-spacing:0.06em;cursor:pointer;">
+      <button onclick="agreeToWaiver()" class="waiver-agree-btn">
         I Understand and Agree
       </button>
-      <button onclick="declineWaiver()" style="
-        width:100%;padding:10px;background:transparent;color:var(--muted);
-        border:1px solid var(--border);border-radius:6px;
-        font-family:'Barlow Condensed',sans-serif;font-size:12px;
-        font-weight:600;letter-spacing:0.06em;cursor:pointer;">
+      <button onclick="declineWaiver()" class="waiver-decline-btn">
         I Do Not Agree (exit)
       </button>
     </div>
@@ -424,15 +378,15 @@
   <div class="overlay-body">
     <button class="fetch-btn" id="fetch-btn" onclick="fetchWinds(true).then(calculate)" disabled>⬇ Refresh Winds</button>
     <div class="fetch-status" id="fetch-status">Set landing point on map first</div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-      <span style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap;flex-shrink:0;">Forecast</span>
+    <div class="forecast-row">
+      <span class="forecast-row-label">Forecast</span>
       <input type="range" id="forecast-offset" min="0" max="12" step="1" value="0"
-        style="flex:1;accent-color:var(--accent2);" oninput="onForecastOffsetChange(this.value)">
-      <span id="forecast-offset-label" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--accent2);white-space:nowrap;min-width:32px;text-align:right;">Now</span>
+        class="forecast-row-range" oninput="onForecastOffsetChange(this.value)">
+      <span id="forecast-offset-label">Now</span>
     </div>
     <div class="wind-header"><span>Alt AGL</span><span>Dir °T</span><span>Spd kts</span><span>°C</span></div>
     <div id="wind-rows"></div>
-    <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;line-height:1.6;">
+    <div class="winds-source-note">
       Source: <a href="https://open-meteo.com" target="_blank" style="color:var(--accent2);text-decoration:none;">open-meteo.com</a> GFS.<br>
       Teal rows: real model data · Grey rows: interpolated.<br>
       Values are editable — tap any cell to adjust.
@@ -448,7 +402,10 @@
 <script src="js/wind.js"></script>
 <script src="js/calculate.js"></script>
 <script src="js/draw.js"></script>
-<script src="js/ui.js"></script>
+<script src="js/ui-overlays.js"></script>
+<script src="js/ui-heading.js"></script>
+<script src="js/ui-canopy.js"></script>
+<script src="js/ui-legs.js"></script>
 <script src="js/search.js"></script>
 <script src="js/app.js"></script>
 </body>

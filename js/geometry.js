@@ -31,9 +31,14 @@ function distMiles(a, b) {
 
 // ── Wind interpolation ────────────────────────────────────────────────────────
 
-// Linear wind interpolation between two altitude levels.
-// sorted: array of {altFt, dirDeg, speedKts} sorted ascending by altFt
-// targetAlt: MSL altitude in feet
+/**
+ * Linear interpolation of wind between two altitude levels.
+ * Handles circular direction interpolation (shortest angular path through ±180°).
+ * Clamps to nearest endpoint for altitudes outside the sorted array range.
+ * @param {Array<{altFt: number, dirDeg: number, speedKts: number}>} sorted - Wind levels sorted ascending by altFt
+ * @param {number} targetAlt - MSL altitude to interpolate at (ft)
+ * @returns {{dir: number, speed: number}} Interpolated wind direction (° true, rounded) and speed (kts, rounded)
+ */
 function interpolateWind(sorted, targetAlt) {
   if (!sorted.length) return {dir: 0, speed: 0};
   if (targetAlt <= sorted[0].altFt) return {dir: sorted[0].dirDeg, speed: sorted[0].speedKts};
@@ -122,9 +127,13 @@ function getTempAtAGL(agl) {
   return null;
 }
 
-// TAS/IAS ratio at a given AGL altitude.
-// Uses actual temperature from API (when available) and standard atmosphere pressure.
-// Returns 1.0 at field elevation; increases with altitude (~2% per 1000 ft at ISA).
+/**
+ * Compute the TAS/IAS ratio at a given AGL altitude using the ISA atmosphere model.
+ * Uses actual temperature from API data when available, falls back to ISA standard temp.
+ * Reference: ICAO standard atmosphere — pressure ratio exponent 5.2561, lapse 6.5 K/km.
+ * @param {number} agl - Altitude above ground level (ft)
+ * @returns {number} TAS/IAS ratio (1.0 at field elevation, ~1.02 per 1000 ft at ISA)
+ */
 function tasFactor(agl) {
   const mslFt = agl + state.fieldElevFt;
   if (mslFt <= 0) return 1;

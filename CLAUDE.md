@@ -13,14 +13,17 @@ The application is split across multiple files:
 ```
 dz-pattern.html      — slim HTML shell (~485 lines); has ~250 inline style attrs (known debt)
 css/app.css          — all styles; uses CSS custom properties for theming
-js/config.js         — physical constants, API config, LEG_DEFS, EXTRA_LEG_COLORS
+js/config.js         — physical constants, API config, LEG_DEFS, EXTRA_LEG_COLORS, @typedef annotations
 js/state.js          — global `state` object, PERSIST_INPUTS list, STORAGE_VERSION
 js/storage.js        — localStorage persistence, wind cache, loadSettings()/saveSettings()
 js/geometry.js       — spherical math, wind interpolation, TAS factor (ISA model)
 js/wind.js           — fetchElevation(), fetchWinds(), processWindData(), buildWindTable()
 js/calculate.js      — integratedDrift(), avgWindInBand(), calculate()
 js/draw.js           — drawPattern() and all Leaflet polyline/marker helpers
-js/ui.js             — heading bar, leg config, canopy inputs, jump run controls, toggleLayer()
+js/ui-overlays.js    — setStatus(), toggleOverlay(), toggleLayer(), setHand(), showLegend()
+js/ui-heading.js     — heading bar, forecast offset controls, jump run heading controls
+js/ui-canopy.js      — updateCanopyCalc(), updateLegCanopyCalc(), getLegPerf(), setLegMode()
+js/ui-legs.js        — renderLegs(), addExtraLeg(), removeExtraLeg(), leg alt/hdg handlers
 js/search.js         — DZ search, Nominatim geocoding, goToMyLocation()
 js/app.js            — map init, placeTarget(), waiver, init sequence
 ```
@@ -37,9 +40,12 @@ Scripts are loaded in this order at the bottom of `<body>` — order matters:
 6. `js/wind.js`
 7. `js/calculate.js`
 8. `js/draw.js`
-9. `js/ui.js` — calls `renderLegs()` at module load time (before app.js)
-10. `js/search.js` — IIFE fetches USPA DZ list on load
-11. `js/app.js` — runs `initStorage()`, `loadSettings()`, attaches event listeners
+9. `js/ui-overlays.js` — overlay/layer/hand toggles, status pill
+10. `js/ui-heading.js` — heading bar, forecast controls, jump run heading
+11. `js/ui-canopy.js` — canopy calc, leg mode toggles; defines `legLastEdited`
+12. `js/ui-legs.js` — leg card rendering; calls `renderLegs()` at load time
+13. `js/search.js` — IIFE fetches USPA DZ list on load
+14. `js/app.js` — runs `initStorage()`, `loadSettings()`, attaches event listeners
 
 ### Global Scope
 
@@ -73,6 +79,31 @@ A single `state` object (in `js/state.js`) holds all application state:
 
 Settings are persisted to `localStorage` with prefix `pp_` and a version key (`pp_v`) to handle breaking changes. Wind and elevation data are cached with a 20-minute TTL using key format `pp_wc_{lat.toFixed(2)},{lng.toFixed(2)}`.
 
+### localStorage Schema
+
+All keys use the `pp_` prefix (via `storageKey(k)` helper in `storage.js`). A version mismatch in `pp_storage_version` wipes all `pp_` keys except `pp_waiver_version`.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `pp_storage_version` | string | Storage schema version — wipes all settings on mismatch |
+| `pp_waiver_version` | string | Waiver agreement version — preserved across storage resets |
+| `pp_hand` | `'left'\|'right'` | Pattern hand (L/R traffic) |
+| `pp_layers` | JSON object | Layer visibility flags (keys match `state.layers`) |
+| `pp_leg_modes` | JSON object | Per-leg crab/drift mode (keys: `dw`, `b`, `f`, extra leg ids) |
+| `pp_leg_custom` | JSON object | Per-leg custom performance enabled flags |
+| `pp_z_pattern` | `'true'\|'false'` | Z-pattern toggle state |
+| `pp_extra_legs` | JSON array | Extra leg metadata: `[{id, color, alt, hdg}]` |
+| `pp_next_xl_idx` | string (number) | Counter for generating unique extra leg IDs |
+| `pp_leg_hdg_override` | JSON object | Per-leg heading overrides (`null` = auto) |
+| `pp_dz_list` | JSON `{list, ts}` | Cached USPA DZ list (30-day TTL) |
+| `pp_wind_cache` | JSON object | Wind cache keyed by `lat,lng` grid (20-min TTL) |
+| `pp_{id}` | string (number) | One entry per id in `PERSIST_INPUTS` (alt, canopy, jump run params) |
+| `pp_{leg}_{field}` | string (number) | Per-leg canopy perf: `pp_dw_glide`, `pp_b_speed`, `pp_f_sink`, etc. |
+
+**Cache key format**: `pp_wc_{lat.toFixed(2)},{lng.toFixed(2)}` — ~1.1 km grid cells.
+
+**Version migration**: `initStorage()` in `storage.js` compares `pp_storage_version` to `STORAGE_VERSION` constant; on mismatch it wipes all `pp_*` keys (preserving `pp_waiver_version`) and writes the new version.
+
 ### Data Flow
 
 1. User places a landing target on the Leaflet map
@@ -96,19 +127,51 @@ Settings are persisted to `localStorage` with prefix `pp_` and a version key (`p
 |------|------|-----------|
 | Wind fetching & processing | `wind.js` | `fetchWinds()`, `processWindData()`, `interpolateWind()`, `buildWindTable()` |
 | Pattern calculation | `calculate.js` | `calculate()`, `integratedDrift()`, `avgWindInBand()` |
-| Canopy performance | `ui.js` | Per-leg glide ratio / airspeed / sink rate (any 2 compute the 3rd) |
+| Canopy performance | `ui-canopy.js` | `updateCanopyCalc()`, `updateLegCanopyCalc()`, `getLegPerf()` |
+| Leg mode toggles | `ui-canopy.js` | `setLegMode()`, `toggleZPattern()`, `updatePerfSections()` |
 | Map drawing | `draw.js` | Leaflet polylines for pattern legs, exit circle, jump run overlay |
-| UI / overlays | `ui.js` | `toggleOverlay()`, `onHeadingSlider()`, `toggleSearch()` |
+| UI overlays & layers | `ui-overlays.js` | `toggleOverlay()`, `closeOverlay()`, `toggleLayer()`, `setHand()`, `setStatus()` |
+| Heading & jump run controls | `ui-heading.js` | `onHeadingSlider()`, `updateWindPyramid()`, `autoSetJumpRunHeading()` |
+| Leg card rendering | `ui-legs.js` | `renderLegs()`, `addExtraLeg()`, `removeExtraLeg()`, `onLegAlt()` |
 | Orchestration | `app.js` | `placeTarget()`, map init, waiver, init sequence |
 | Persistence | `storage.js` | All settings read/written via `localStorage`; wind cache has 20-min TTL |
 
 ## CSS Architecture
 
 - All styles in `css/app.css`, organized by component with `/* ── SECTION ── */` comments
-- 12 CSS custom properties at `:root` for theming (dark theme default)
 - **Known debt**: ~250 inline style declarations remain in `dz-pattern.html` (waiver modal, forecast controls, heading bar, help overlay). These should be extracted to named CSS classes.
 - Button variants: `.zoom-btn`, `.map-icon-btn`, `.fetch-btn`, `.add-leg-btn`, `.leg-remove-btn`, `.leg-mode-btn` — share font-family/border-radius/cursor/transition but not yet consolidated to a base class
 - No `@media` breakpoints — uses CSS `min()` for responsive overlay widths
+
+### CSS Custom Properties (`:root`)
+
+| Property | Value | Purpose |
+|----------|-------|---------|
+| `--bg` | `#0a0c0f` | Page background |
+| `--panel` | `#12151aee` | Overlay panel background (semi-transparent) |
+| `--panel2` | `#1a1e25` | Secondary panel / input background |
+| `--border` | `#2a2f3a` | All borders and dividers |
+| `--accent` | `#e8f44d` | Primary accent (yellow) — final leg, heading indicator |
+| `--accent2` | `#4df4c8` | Secondary accent (teal) — base leg, jump run, winds |
+| `--text` | `#d8dde8` | Primary text |
+| `--muted` | `#5a6070` | Muted/secondary text, labels |
+| `--final-color` | `#e8f44d` | Final leg polyline color |
+| `--base-color` | `#4df4c8` | Base leg polyline color |
+| `--downwind-color` | `#f4944d` | Downwind leg polyline color |
+| `--header-h` | `48px` | Header bar height (used for map top offset) |
+| `--heading-bar-h` | `52px` | Heading bar height (used for map bottom offset) |
+| `--icon-bar-w` | `48px` | Icon bar width (used for overlay right offset) |
+
+### CSS Class Naming Conventions
+
+- Layout containers: `#header`, `#map`, `#icon-bar`, `#heading-bar`, `#zoom-bar`
+- Overlay panels: `.overlay-panel`, `.overlay-header`, `.overlay-body`, `.overlay-close`
+- Input groups: `.input-grid`, `.input-group` — shared across settings and leg cards
+- Button families: `.zoom-btn`, `.map-icon-btn`, `.fetch-btn`, `.add-leg-btn`, `.leg-remove-btn`, `.leg-mode-btn`, `.layer-toggle`
+- Wind table: `.wind-row`, `.wind-header`, `.alt-label`, `.temp-label`
+- Leg details: `.leg-details`, `.leg-details-summary`, `.leg-details-arrow`, `.leg-details-body`
+- Help overlay: `.help-section`, `.help-heading`
+- Utility: `.field-note`, `.section-label`, `.hand-toggle`
 
 ## Common Modification Recipes
 
@@ -126,7 +189,7 @@ Settings are persisted to `localStorage` with prefix `pp_` and a version key (`p
 
 ### Adding a new pattern leg type
 1. Add an entry to `LEG_DEFS` in `js/config.js` (key, label, color, altitude config)
-2. The UI leg card is auto-generated by `renderLegs()` in `ui.js`
+2. The UI leg card is auto-generated by `renderLegs()` in `js/ui-legs.js`
 3. Add calculation logic in `calculate.js` — follow the existing base/downwind pattern
 4. Add drawing logic in `draw.js` — add polyline with the leg's color
 
@@ -137,14 +200,14 @@ Settings are persisted to `localStorage` with prefix `pp_` and a version key (`p
 
 ## Known Technical Debt
 
-- **Inline styles**: ~250 declarations in HTML should move to `css/app.css`
-- **ui.js is large** (~920 lines): Could split into ui-overlays, ui-legs, ui-canopy, ui-heading
-- **Duplicated canopy calc**: `updateCanopyCalc()` and `updateLegCanopyCalc()` share logic
-- **Magic numbers**: Constants like `6076` (ft/nm), `101.269` (ft/min per kt), `200` (drift step ft) should move to `config.js`
-- **Silent error handling**: Many `try/catch` blocks silently swallow errors
-- **No input validation**: Numeric inputs rely on HTML `min`/`max` only; no JS clamping
-- **renderLegs() rebuilds all DOM**: Should add/remove individual cards instead
+- **Inline styles**: ~250 declarations in HTML should move to `css/app.css`. Priority targets: waiver modal (~60), forecast controls (~30), layers overlay (~20), jump run row (~20), help paragraphs (~20).
+- **Duplicated canopy calc**: `updateCanopyCalc()` and `updateLegCanopyCalc()` share logic — could extract to a shared helper
+- **Magic numbers**: Constants like `6076` (ft/nm), `101.269` (ft/min per kt), `200` (drift step ft), `0.5` (min wind speed threshold), `69` (statute miles per degree) should move to `config.js`
+- **Silent error handling**: Many `try/catch` blocks silently swallow errors; network errors show generic messages
+- **No input validation**: Numeric inputs rely on HTML `min`/`max` only; no JS clamping for out-of-range values
+- **renderLegs() rebuilds all DOM**: Should add/remove individual cards instead of clearing innerHTML each time
 - **Memory leaks**: Event listeners orphaned when `renderLegs()` clears innerHTML
+- **NaN propagation**: `updateWindByIdx()` stores `parseFloat(val)` which can be NaN on non-numeric input
 
 ## Domain Glossary
 

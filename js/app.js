@@ -37,6 +37,12 @@ map.on('click', e => placeTarget(e.latlng.lat, e.latlng.lng));
 
 // ── Target placement ──────────────────────────────────────────────────────────
 
+/**
+ * Set a new landing target, fetch elevation and winds, then calculate the pattern.
+ * Resets manual heading, jump run heading, and forecast offset when moved more than 1 mile.
+ * @param {number} lat - Target latitude (decimal degrees)
+ * @param {number} lng - Target longitude (decimal degrees)
+ */
 async function placeTarget(lat, lng) {
   // Reset manual heading if moving more than 1 mile from current target
   if (state.target && distMiles(state.target, {lat, lng}) > 1.0) {

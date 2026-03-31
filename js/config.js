@@ -1,6 +1,16 @@
 // ─── CONFIG ────────────────────────────────────────────────────────────────────
 // Physical constants and API configuration shared across all modules.
 
+// ── Type annotations (JSDoc @typedef) ────────────────────────────────────────
+// These allow editors and Claude to infer types without running TypeScript.
+
+/** @typedef {{lat: number, lng: number}} LatLng - WGS-84 coordinate pair */
+/** @typedef {{n: number, e: number}} Vec2 - North/east velocity or unit vector */
+/** @typedef {{dN: number, dE: number}} Displacement - Wind drift in feet (north, east) */
+/** @typedef {{dirDeg: number, speedKts: number}} WindLevel - Wind at a single altitude */
+/** @typedef {{along: number, cross: number}} WindComponents - Along-track and cross-track wind (kts) */
+/** @typedef {'crab'|'drift'} LegMode - How wind correction is applied to a leg */
+
 // Earth radius in feet (used for lat/lng offset math)
 const R_FT = 20902231;
 const D2R  = Math.PI / 180;

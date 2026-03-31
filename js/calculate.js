@@ -2,7 +2,14 @@
 // Core pattern solver and wind-integration helpers.
 // Depends on: config, state, geometry, ui (getLegPerf, setStatus, updateJumpRunDisplay)
 
-// Compute integrated wind drift (ft N, ft E) during descent from altTopAGL to altBotAGL.
+/**
+ * Compute integrated wind drift during descent through an altitude band using Riemann sums.
+ * Uses 200 ft steps; TAS factor adjusts effective descent rate with altitude (ISA model).
+ * @param {number} altTopAGL - Top of descent band (ft AGL)
+ * @param {number} altBotAGL - Bottom of descent band (ft AGL)
+ * @param {number} descentFtMin - Vertical speed (ft/min, positive = descending)
+ * @returns {Displacement} Accumulated drift in feet (north positive, east positive)
+ */
 function integratedDrift(altTopAGL, altBotAGL, descentFtMin) {
   if (altTopAGL <= altBotAGL) return {dN: 0, dE: 0};
   const STEP = 200;
@@ -19,7 +26,13 @@ function integratedDrift(altTopAGL, altBotAGL, descentFtMin) {
   return {dN, dE};
 }
 
-// Average wind speed/direction across an altitude band (used for zone labels).
+/**
+ * Average wind speed and direction across an altitude band (used for zone labels).
+ * Samples every 200 ft and returns a scalar average, not a vector average.
+ * @param {number} altBotAGL - Bottom of band (ft AGL)
+ * @param {number} altTopAGL - Top of band (ft AGL)
+ * @returns {{spd: number, dir: number}} Average wind speed (kts, rounded) and direction (° true, rounded)
+ */
 function avgWindInBand(altBotAGL, altTopAGL) {
   const STEP = 200;
   let sumN = 0, sumE = 0, count = 0;
@@ -38,6 +51,12 @@ function avgWindInBand(altBotAGL, altTopAGL) {
 
 // ── Main pattern solver ───────────────────────────────────────────────────────
 
+/**
+ * Main pattern solver. Reads DOM inputs, computes wind-adjusted headings and turn points
+ * for all legs, stores result in state.pattern, then calls drawPattern().
+ * No-op if state.target is null or required inputs are NaN/invalid.
+ * Validates altitude ordering (100 ft minimum gaps) and shows errors via setStatus().
+ */
 function calculate() {
   if (!state.target) return;
 

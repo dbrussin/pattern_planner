@@ -9,6 +9,12 @@ function storageKey(k) { return `pp_${k}`; }
 // Flag prevents saveSettings from firing during the loadSettings restore loop
 let _loadingSettings = false;
 
+/**
+ * Persist all current settings to localStorage.
+ * No-op during loadSettings() restore loop (guarded by _loadingSettings flag).
+ * Saves: PERSIST_INPUTS values, hand, leg modes, canopy perf flags and values,
+ * extra legs metadata, heading overrides, and layer visibility.
+ */
 function saveSettings() {
   if (_loadingSettings) return;
   try {
@@ -63,6 +69,12 @@ function initStorage() {
   } catch(e) {}
 }
 
+/**
+ * Restore all persisted settings from localStorage into DOM inputs and state.
+ * Sets _loadingSettings=true to suppress saveSettings() feedback loops during restore.
+ * Runs renderLegs() to rebuild leg cards after extra legs are restored from storage.
+ * Called once during app init (app.js), after initStorage() and loadWindCache().
+ */
 function loadSettings() {
   _loadingSettings = true;
   try {

@@ -93,8 +93,16 @@ async function fetchWinds(forceRefresh = false) {
 }
 
 // ── Wind data processing ──────────────────────────────────────────────────────
-// Process raw API data for a given forecast offset — no network needed.
 
+/**
+ * Process raw GFS API response into state.winds and surface wind display.
+ * Selects the nearest forecast hour (adjusted by state.forecastOffset), builds
+ * interpolated display rows at every 1 k ft from 1–14 k ft AGL, rebuilds the
+ * wind table, and updates heading/jump run displays. No network needed — operates
+ * on cached rawData returned from fetchWinds().
+ * @param {object} d - Raw GFS API hourly response (contains time array + wind/height/temp fields)
+ * @param {number} fieldElevFt - Field elevation MSL (ft); converts pressure-level altitudes to AGL
+ */
 function processWindData(d, fieldElevFt) {
   // Find base hour index by comparing UTC timestamps so the client's local
   // timezone doesn't affect which forecast hour is selected (BUG-5).

@@ -79,6 +79,17 @@ function legChevron(from, to, trackHdg, color) {
 
 // ── Main draw function ────────────────────────────────────────────────────────
 
+/**
+ * Render the full landing pattern on the Leaflet map using state.pattern.
+ * Clears previous pattern layers, then draws (conditional on state.layers flags):
+ * - Ground track polylines (solid, leg colors) and steered heading lines (dashed)
+ * - Turn point markers and extra leg markers
+ * - Canopy entry rings, opening ring, exit ring (safety zones)
+ * - Jump run line with direction chevron and green/red light label
+ * - Turn altitude labels, leg distance/wind/timing labels, heading labels, directional arrows
+ * - Wind arrow at landing target
+ * Fits map bounds on first draw per target (state.fitDone = false).
+ */
 function drawPattern() {
   clearPattern();
   const p = state.pattern; if (!p) return;
