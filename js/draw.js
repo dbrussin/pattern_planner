@@ -123,7 +123,7 @@ function drawPattern() {
 
   // ── Zones, jump run, labels ──
   {
-    const dRate  = (p.cSpd / p.glide) * 101.269;
+    const dRate  = (p.cSpd / p.glide) * FT_MIN_PER_KT;
     const margin = 1 - p.safetyPct;
 
     // Topmost pattern entry point: highest extra leg entry (if any), else downwind entry

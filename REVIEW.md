@@ -88,7 +88,7 @@ Extract these to named constants in `config.js`:
 // Currently scattered across files:
 200           // integratedDrift step size (ft) — calculate.js:8
 6076          // feet per nautical mile — calculate.js
-101.269       // ft/min per knot — calculate.js
+// 101.269 (FT_MIN_PER_KT) — now in config.js; used in calculate.js and draw.js
 0.5           // minimum wind speed threshold (kt) — calculate.js:99
 20 * 60 * 1000  // wind cache TTL (ms) — storage.js:10
 50            // minimum AGL for wind data (ft) — wind.js:160
