@@ -138,17 +138,18 @@ function getTempAtAGL(agl) {
 function magDeclination(latDeg, lonDeg) {
   // WMM2025 main-field Gauss coefficients g_nm, h_nm (nT), through n=3
   // Source: NOAA WMM2025 coefficient file (epoch 2025.0)
+  // Indexed as G[n][m] and H[n][m] (m=0..n); h_n0 = 0 by definition.
   const G = [
-    [0,          0,         0,          0      ], // n=0 (unused)
-    [0, -29351.8, -1410.8,   0          ],        // n=1
-    [0,  -2556.6,  2951.0,  1580.6,    0],        // n=2
-    [0,   1361.0, -2404.0,  1243.8, 453.6],       // n=3
+    [],                                          // n=0 (unused)
+    [-29351.8, -1410.8,        0,       0],      // n=1: m=0,1
+    [ -2556.6,  2951.0,   1580.6,       0],      // n=2: m=0,1,2
+    [  1361.0, -2404.0,   1243.8,   453.6],      // n=3: m=0,1,2,3
   ];
   const H = [
-    [0,      0,      0,      0     ],
-    [0,      0,   4545.4,    0     ],
-    [0,      0,  -3133.6, -814.8,  0],
-    [0,      0,    56.6,  237.4, -549.1],
+    [],                                          // n=0 (unused)
+    [      0,  4545.4,        0,       0],       // n=1: m=0,1
+    [      0, -3133.6,   -814.8,       0],       // n=2: m=0,1,2
+    [      0,    56.6,    237.4,  -549.1],       // n=3: m=0,1,2,3
   ];
 
   const lat  = latDeg * D2R;
@@ -157,8 +158,8 @@ function magDeclination(latDeg, lonDeg) {
   const cosL = Math.cos(lat);
 
   // Schmidt quasi-normal associated Legendre polynomials P(n,m,sinLat)
-  // and their colatitude derivatives dP(n,m) (with respect to colat = 90° - lat)
-  // Use the standard recursion, evaluated at sinLat = sin(geocentric lat).
+  // and their latitude derivatives dP(n,m) = dP/d(latitude).
+  // Evaluated at sinLat = sin(geocentric lat).
   // For surface approximation, geocentric ≈ geodetic (error < 0.2° at poles).
 
   // Pre-compute P and dP through n=3 using standard recursion
@@ -178,17 +179,18 @@ function magDeclination(latDeg, lonDeg) {
   let Bx = 0, By = 0; // north (+Bx), east (+By) field components
 
   for (let n = 1; n <= 3; n++) {
-    const fn = n + 2; // (a/r)^(n+2) at surface r=a = 1
+    // At Earth's surface (r=a), the (a/r)^(n+2) factor equals 1 for all n.
     for (let m = 0; m <= n; m++) {
-      const gnm = (G[n] && G[n][m]) ? G[n][m] : 0;
-      const hnm = (H[n] && H[n][m]) ? H[n][m] : 0;
+      const gnm = G[n][m] || 0;
+      const hnm = H[n][m] || 0;
       const cosM = Math.cos(m * lon);
       const sinM = Math.sin(m * lon);
-      // North component: -(1/r) * dV/d(colat) at surface → -dP * (g cos + h sin)
-      Bx -= fn * dP[n][m] * (gnm * cosM + hnm * sinM);
-      // East component: (1/(r cosLat)) * dV/dlon → m * P * (-g sin + h cos) / cosLat
+      // North component: X = (1/r) dV/d(lat) = -dP/d(lat) * (g cos + h sin)
+      // dP here is d/d(latitude), so Bx -= dP * (g cos + h sin)
+      Bx -= dP[n][m] * (gnm * cosM + hnm * sinM);
+      // East component: Y = -(1/(r cosLat)) dV/dlon → -m * P * (-g sin + h cos) / cosLat
       if (cosL > 1e-6) {
-        By += fn * m * P[n][m] * (-gnm * sinM + hnm * cosM) / cosL;
+        By -= m * P[n][m] * (-gnm * sinM + hnm * cosM) / cosL;
       }
     }
   }
