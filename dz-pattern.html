@@ -285,8 +285,8 @@
     <div class="help-section">
       <div class="help-heading">Pattern Legs</div>
       <p>The standard pattern has three legs — Downwind (orange), Base (teal), Final (yellow) — each with an independent <b>Crab</b> or <b>Drift</b> setting. Additional legs above the downwind can be added with the <b>+ Add Leg</b> button in the Pattern Legs header — see <i>Additional Legs</i> below.</p>
-      <p class="help-para"><b>Crab:</b> the app solves for a steered heading that produces the target ground track, accounting for wind. A dashed white line shows the steered heading direction when it differs meaningfully from the ground track.</p>
-      <p class="help-para"><b>Drift:</b> the canopy is steered on a nominal heading and the wind carries it toward the turn point. A dashed white line shows the steered heading direction when wind drift is significant.</p>
+      <p class="help-para"><b>Crab:</b> the app solves for a steered heading that produces the target ground track, accounting for wind. A dashed line (colored to match the leg) shows the steered heading direction when it differs meaningfully from the ground track.</p>
+      <p class="help-para"><b>Drift:</b> the canopy is steered on a nominal heading and the wind carries it toward the turn point. A dashed line (colored to match the leg) shows the steered heading direction when wind drift is significant.</p>
       <p class="help-para">Defaults: Downwind = Crab, Base = Drift, Final = Crab.</p>
       <p class="help-para"><b>Z Pattern:</b> a checkbox on the Downwind leg (only shown when no extra legs are present). When enabled, the downwind leg flies in the same direction as the final approach leg — rather than the opposite direction as in a normal pattern. This produces a Z-shaped pattern instead of the usual C shape, and is used when the opening point is downwind of the target so the jumper needs to fly toward the landing area before turning base. Z pattern is independent of the Crab/Drift setting.</p>
     </div>
@@ -295,7 +295,7 @@
       <div class="help-heading">Additional Legs</div>
       <p>Tap <b>+ Add Leg</b> (in the Pattern Legs header) to add a leg above the downwind — useful for high opening altitudes, long spot, or multi-leg approaches. Legs are numbered 4, 5, … and displayed highest-altitude first. Each extra leg has:</p>
       <p class="help-para-lg"><b>Alt (ft AGL)</b> — the altitude at which this leg begins. Must be at least 100 ft above the leg below it; the bottom-most extra leg must be at least 100 ft above the Downwind entry altitude.</p>
-      <p class="help-para"><b>Approach Hdg</b> — the nominal heading the canopy flies on this leg (0–359°). Defaults to a 90° turn from the leg below, in the circuit direction. Crab mode solves a steered heading to achieve this ground track; Drift mode steers the nominal heading directly.</p>
+      <p class="help-para"><b>Approach Hdg</b> — the nominal heading the canopy flies on this leg (0–359°). Defaults to the downwind direction at leg altitude (wind-blows-toward heading); falls back to a 90° turn from the leg below in calm winds. Crab mode solves a steered heading to achieve this ground track; Drift mode steers the nominal heading directly.</p>
       <p class="help-para"><b>Crab / Drift</b> — same as standard legs. Each extra leg is independent.</p>
       <p class="help-para"><b>Custom performance</b> — per-leg canopy glide/speed/sink, same as standard legs.</p>
       <p class="help-para">The <b>×</b> remove button only appears on the most recently added leg. Remove legs from the top down.</p>
@@ -370,7 +370,7 @@
 </div>
 
 <!-- INVITE CODE MODAL -->
-<div id="invite-modal" class="waiver-modal" role="dialog" aria-modal="true" aria-labelledby="invite-title" style="display:none;">
+<div id="invite-modal" class="waiver-modal" role="dialog" aria-modal="true" aria-labelledby="invite-title">
   <div class="waiver-card invite-card">
     <div class="waiver-header">
       <div class="waiver-brand">Pattern Planner</div>
@@ -381,7 +381,7 @@
       <input type="text" id="invite-input" class="invite-input" placeholder="Invite code"
         autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
         onkeydown="if(event.key==='Enter') verifyInviteCode()">
-      <div id="invite-error" class="invite-error" style="display:none;"></div>
+      <div id="invite-error" class="invite-error"></div>
     </div>
     <div class="waiver-footer">
       <button onclick="verifyInviteCode()" class="waiver-agree-btn">Continue</button>

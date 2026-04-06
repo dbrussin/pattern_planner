@@ -1,232 +1,118 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code working on Pattern Planner — a skydiving landing pattern visualization tool.
 
 ## Running the App
 
-Open `dz-pattern.html` directly in any modern web browser — no build step or install required. Works via `file://` protocol; no server needed.
+Open `dz-pattern.html` in any modern browser. No build step, no server — works via `file://`.
 
 ## Architecture
 
-The application is split across multiple files:
+Single-page app: one HTML shell, one CSS file, 12 JS files loaded as classic `<script>` tags (no ES modules — blocked by CORS on `file://`). All functions live in `window` scope; cross-file calls are safe because they happen at runtime after all scripts load.
+
+### File Map
 
 ```
-dz-pattern.html      — slim HTML shell (~410 lines); no inline style attributes
-css/app.css          — all styles; uses CSS custom properties for theming
-js/config.js         — physical constants, conversion constants, API config, LEG_DEFS, EXTRA_LEG_COLORS, debounce(), @typedef annotations
-js/state.js          — global `state` object, PERSIST_INPUTS list, STORAGE_VERSION
-js/storage.js        — localStorage persistence, wind cache, loadSettings()/saveSettings()
-js/geometry.js       — spherical math, wind interpolation, TAS factor (ISA model)
-js/wind.js           — fetchElevation(), fetchWinds(), processWindData(), buildWindTable()
-js/calculate.js      — integratedDrift(), avgWindInBand(), calculate()
-js/draw.js           — drawPattern() and all Leaflet polyline/marker helpers
-js/ui-overlays.js    — setStatus(), toggleOverlay(), toggleLayer(), setHand(), showLegend()
-js/ui-heading.js     — heading bar, forecast offset controls, jump run heading controls
-js/ui-canopy.js      — updateCanopyCalc(), updateLegCanopyCalc(), getLegPerf(), setLegMode()
-js/ui-legs.js        — renderLegs(), addExtraLeg(), removeExtraLeg(), leg alt/hdg handlers
-js/search.js         — DZ search, Nominatim geocoding, goToMyLocation()
-js/app.js            — map init, placeTarget(), waiver, init sequence
+dz-pattern.html      — HTML shell (~485 lines); no inline style attributes
+css/app.css          — all styles; CSS custom properties for theming
+js/config.js         — constants (R_FT, FT_PER_NM, etc.), LEG_DEFS, EXTRA_LEG_COLORS, debounce(), @typedef annotations
+js/state.js          — global `state` object, PERSIST_INPUTS list, STORAGE_VERSION, WAIVER_VERSION
+js/storage.js        — localStorage persistence (save/load/reset), wind cache, storageKey() helper
+js/geometry.js       — spherical math (offsetLL, hdgVec, windVec), wind/temp interpolation, magDeclination(), tasFactor()
+js/wind.js           — fetchElevation(), fetchWinds(), processWindData(), buildWindTable(), auto-refresh
+js/calculate.js      — integratedDrift(), avgWindInBand(), calculate() — main pattern solver
+js/draw.js           — drawPattern(), clearPattern(), Leaflet polyline/marker/label/zone helpers
+js/ui-overlays.js    — setStatus(), toggleOverlay(), closeOverlay(), toggleLayer(), setHand(), showLegend()
+js/ui-heading.js     — heading bar, forecast offset, jump run heading, green/red light, DZ zero, landing lat/lng, mag declination
+js/ui-canopy.js      — canopyThird(), updateCanopyCalc(), updateLegCanopyCalc(), getLegPerf(), setLegMode(), toggleZPattern()
+js/ui-legs.js        — renderLegs(), addExtraLeg(), removeExtraLeg(), leg alt/hdg handlers, heading overrides, altitude constraints
+js/search.js         — DZ search (USPA GeoJSON + Nominatim geocoding), goToMyLocation()
+js/app.js            — map init, placeTarget(), tile failover, invite code gate, waiver, pull-to-refresh, init sequence
 ```
 
-### Script Load Order
+### Script Load Order (must be preserved)
 
-Scripts are loaded in this order at the bottom of `<body>` — order matters:
+1. Leaflet CDN → 2. config → 3. state → 4. storage → 5. geometry → 6. wind → 7. calculate → 8. draw → 9. ui-overlays → 10. ui-heading → 11. ui-canopy → 12. ui-legs (calls `renderLegs()` at load) → 13. search (IIFE fetches DZ list) → 14. app (runs `initStorage()`, `loadSettings()`, attaches listeners)
 
-1. Leaflet CDN
-2. `js/config.js`
-3. `js/state.js`
-4. `js/storage.js`
-5. `js/geometry.js`
-6. `js/wind.js`
-7. `js/calculate.js`
-8. `js/draw.js`
-9. `js/ui-overlays.js` — overlay/layer/hand toggles, status pill
-10. `js/ui-heading.js` — heading bar, forecast controls, jump run heading
-11. `js/ui-canopy.js` — canopy calc, leg mode toggles; defines `legLastEdited`
-12. `js/ui-legs.js` — leg card rendering; calls `renderLegs()` at load time
-13. `js/search.js` — IIFE fetches USPA DZ list on load
-14. `js/app.js` — runs `initStorage()`, `loadSettings()`, attaches event listeners
+### State
 
-### Global Scope
+A single `state` object in `js/state.js` holds all app state. Key persisted fields: `hand`, `layers`, `legModes`, `zPattern`, `legCustomPerf`, `extraLegs`, `legHdgOverride`, `driftThresh`. Non-persisted: `target`, `winds`, `surfaceWind`, `pattern`, `forecastOffset`, `fieldElevFt`, `fitDone`. Manual-override flags: `manualHeading`, `manualJumpRun`, `manualJrOffset`, `manualGreenLight`, `manualRedLight`, `manualDzZero`. See `js/state.js` for full definition.
 
-All functions are in `window` scope (classic `<script>` tags, no ES modules). ES modules are intentionally avoided — they are blocked by CORS on `file://` URLs. Cross-file calls (e.g. `calculate()` → `drawPattern()`, `wind.js` → `calculate()`) are safe because they occur inside function bodies at runtime, after all scripts have loaded.
-
-### State Management
-
-A single `state` object (in `js/state.js`) holds all application state:
-
-| Field | Type | Persisted | Description |
-|-------|------|-----------|-------------|
-| `hand` | `'left'\|'right'` | Yes | Pattern hand (left/right traffic) |
-| `target` | `{lat, lng}\|null` | No | Landing target coordinates |
-| `fieldElevFt` | `number` | Cached | Field elevation (ft MSL) |
-| `finalHeadingDeg` | `number\|null` | Yes | Final approach heading (0-359) |
-| `manualHeading` | `boolean` | Yes | Whether heading was manually set |
-| `jumpRunHdgDeg` | `number\|null` | Yes | Jump run heading override |
-| `manualJumpRun` | `boolean` | Yes | Whether jump run heading was manually set |
-| `manualJrOffset` | `boolean` | Yes | Whether jump run offset was manually set |
-| `winds` | `Array<{altFt, dirTrue, speedKt, tempC}>` | Cached | Wind data at altitude levels |
-| `surfaceWind` | `{dir, speed}\|null` | No | Surface wind (lowest level) |
-| `pattern` | `object\|null` | No | Computed pattern result (from `calculate()`) |
-| `forecastOffset` | `number` | No | Hours offset for forecast slider (0-12) |
-| `layers` | `object` | Yes | Map layer visibility flags |
-| `driftThresh` | `number` | Yes | Degrees — show steered heading when crab/drift exceeds this |
-| `legModes` | `object` | Yes | Per-leg `'crab'\|'drift'` keyed by leg key |
-| `zPattern` | `boolean` | Yes | Z-pattern toggle |
-| `legCustomPerf` | `object` | Yes | Per-leg custom canopy performance enabled |
-| `extraLegs` | `Array<{id, defaultAlt, color}>` | Yes | Dynamically added legs above downwind |
-| `legHdgOverride` | `object` | Yes | Per-leg heading overrides (null = auto) |
-
-Settings are persisted to `localStorage` with prefix `pp_` and a version key (`pp_v`) to handle breaking changes. Wind and elevation data are cached with a 20-minute TTL using key format `pp_wc_{lat.toFixed(2)},{lng.toFixed(2)}`.
-
-### localStorage Schema
-
-All keys use the `pp_` prefix (via `storageKey(k)` helper in `storage.js`). A version mismatch in `pp_storage_version` wipes all `pp_` keys except `pp_waiver_version`.
-
-| Key | Type | Description |
-|-----|------|-------------|
-| `pp_storage_version` | string | Storage schema version — wipes all settings on mismatch |
-| `pp_waiver_version` | string | Waiver agreement version — preserved across storage resets |
-| `pp_hand` | `'left'\|'right'` | Pattern hand (L/R traffic) |
-| `pp_layers` | JSON object | Layer visibility flags (keys match `state.layers`) |
-| `pp_leg_modes` | JSON object | Per-leg crab/drift mode (keys: `dw`, `b`, `f`, extra leg ids) |
-| `pp_leg_custom` | JSON object | Per-leg custom performance enabled flags |
-| `pp_z_pattern` | `'true'\|'false'` | Z-pattern toggle state |
-| `pp_extra_legs` | JSON array | Extra leg metadata: `[{id, color, alt, hdg}]` |
-| `pp_next_xl_idx` | string (number) | Counter for generating unique extra leg IDs |
-| `pp_leg_hdg_override` | JSON object | Per-leg heading overrides (`null` = auto) |
-| `pp_dz_list` | JSON `{list, ts}` | Cached USPA DZ list (30-day TTL) |
-| `pp_wind_cache` | JSON object | Wind cache keyed by `lat,lng` grid (20-min TTL) |
-| `pp_{id}` | string (number) | One entry per id in `PERSIST_INPUTS` (alt, canopy, jump run params) |
-| `pp_{leg}_{field}` | string (number) | Per-leg canopy perf: `pp_dw_glide`, `pp_b_speed`, `pp_f_sink`, etc. |
-
-**Cache key format**: `pp_wc_{lat.toFixed(2)},{lng.toFixed(2)}` — ~1.1 km grid cells.
-
-**Version migration**: `initStorage()` in `storage.js` compares `pp_storage_version` to `STORAGE_VERSION` constant; on mismatch it wipes all `pp_*` keys (preserving `pp_waiver_version`) and writes the new version.
+Settings persist to `localStorage` with `pp_` prefix via `storageKey()`. Wind data cached with 20-min TTL keyed by `lat.toFixed(2),lng.toFixed(2)`. `initStorage()` wipes all `pp_*` keys on version mismatch (preserving `pp_waiver_version` and `pp_invite_verified`).
 
 ### Data Flow
 
-1. User places a landing target on the Leaflet map
-2. `fetchElevation()` retrieves field elevation from Open-Meteo
-3. `fetchWinds()` pulls GFS wind data for 14 altitude levels (1,000–14,000 ft AGL)
-4. `processWindData()` interpolates wind vectors for pattern altitudes
-5. `calculate()` computes wind-adjusted headings, turn points, and distances for each pattern leg
-6. Results are drawn as Leaflet polylines (downwind=orange, base=cyan, final=yellow)
+1. Invite code gate → waiver agreement → `loadSettings()` restores persisted state
+2. User taps map → `placeTarget()` → `fetchElevation()` → `fetchWinds()` (GFS via Open-Meteo)
+3. `processWindData()` builds wind table at 1k ft intervals from surface to 14k AGL
+4. `calculate()` reads DOM inputs + state, solves wind-adjusted headings/turn points for all legs
+5. `drawPattern()` renders Leaflet polylines, markers, zones, labels on map
 
-### External Dependencies (all CDN/API, no install needed)
+### External Dependencies (all CDN/API)
 
-- **Leaflet.js 1.9.4** — interactive map rendering
-- **Open-Meteo API** — GFS wind/temperature data and elevation
-- **Nominatim (OpenStreetMap)** — drop zone name search
-- **USPA GeoJSON** (GitHub raw) — pre-loaded drop zone locations
-- **Map tiles** — Google Satellite, OpenStreetMap, ArcGIS World Imagery
-
-### Key Function Groups
-
-| Area | File | Functions |
-|------|------|-----------|
-| Wind fetching & processing | `wind.js` | `fetchWinds()`, `processWindData()`, `interpolateWind()`, `buildWindTable()` |
-| Pattern calculation | `calculate.js` | `calculate()`, `integratedDrift()`, `avgWindInBand()` |
-| Canopy performance | `ui-canopy.js` | `canopyThird()`, `updateCanopyCalc()`, `updateLegCanopyCalc()`, `getLegPerf()` |
-| Leg mode toggles | `ui-canopy.js` | `setLegMode()`, `toggleZPattern()`, `updatePerfSections()` |
-| Map drawing | `draw.js` | Leaflet polylines for pattern legs, exit circle, jump run overlay |
-| UI overlays & layers | `ui-overlays.js` | `toggleOverlay()`, `closeOverlay()`, `toggleLayer()`, `setHand()`, `setStatus()` |
-| Heading & jump run controls | `ui-heading.js` | `onHeadingSlider()`, `updateWindPyramid()`, `autoSetJumpRunHeading()` |
-| Leg card rendering | `ui-legs.js` | `renderLegs()`, `addExtraLeg()`, `removeExtraLeg()`, `onLegAlt()` |
-| Orchestration | `app.js` | `placeTarget()`, map init, waiver, init sequence |
-| Persistence | `storage.js` | All settings read/written via `localStorage`; wind cache has 20-min TTL |
-
-## CSS Architecture
-
-- All styles in `css/app.css`, organized by component with `/* ── SECTION ── */` comments
-- No inline `style=` attributes in `dz-pattern.html` — all styling is in `css/app.css`
-- Button variants: `.zoom-btn`, `.map-icon-btn`, `.fetch-btn`, `.add-leg-btn`, `.leg-remove-btn`, `.leg-mode-btn` — share font-family/border-radius/cursor/transition but not yet consolidated to a base class
-- No `@media` breakpoints — uses CSS `min()` for responsive overlay widths; `@media (prefers-reduced-motion: reduce)` collapses all transitions
-
-### CSS Custom Properties (`:root`)
-
-| Property | Value | Purpose |
-|----------|-------|---------|
-| `--bg` | `#0a0c0f` | Page background |
-| `--panel` | `#12151aee` | Overlay panel background (semi-transparent) |
-| `--panel2` | `#1a1e25` | Secondary panel / input background |
-| `--border` | `#2a2f3a` | All borders and dividers |
-| `--accent` | `#e8f44d` | Primary accent (yellow) — final leg, heading indicator |
-| `--accent2` | `#4df4c8` | Secondary accent (teal) — base leg, jump run, winds |
-| `--text` | `#d8dde8` | Primary text |
-| `--muted` | `#5a6070` | Muted/secondary text, labels |
-| `--final-color` | `#e8f44d` | Final leg polyline color |
-| `--base-color` | `#4df4c8` | Base leg polyline color |
-| `--downwind-color` | `#f4944d` | Downwind leg polyline color |
-| `--header-h` | `48px` | Header bar height (used for map top offset) |
-| `--heading-bar-h` | `52px` | Heading bar height (used for map bottom offset) |
-| `--icon-bar-w` | `48px` | Icon bar width (used for overlay right offset) |
-
-### CSS Class Naming Conventions
-
-- Layout containers: `#header`, `#map`, `#icon-bar`, `#heading-bar`, `#zoom-bar`
-- Overlay panels: `.overlay-panel`, `.overlay-header`, `.overlay-body`, `.overlay-close`
-- Input groups: `.input-grid`, `.input-group` — shared across settings and leg cards
-- Button families: `.zoom-btn`, `.map-icon-btn`, `.fetch-btn`, `.add-leg-btn`, `.leg-remove-btn`, `.leg-mode-btn`, `.layer-toggle`
-- Wind table: `.wind-row`, `.wind-header`, `.alt-label`, `.temp-label`
-- Leg details: `.leg-details`, `.leg-details-summary`, `.leg-details-arrow`, `.leg-details-body`
-- Help overlay: `.help-section`, `.help-heading`, `.help-accent-text`, `.help-accent2-text`, `.help-warning`, `.help-inline-icon`
-- Waiver: `.waiver-modal`, `.waiver-card`, `.waiver-header`, `.waiver-body`, `.waiver-footer`, `.waiver-decline-message`
-- Map: `.target-marker-dot` (landing target divIcon), `.leg-swatch-downwind`, `.leg-swatch-base`, `.leg-swatch-final` (legend)
-- Settings: `.jr-offset-reset` (reset button), `#jr-offset` default muted color
-- Utility: `.field-note`, `.field-note-mb`, `.section-label`, `.hand-toggle`
+- **Leaflet.js 1.9.4** — map rendering
+- **Open-Meteo API** — GFS wind/temp data and elevation
+- **Nominatim (OSM)** — location search
+- **USPA GeoJSON** (GitHub) — drop zone database (30-day cache)
+- **Map tiles** — Google Satellite (primary), ArcGIS, OSM (failover chain)
 
 ## Common Modification Recipes
 
 ### Adding a new persisted setting
-1. Add the HTML `<input>` with a unique `id` to `dz-pattern.html`
+1. Add `<input>` with unique `id` to `dz-pattern.html`
 2. Add the `id` to `PERSIST_INPUTS` in `js/state.js`
-3. Read it in `calculate()` or wherever needed via `document.getElementById(id).value`
-4. `saveSettings()` / `loadSettings()` handle it automatically via the PERSIST_INPUTS loop
+3. Read via `document.getElementById(id).value` in `calculate()` or wherever needed
+4. `saveSettings()` / `loadSettings()` handle it automatically
 
 ### Adding a new map layer toggle
-1. Add a `<div class="layer-toggle" role="button" tabindex="0" aria-label="…">` row in the Layers section of `dz-pattern.html`
-2. Add the layer key to `state.layers` in `js/state.js`
-3. In `draw.js`, wrap the relevant drawing code in `if (state.layers.yourKey)`
-4. Wire the toggle button's `onclick` to `toggleLayer('yourKey')`
+1. Add `<div class="layer-toggle" ...>` row in Layers section of HTML
+2. Add layer key to `state.layers` in `js/state.js`
+3. Wrap drawing code in `if (state.layers.yourKey)` in `draw.js`
+4. Wire button `onclick` to `toggleLayer('yourKey')`
 
 ### Adding a new pattern leg type
-1. Add an entry to `LEG_DEFS` in `js/config.js` (key, label, color, altitude config)
-2. The UI leg card is auto-generated by `renderLegs()` in `js/ui-legs.js`
-3. Add calculation logic in `calculate.js` — follow the existing base/downwind pattern
-4. Add drawing logic in `draw.js` — add polyline with the leg's color
+1. Add entry to `LEG_DEFS` in `js/config.js`
+2. `renderLegs()` in `ui-legs.js` auto-generates the UI card
+3. Add calculation logic in `calculate.js`
+4. Add drawing logic in `draw.js`
 
 ### Changing an API endpoint
-1. Update the URL in the relevant fetch function (`wind.js` for Open-Meteo, `search.js` for Nominatim)
-2. If response format changes, update the parsing in `processWindData()` or search handler
-3. Clear wind cache if schema changed: `localStorage` keys prefixed `pp_wc_`
+1. Update URL in the fetch function (`wind.js` for Open-Meteo, `search.js` for Nominatim)
+2. Update response parsing if format changed
+3. Clear wind cache if schema changed (`pp_wc_*` keys)
 
 ## Known Technical Debt
 
-- **Silent error handling**: Some `try/catch` blocks still swallow errors silently (e.g. `initStorage()`, `loadSettings()` outer catch); network errors show generic messages
-- **No JS input validation**: Numeric inputs rely on HTML `min`/`max` only; no JS clamping for out-of-range values
-- **renderLegs() rebuilds all DOM**: Should add/remove individual cards instead of clearing `innerHTML` each time
+- **Inline styles in renderLegs()**: Leg cards in `ui-legs.js` use `style.cssText` and inline `style=` in template literals instead of CSS classes
+- **Inline styles in draw.js**: Leaflet `divIcon` HTML contains inline styles (hard to avoid with Leaflet's API)
+- **Silent error handling**: Some `try/catch` blocks swallow errors (e.g. `initStorage()`, `loadSettings()` outer catch)
+- **No JS input validation**: Numeric inputs rely on HTML `min`/`max` only; no JS clamping
+- **renderLegs() rebuilds all DOM**: Clears `innerHTML` each time instead of updating individual cards
 - **Memory leaks**: Event listeners orphaned when `renderLegs()` clears `innerHTML`
-- **Keyboard navigation**: After geocoding re-populates the search dropdown, `dzIdx` resets and arrow-key navigation starts over
+- **Keyboard navigation**: After geocoding repopulates dropdown, `dzIdx` resets
 
 ### Resolved (do not re-report)
-- ~~Inline styles~~: All moved to `css/app.css`; `dz-pattern.html` has zero `style=` attributes
-- ~~Magic numbers~~: `FT_PER_NM`, `FT_MIN_PER_KT`, `DRIFT_STEP_FT`, `MIN_WIND_SPD_KT`, `STATUTE_MI_PER_DEG`, `MIN_AGL_FT` are all in `config.js`
-- ~~Duplicated canopy calc~~: Shared `canopyThird(g, s, k, third)` helper in `ui-canopy.js`
-- ~~NaN propagation~~: `updateWindByIdx()` now rejects non-numeric input before storing
+- ~~Magic numbers~~: All in `config.js`
+- ~~Duplicated canopy calc~~: Shared `canopyThird()` in `ui-canopy.js`
+- ~~NaN propagation~~: `updateWindByIdx()` rejects non-numeric input
+
+## CSS Notes
+
+- All styles in `css/app.css`; organized by `/* ── SECTION ── */` comments
+- Custom properties on `:root`: `--bg`, `--panel`, `--panel2`, `--border`, `--accent` (yellow), `--accent2` (teal), `--accent-alt` (green, altitude sliders), `--text`, `--muted`, leg colors (`--final-color`, `--base-color`, `--downwind-color`), layout sizes (`--header-h`, `--heading-bar-h`, `--icon-bar-w`)
+- No `@media` breakpoints; uses `min()` for responsive widths; `@media (prefers-reduced-motion)` disables transitions
 
 ## Domain Glossary
 
 | Term | Meaning |
 |------|---------|
-| **AGL** | Above Ground Level — altitude measured from field elevation |
-| **MSL** | Mean Sea Level — absolute altitude |
+| **AGL / MSL** | Above Ground Level / Mean Sea Level |
 | **TAS / IAS** | True Airspeed / Indicated Airspeed — TAS increases with altitude |
-| **GFS** | Global Forecast System — NOAA weather model used via Open-Meteo |
-| **Crab mode** | Aircraft points into wind to maintain ground track (heading ≠ track) |
-| **Drift mode** | Aircraft points along track, wind pushes it sideways |
+| **GFS** | Global Forecast System (NOAA weather model via Open-Meteo) |
+| **Crab mode** | Canopy points into wind to maintain ground track (heading ≠ track) |
+| **Drift mode** | Canopy points along track, wind pushes it sideways |
 | **Z-pattern** | Downwind leg flies same direction as final (non-standard) |
-| **DW / Base / Final** | The three standard pattern legs before landing |
-| **Jump run** | Aircraft flight path over the DZ during exit |
+| **DW / Base / Final** | Three standard pattern legs before landing |
+| **Jump run** | Aircraft flight path over DZ during exit |
 | **Green/Red light** | Points on jump run where exit is allowed/prohibited |
-| **Glide ratio** | Horizontal distance / vertical distance (e.g. 8:1) |
+| **Glide ratio** | Horizontal distance / vertical distance (e.g. 2.5:1) |
