@@ -109,7 +109,7 @@
       </div>
       <div class="input-group">
         <label for="canopy-sink">Vertical Speed (kts)</label>
-        <input type="number" id="canopy-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onCanopyInput('sink')">
+        <input type="number" id="canopy-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onCanopyInput('sink')" data-allow-empty="true">
       </div>
     </div>
 
@@ -144,17 +144,17 @@
       <div class="input-group">
         <label for="jr-offset">Jump Run Offset (nm)</label>
         <input type="number" id="jr-offset" value="" min="-10" max="10" step="0.1"
-          placeholder="calc" oninput="onJrOffsetInput()">
+          placeholder="calc" oninput="onJrOffsetInput()" data-allow-empty="true">
       </div>
       <div class="input-group">
         <label for="green-light-override">Green Light (nm)</label>
         <input type="number" id="green-light-override" value="" step="0.1"
-          placeholder="calc" oninput="onGreenLightInput()">
+          placeholder="calc" oninput="onGreenLightInput()" data-allow-empty="true">
       </div>
       <div class="input-group">
         <label for="red-light-override">Red Light (nm)</label>
         <input type="number" id="red-light-override" value="" step="0.1"
-          placeholder="calc" oninput="onRedLightInput()">
+          placeholder="calc" oninput="onRedLightInput()" data-allow-empty="true">
       </div>
     </div>
     <div class="field-note">Freefall assumes vertical descent — horizontal drift from wind only.</div>
@@ -178,11 +178,11 @@
     <div class="input-grid">
       <div class="input-group">
         <label for="dz-zero-lat">Lat (°)</label>
-        <input type="number" id="dz-zero-lat" step="0.000001" placeholder="tap map" oninput="onDzZeroInput()">
+        <input type="number" id="dz-zero-lat" step="0.000001" placeholder="tap map" oninput="onDzZeroInput()" data-allow-empty="true">
       </div>
       <div class="input-group">
         <label for="dz-zero-lng">Lon (°)</label>
-        <input type="number" id="dz-zero-lng" step="0.000001" placeholder="tap map" oninput="onDzZeroInput()">
+        <input type="number" id="dz-zero-lng" step="0.000001" placeholder="tap map" oninput="onDzZeroInput()" data-allow-empty="true">
       </div>
       <div class="input-group">
         <label>Mag Decl</label>
@@ -195,11 +195,11 @@
     <div class="input-grid">
       <div class="input-group">
         <label for="landing-lat">Lat (°)</label>
-        <input type="number" id="landing-lat" step="0.000001" placeholder="tap map" oninput="onLandingLatLngInput()">
+        <input type="number" id="landing-lat" step="0.000001" placeholder="tap map" oninput="onLandingLatLngInput()" data-allow-empty="true">
       </div>
       <div class="input-group">
         <label for="landing-lng">Lon (°)</label>
-        <input type="number" id="landing-lng" step="0.000001" placeholder="tap map" oninput="onLandingLatLngInput()">
+        <input type="number" id="landing-lng" step="0.000001" placeholder="tap map" oninput="onLandingLatLngInput()" data-allow-empty="true">
       </div>
     </div>
 

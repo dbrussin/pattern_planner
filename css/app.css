@@ -385,6 +385,15 @@ input[type=number] { -moz-appearance: textfield; }
   background: transparent; border: none; border-bottom: 1px solid var(--border);
   width: 60px; text-align: center; padding: 2px 0; flex-shrink: 0;
 }
+/* Cancel .input-group input's full-width/box styles for slider rows */
+.slider-num-row input[type=range] {
+  width: auto; background: transparent; border: none; border-radius: 0; padding: 0;
+}
+.slider-num-row .slider-num-input {
+  width: 60px; padding: 2px 0;
+  background: transparent; border: none; border-radius: 0;
+  border-bottom: 1px solid var(--border);
+}
 .input-group--full { grid-column: 1 / -1; }
 /* Readonly value display */
 .field-readonly {

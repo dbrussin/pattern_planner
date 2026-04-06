@@ -55,12 +55,16 @@ async function placeTarget(lat, lng) {
     state.manualJumpRun  = false;
     state.jumpRunHdgDeg  = null;
     state.manualJrOffset = false;
-    state.manualDzZero   = false;
     state.forecastOffset = 0;
     const fo = document.getElementById('forecast-offset');
     if (fo) fo.value = 0;
     const fl = document.getElementById('forecast-offset-label');
     if (fl) fl.textContent = 'Now';
+  }
+
+  // Unlock DZ zero when moving to a different grid cell (non-nearby target)
+  if (state.target && cacheKey(state.target.lat, state.target.lng) !== cacheKey(lat, lng)) {
+    state.manualDzZero = false;
   }
 
   // Update DZ zero point if not manually set, and new position is in a different grid cell
@@ -118,6 +122,7 @@ function verifyInviteCode() {
   if (inp.value.trim().toUpperCase() === _IC) {
     try { localStorage.setItem('pp_invite_verified', '1'); } catch(e) {}
     document.getElementById('invite-modal').style.display = 'none';
+    checkWaiver();
   } else {
     if (err) { err.textContent = 'Invalid invite code.'; err.style.display = 'block'; }
     inp.value = '';
@@ -128,9 +133,8 @@ function verifyInviteCode() {
 // ── Waiver ────────────────────────────────────────────────────────────────────
 
 function checkWaiver() {
-  try {
-    if (localStorage.getItem('pp_waiver_version') === WAIVER_VERSION) return;
-  } catch(e) {}
+  try { if (localStorage.getItem('pp_invite_verified') !== '1') return; } catch(e) {}
+  try { if (localStorage.getItem('pp_waiver_version') === WAIVER_VERSION) return; } catch(e) {}
   document.getElementById('waiver-modal').style.display = 'flex';
 }
 
@@ -202,6 +206,30 @@ document.querySelectorAll('input').forEach(el => {
     }
   }, {passive: true});
 })();
+
+// ── Restore previous value when text/number input is cleared then blurred/Enter ──
+
+document.addEventListener('focusin', e => {
+  const el = e.target;
+  if (el.tagName !== 'INPUT' || el.type === 'checkbox' || el.type === 'range') return;
+  el.dataset.prefocus = el.value;
+});
+
+document.addEventListener('focusout', e => {
+  const el = e.target;
+  if (el.tagName !== 'INPUT' || el.type === 'checkbox' || el.type === 'range') return;
+  if (el.value !== '' || el.dataset.allowEmpty === 'true') return;
+  const prev = el.dataset.prefocus;
+  if (prev === undefined || prev === '') return;
+  el.value = prev;
+  el.dispatchEvent(new Event('input', {bubbles: true}));
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const el = e.target;
+  if (el.tagName === 'INPUT' && el.type !== 'checkbox' && el.type !== 'range') el.blur();
+});
 
 window.addEventListener('resize', () => { if (state.surfaceWind) updateWindPyramid(); updateJrPyramid(); });
 setTimeout(() => map.invalidateSize(), 300);

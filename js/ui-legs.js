@@ -73,7 +73,7 @@ function renderLegs() {
             <div class="input-grid">
               <div class="input-group"><label for="${xl.id}-glide">Glide (:1)</label><input type="number" id="${xl.id}-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('${xl.id}','glide')"></div>
               <div class="input-group"><label for="${xl.id}-speed">Horiz (kts)</label><input type="number" id="${xl.id}-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('${xl.id}','speed')"></div>
-              <div class="input-group"><label for="${xl.id}-sink">Vert (kts)</label><input type="number" id="${xl.id}-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('${xl.id}','sink')"></div>
+              <div class="input-group"><label for="${xl.id}-sink">Vert (kts)</label><input type="number" id="${xl.id}-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('${xl.id}','sink')" data-allow-empty="true"></div>
             </div>
             <div id="${xl.id}-perf-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
           </div>
@@ -182,7 +182,7 @@ function renderLegs() {
             <div class="input-grid">
               <div class="input-group"><label for="${key}-glide">Glide (:1)</label><input type="number" id="${key}-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('${key}','glide')"></div>
               <div class="input-group"><label for="${key}-speed">Horiz (kts)</label><input type="number" id="${key}-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('${key}','speed')"></div>
-              <div class="input-group"><label for="${key}-sink">Vert (kts)</label><input type="number" id="${key}-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('${key}','sink')"></div>
+              <div class="input-group"><label for="${key}-sink">Vert (kts)</label><input type="number" id="${key}-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('${key}','sink')" data-allow-empty="true"></div>
             </div>
             <div id="${key}-perf-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
           </div>
@@ -195,7 +195,7 @@ function renderLegs() {
   // Reset to defaults button
   const resetBtn = document.createElement('button');
   resetBtn.style.cssText = 'width:100%;margin-top:6px;font-family:"Space Mono",monospace;font-size:11px;color:var(--muted);background:transparent;border:1px solid var(--border);border-radius:4px;padding:6px;cursor:pointer;letter-spacing:0.06em;text-transform:uppercase;';
-  resetBtn.textContent = 'Reset to Defaults';
+  resetBtn.textContent = 'Reset Pattern Legs';
   resetBtn.onclick = resetPatternLegs;
   container.appendChild(resetBtn);
 
@@ -372,9 +372,26 @@ function resetPatternLegs() {
   state.zPattern      = false;
   state.legCustomPerf = Object.fromEntries(LEG_DEFS.map(l => [l.key, false]));
 
+  // Reset heading to auto-compute from wind
+  state.manualHeading  = false;
+  state.finalHeadingDeg = null;
+
   renderLegs();
-  // Collapse all expandable sections (renderLegs rebuilds DOM, but be explicit as safety net)
+  // Collapse all expandable sections and explicitly reset checkbox/visibility state
   document.querySelectorAll('#legs-container details').forEach(d => { d.open = false; });
+  LEG_DEFS.forEach(def => {
+    const key = def.key;
+    const hdgCheck = document.getElementById(`${key}-hdg-check`);
+    if (hdgCheck) hdgCheck.checked = false;
+    const hdgRow = document.getElementById(`${key}-hdg-row`);
+    if (hdgRow) hdgRow.style.display = 'none';
+    const cpCheck = document.getElementById(`${key}-custom-perf`);
+    if (cpCheck) cpCheck.checked = false;
+    const perf = document.getElementById(`${key}-perf`);
+    if (perf) perf.style.display = 'none';
+  });
+  const zCheck = document.getElementById('dw-z-check');
+  if (zCheck) zCheck.checked = false;
   saveSettings();
   if (state.target) calculate();
 }
