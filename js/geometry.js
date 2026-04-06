@@ -128,6 +128,75 @@ function getTempAtAGL(agl) {
 }
 
 /**
+ * Approximate magnetic declination (degrees, east positive) for a given lat/lon.
+ * Uses WMM2025 Gauss coefficients through degree/order 3 (Schmidt quasi-normal).
+ * Accuracy: ~1–2° for most mid-latitudes. Not for navigation; display only.
+ * @param {number} latDeg - Geodetic latitude (°)
+ * @param {number} lonDeg - Longitude (°)
+ * @returns {number} Magnetic declination in degrees (positive = east of north)
+ */
+function magDeclination(latDeg, lonDeg) {
+  // WMM2025 main-field Gauss coefficients g_nm, h_nm (nT), through n=3
+  // Source: NOAA WMM2025 coefficient file (epoch 2025.0)
+  const G = [
+    [0,          0,         0,          0      ], // n=0 (unused)
+    [0, -29351.8, -1410.8,   0          ],        // n=1
+    [0,  -2556.6,  2951.0,  1580.6,    0],        // n=2
+    [0,   1361.0, -2404.0,  1243.8, 453.6],       // n=3
+  ];
+  const H = [
+    [0,      0,      0,      0     ],
+    [0,      0,   4545.4,    0     ],
+    [0,      0,  -3133.6, -814.8,  0],
+    [0,      0,    56.6,  237.4, -549.1],
+  ];
+
+  const lat  = latDeg * D2R;
+  const lon  = lonDeg * D2R;
+  const sinL = Math.sin(lat);
+  const cosL = Math.cos(lat);
+
+  // Schmidt quasi-normal associated Legendre polynomials P(n,m,sinLat)
+  // and their colatitude derivatives dP(n,m) (with respect to colat = 90° - lat)
+  // Use the standard recursion, evaluated at sinLat = sin(geocentric lat).
+  // For surface approximation, geocentric ≈ geodetic (error < 0.2° at poles).
+
+  // Pre-compute P and dP through n=3 using standard recursion
+  const P  = [[1,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+  const dP = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+  P[0][0]  = 1;
+  P[1][0]  = sinL;     dP[1][0] = cosL;
+  P[1][1]  = cosL;     dP[1][1] = -sinL;
+  P[2][0]  = 0.5 * (3*sinL*sinL - 1);                    dP[2][0] = 3*sinL*cosL;
+  P[2][1]  = Math.sqrt(3) * sinL * cosL;                  dP[2][1] = Math.sqrt(3) * (cosL*cosL - sinL*sinL);
+  P[2][2]  = Math.sqrt(3)/2 * cosL*cosL;                  dP[2][2] = -Math.sqrt(3) * sinL * cosL;
+  P[3][0]  = 0.5 * sinL * (5*sinL*sinL - 3);              dP[3][0] = 0.5*(15*sinL*sinL - 3)*cosL;
+  P[3][1]  = Math.sqrt(6)/4 * cosL * (5*sinL*sinL - 1);  dP[3][1] = Math.sqrt(6)/4 * (-sinL*(5*sinL*sinL-1) + 10*sinL*cosL*cosL);
+  P[3][2]  = Math.sqrt(15)/2 * sinL * cosL*cosL;          dP[3][2] = Math.sqrt(15)/2 * (cosL*cosL*cosL - 2*sinL*sinL*cosL);
+  P[3][3]  = Math.sqrt(10)/4 * cosL*cosL*cosL;            dP[3][3] = -3*Math.sqrt(10)/4 * sinL*cosL*cosL;
+
+  let Bx = 0, By = 0; // north (+Bx), east (+By) field components
+
+  for (let n = 1; n <= 3; n++) {
+    const fn = n + 2; // (a/r)^(n+2) at surface r=a = 1
+    for (let m = 0; m <= n; m++) {
+      const gnm = (G[n] && G[n][m]) ? G[n][m] : 0;
+      const hnm = (H[n] && H[n][m]) ? H[n][m] : 0;
+      const cosM = Math.cos(m * lon);
+      const sinM = Math.sin(m * lon);
+      // North component: -(1/r) * dV/d(colat) at surface → -dP * (g cos + h sin)
+      Bx -= fn * dP[n][m] * (gnm * cosM + hnm * sinM);
+      // East component: (1/(r cosLat)) * dV/dlon → m * P * (-g sin + h cos) / cosLat
+      if (cosL > 1e-6) {
+        By += fn * m * P[n][m] * (-gnm * sinM + hnm * cosM) / cosL;
+      }
+    }
+  }
+
+  return Math.atan2(By, Bx) * R2D;
+}
+
+/**
  * Compute the TAS/IAS ratio at a given AGL altitude using the ISA atmosphere model.
  * Uses actual temperature from API data when available, falls back to ISA standard temp.
  * Reference: ICAO standard atmosphere — pressure ratio exponent 5.2561, lapse 6.5 K/km.

@@ -5,6 +5,7 @@
   --border: #2a2f3a;
   --accent: #e8f44d;
   --accent2: #4df4c8;
+  --accent-alt: #5af47a;  /* green — altitude sliders */
   --text: #d8dde8;
   --muted: #5a6070;
   --final-color: #e8f44d;
@@ -346,19 +347,22 @@ input[type=number] { -moz-appearance: textfield; }
   color: var(--muted); white-space: nowrap; flex-shrink: 0;
 }
 .jr-hdg-input {
-  font-family: 'Space Mono', monospace; font-size: 16px; color: var(--accent2);
+  font-family: 'Space Mono', monospace; font-size: 16px; color: var(--accent);
   background: transparent; border: none; border-bottom: 1px solid var(--border);
   width: 46px; text-align: center; padding: 2px 0; flex-shrink: 0;
   position: relative; z-index: 1;
 }
 .jr-slider-wrap { flex: 1; position: relative; padding-bottom: 10px; min-width: 0; }
-.jr-slider { width: 100%; accent-color: var(--accent2); display: block; }
+.jr-slider { width: 100%; accent-color: var(--accent); display: block; }
+/* Semantic slider classes — use on any range input */
+.alt-slider { accent-color: var(--accent-alt); }
+.hdg-slider { accent-color: var(--accent); }
 #jr-wind-pyramid {
   position: absolute; bottom: 0; width: 0; height: 0;
   border-left: 7px solid transparent; border-right: 7px solid transparent;
-  border-bottom: 12px solid var(--accent2); transform: translateX(-50%);
+  border-bottom: 12px solid var(--accent); transform: translateX(-50%);
   pointer-events: none; display: none;
-  filter: drop-shadow(0 0 3px rgba(77,244,200,0.5));
+  filter: drop-shadow(0 0 3px rgba(232,244,77,0.5));
 }
 #jr-wind-pyramid-hit {
   position: absolute; bottom: 0; width: 28px; height: 14px;
@@ -367,10 +371,35 @@ input[type=number] { -moz-appearance: textfield; }
 
 /* ── SETTINGS OVERLAY ── */
 #jr-offset { color: var(--muted); }
+#green-light-override { color: var(--muted); }
+#red-light-override   { color: var(--muted); }
 .section-label--action { display: flex; align-items: center; justify-content: space-between; }
 #canopy-calc-note { margin-top: 4px; min-height: 1em; }
 .field-note-sm { margin-top: 2px; }
 .settings-reset-wrap { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+/* Slider + number input row (used for exit/opening alt) */
+.slider-num-row { display: flex; align-items: center; gap: 6px; }
+.slider-num-row input[type=range] { flex: 1; min-width: 0; }
+.slider-num-input {
+  font-family: 'Space Mono', monospace; font-size: 14px; color: var(--text);
+  background: transparent; border: none; border-bottom: 1px solid var(--border);
+  width: 60px; text-align: center; padding: 2px 0; flex-shrink: 0;
+}
+/* Cancel .input-group input's full-width/box styles for slider rows */
+.slider-num-row input[type=range] {
+  width: auto; background: transparent; border: none; border-radius: 0; padding: 0;
+}
+.slider-num-row .slider-num-input {
+  width: 60px; padding: 2px 0;
+  background: transparent; border: none; border-radius: 0;
+  border-bottom: 1px solid var(--border);
+}
+.input-group--full { grid-column: 1 / -1; }
+/* Readonly value display */
+.field-readonly {
+  font-family: 'Space Mono', monospace; font-size: 14px; color: var(--muted);
+  padding: 4px 0; border-bottom: 1px solid var(--border);
+}
 .settings-reset-btn {
   width: 100%; padding: 9px; background: transparent;
   border: 1px solid rgba(232,77,77,0.5); border-radius: 4px;
@@ -458,6 +487,21 @@ input[type=number] { -moz-appearance: textfield; }
 .waiver-decline-message {
   display: flex; align-items: center; justify-content: center; height: 100%;
   color: var(--muted); font-size: 14px; text-align: center; padding: 20px; line-height: 1.5;
+}
+
+/* ── INVITE CODE MODAL ── */
+.invite-card { max-width: 320px; }
+.invite-body { padding: 20px 18px; display: flex; flex-direction: column; gap: 14px; }
+.invite-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.invite-input {
+  width: 100%; padding: 10px 12px; background: var(--panel2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 15px;
+  letter-spacing: 0.12em; text-align: center; text-transform: uppercase; outline: none;
+}
+.invite-input:focus { border-color: var(--accent); }
+.invite-error {
+  font-size: 12px; color: #e84d4d; text-align: center; font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 /* ── TARGET MARKER ── */

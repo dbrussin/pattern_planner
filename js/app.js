@@ -5,7 +5,12 @@
 
 // ── Leaflet map ───────────────────────────────────────────────────────────────
 
-const map = L.map('map', {zoomControl: false, attributionControl: false}).setView([36.0, -86.5], 13);
+const map = L.map('map', {
+  zoomControl: false,
+  attributionControl: false,
+  zoomSnap: 0.1,          // fractional zoom levels — key for smooth trackpad pinch
+  wheelDebounceTime: 20,  // default 40ms; lower = more responsive to trackpad
+}).setView([36.0, -86.5], 13);
 
 const tileSources = [
   {url: 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',                                              opts: {subdomains: '0123', maxZoom: 21, attribution: '© Google'}},
@@ -44,7 +49,7 @@ map.on('click', e => placeTarget(e.latlng.lat, e.latlng.lng));
  * @param {number} lng - Target longitude (decimal degrees)
  */
 async function placeTarget(lat, lng) {
-  // Reset manual heading if moving more than 1 mile from current target
+  // Reset manual settings if moving more than 1 mile from current target
   if (state.target && distMiles(state.target, {lat, lng}) > 1.0) {
     state.manualHeading  = false;
     state.manualJumpRun  = false;
@@ -56,6 +61,32 @@ async function placeTarget(lat, lng) {
     const fl = document.getElementById('forecast-offset-label');
     if (fl) fl.textContent = 'Now';
   }
+
+  // Unlock DZ zero when moving to a different grid cell (non-nearby target)
+  if (state.target && cacheKey(state.target.lat, state.target.lng) !== cacheKey(lat, lng)) {
+    state.manualDzZero = false;
+  }
+
+  // Update DZ zero point if not manually set, and new position is in a different grid cell
+  if (!state.manualDzZero) {
+    const zLatEl = document.getElementById('dz-zero-lat');
+    const zLngEl = document.getElementById('dz-zero-lng');
+    const curZeroKey = (zLatEl && zLngEl && zLatEl.value !== '' && zLngEl.value !== '')
+      ? cacheKey(parseFloat(zLatEl.value), parseFloat(zLngEl.value))
+      : null;
+    if (curZeroKey === null || curZeroKey !== cacheKey(lat, lng)) {
+      if (zLatEl) zLatEl.value = lat.toFixed(6);
+      if (zLngEl) zLngEl.value = lng.toFixed(6);
+      if (typeof updateMagDeclination === 'function') updateMagDeclination();
+    }
+  }
+
+  // Update landing spot lat/lon display
+  const latEl = document.getElementById('landing-lat');
+  const lngEl = document.getElementById('landing-lng');
+  if (latEl) latEl.value = lat.toFixed(6);
+  if (lngEl) lngEl.value = lng.toFixed(6);
+
   state.target  = {lat, lng};
   state.pattern = null;
   state.fitDone = false;
@@ -77,12 +108,33 @@ async function placeTarget(lat, lng) {
   calculate();
 }
 
+// ── Invite code gate ──────────────────────────────────────────────────────────
+
+function checkInviteCode() {
+  try { if (localStorage.getItem('pp_invite_verified') === '1') return; } catch(e) {}
+  document.getElementById('invite-modal').style.display = 'flex';
+}
+
+function verifyInviteCode() {
+  const inp = document.getElementById('invite-input');
+  const err = document.getElementById('invite-error');
+  if (!inp) return;
+  if (inp.value.trim().toUpperCase() === _IC) {
+    try { localStorage.setItem('pp_invite_verified', '1'); } catch(e) {}
+    document.getElementById('invite-modal').style.display = 'none';
+    checkWaiver();
+  } else {
+    if (err) { err.textContent = 'Invalid invite code.'; err.style.display = 'block'; }
+    inp.value = '';
+    inp.focus();
+  }
+}
+
 // ── Waiver ────────────────────────────────────────────────────────────────────
 
 function checkWaiver() {
-  try {
-    if (localStorage.getItem('pp_waiver_version') === WAIVER_VERSION) return;
-  } catch(e) {}
+  try { if (localStorage.getItem('pp_invite_verified') !== '1') return; } catch(e) {}
+  try { if (localStorage.getItem('pp_waiver_version') === WAIVER_VERSION) return; } catch(e) {}
   document.getElementById('waiver-modal').style.display = 'flex';
 }
 
@@ -98,8 +150,9 @@ function declineWaiver() {
 
 // ── Init sequence ─────────────────────────────────────────────────────────────
 
-initStorage();   // version-check and wipe stale data first
-loadWindCache(); // restore wind cache from localStorage into memory
+initStorage();       // version-check and wipe stale data first
+loadWindCache();     // restore wind cache from localStorage into memory
+checkInviteCode();   // invite gate — must verify before waiver
 checkWaiver();
 loadSettings();
 updateCanopyCalc();
@@ -153,6 +206,30 @@ document.querySelectorAll('input').forEach(el => {
     }
   }, {passive: true});
 })();
+
+// ── Restore previous value when text/number input is cleared then blurred/Enter ──
+
+document.addEventListener('focusin', e => {
+  const el = e.target;
+  if (el.tagName !== 'INPUT' || el.type === 'checkbox' || el.type === 'range') return;
+  el.dataset.prefocus = el.value;
+});
+
+document.addEventListener('focusout', e => {
+  const el = e.target;
+  if (el.tagName !== 'INPUT' || el.type === 'checkbox' || el.type === 'range') return;
+  if (el.value !== '' || el.dataset.allowEmpty === 'true') return;
+  const prev = el.dataset.prefocus;
+  if (prev === undefined || prev === '') return;
+  el.value = prev;
+  el.dispatchEvent(new Event('input', {bubbles: true}));
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const el = e.target;
+  if (el.tagName === 'INPUT' && el.type !== 'checkbox' && el.type !== 'range') el.blur();
+});
 
 window.addEventListener('resize', () => { if (state.surfaceWind) updateWindPyramid(); updateJrPyramid(); });
 setTimeout(() => map.invalidateSize(), 300);

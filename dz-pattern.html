@@ -109,7 +109,7 @@
       </div>
       <div class="input-group">
         <label for="canopy-sink">Vertical Speed (kts)</label>
-        <input type="number" id="canopy-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onCanopyInput('sink')">
+        <input type="number" id="canopy-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onCanopyInput('sink')" data-allow-empty="true">
       </div>
     </div>
 
@@ -118,23 +118,47 @@
 
     <div class="section-label">Jump Run</div>
     <div class="input-grid">
-      <div class="input-group"><label for="alt-exit">Exit Alt (ft AGL)</label><input type="number" id="alt-exit" value="13500" min="1000" max="25000" step="500" oninput="onExitAltChange()"></div>
-      <div class="input-group"><label for="alt-open">Opening Alt (ft AGL)</label><input type="number" id="alt-open" value="3000" min="500" max="8000" step="100" oninput="onOpenAltChange()"></div>
+      <div class="input-group input-group--full">
+        <label for="alt-exit">Exit Alt (ft AGL)</label>
+        <div class="slider-num-row">
+          <input type="range" id="alt-exit-sl" min="1000" max="25000" step="500" value="13500"
+            class="alt-slider" oninput="onLegAlt('alt-exit','slider')">
+          <input type="number" id="alt-exit" value="13500" min="1000" max="25000" step="500"
+            class="slider-num-input" oninput="onLegAlt('alt-exit','input');onExitAltChange()" onblur="onLegAlt('alt-exit','blur')">
+        </div>
+      </div>
+      <div class="input-group input-group--full">
+        <label for="alt-open">Opening Alt (ft AGL)</label>
+        <div class="slider-num-row">
+          <input type="range" id="alt-open-sl" min="500" max="8000" step="100" value="3000"
+            class="alt-slider" oninput="onLegAlt('alt-open','slider')">
+          <input type="number" id="alt-open" value="3000" min="500" max="8000" step="100"
+            class="slider-num-input" oninput="onLegAlt('alt-open','input');onOpenAltChange()" onblur="onLegAlt('alt-open','blur')">
+        </div>
+      </div>
       <div class="input-group"><label for="ff-speed">Freefall Speed (mph)</label><input type="number" id="ff-speed" value="120" min="60" max="250" step="5" oninput="calculate()"></div>
       <div class="input-group"><label for="jr-airspeed">Aircraft IAS (kts)</label><input type="number" id="jr-airspeed" value="80" min="40" max="200" step="5" oninput="calculate()"></div>
       <div class="input-group"><label for="safety-margin">Region Buffer (%)</label><input type="number" id="safety-margin" value="10" min="0" max="40" step="1" oninput="calculate()"></div>
       <div class="input-group"><label for="exit-sep">Exit Separation (ft)</label><input type="number" id="exit-sep" value="1500" min="500" max="5000" step="100" oninput="calculate()"></div>
       <div class="input-group"><label for="drift-thresh">Steered Hdg Threshold (°)</label><input type="number" id="drift-thresh" value="5" min="0" max="45" step="1" oninput="onDriftThreshChange(this.value)"></div>
       <div class="input-group">
-        <label>Jump Run Offset (nm)
-          <span onclick="resetJrOffset()" title="Reset to calculated"
-            class="jr-offset-reset" role="button" tabindex="0" aria-label="Reset jump run offset">↺</span>
-        </label>
+        <label for="jr-offset">Jump Run Offset (nm)</label>
         <input type="number" id="jr-offset" value="" min="-10" max="10" step="0.1"
-          placeholder="calc" oninput="onJrOffsetInput()">
+          placeholder="calc" oninput="onJrOffsetInput()" data-allow-empty="true">
+      </div>
+      <div class="input-group">
+        <label for="green-light-override">Green Light (nm)</label>
+        <input type="number" id="green-light-override" value="" step="0.1"
+          placeholder="calc" oninput="onGreenLightInput()" data-allow-empty="true">
+      </div>
+      <div class="input-group">
+        <label for="red-light-override">Red Light (nm)</label>
+        <input type="number" id="red-light-override" value="" step="0.1"
+          placeholder="calc" oninput="onRedLightInput()" data-allow-empty="true">
       </div>
     </div>
     <div class="field-note">Freefall assumes vertical descent — horizontal drift from wind only.</div>
+    <div class="field-note">Green/red light: negative = prior to DZ ref, positive = past. Clear to recalculate.</div>
     <div id="jr-heading-row" class="jr-row">
       <span class="jr-row-label">Jump Run</span>
       <input type="number" id="jr-hdg-display" min="0" max="359" step="1"
@@ -147,6 +171,35 @@
         <div id="jr-wind-pyramid"></div>
         <div id="jr-wind-pyramid-hit"
           onclick="snapJumpRunToWind()" title="Snap to into-wind heading"></div>
+      </div>
+    </div>
+
+    <div class="section-label">DZ Reference Point</div>
+    <div class="input-grid">
+      <div class="input-group">
+        <label for="dz-zero-lat">Lat (°)</label>
+        <input type="number" id="dz-zero-lat" step="0.000001" placeholder="tap map" oninput="onDzZeroInput()" data-allow-empty="true">
+      </div>
+      <div class="input-group">
+        <label for="dz-zero-lng">Lon (°)</label>
+        <input type="number" id="dz-zero-lng" step="0.000001" placeholder="tap map" oninput="onDzZeroInput()" data-allow-empty="true">
+      </div>
+      <div class="input-group">
+        <label>Mag Decl</label>
+        <div id="dz-mag-decl" class="field-readonly">—</div>
+      </div>
+    </div>
+    <div class="field-note">Used for JR offset and green/red light distances. Defaults to landing spot; clear to follow it.</div>
+
+    <div class="section-label">Landing Spot</div>
+    <div class="input-grid">
+      <div class="input-group">
+        <label for="landing-lat">Lat (°)</label>
+        <input type="number" id="landing-lat" step="0.000001" placeholder="tap map" oninput="onLandingLatLngInput()" data-allow-empty="true">
+      </div>
+      <div class="input-group">
+        <label for="landing-lng">Lon (°)</label>
+        <input type="number" id="landing-lng" step="0.000001" placeholder="tap map" oninput="onLandingLatLngInput()" data-allow-empty="true">
       </div>
     </div>
 
@@ -312,6 +365,26 @@
 
     <div class="help-footer">
       Pattern Planner · Wind data: open-meteo.com · DZ data: USPA
+    </div>
+  </div>
+</div>
+
+<!-- INVITE CODE MODAL -->
+<div id="invite-modal" class="waiver-modal" role="dialog" aria-modal="true" aria-labelledby="invite-title" style="display:none;">
+  <div class="waiver-card invite-card">
+    <div class="waiver-header">
+      <div class="waiver-brand">Pattern Planner</div>
+      <div class="waiver-title" id="invite-title">Early Access</div>
+    </div>
+    <div class="waiver-body invite-body">
+      <p class="invite-desc">This is an early-access preview. Enter your invite code to continue.</p>
+      <input type="text" id="invite-input" class="invite-input" placeholder="Invite code"
+        autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+        onkeydown="if(event.key==='Enter') verifyInviteCode()">
+      <div id="invite-error" class="invite-error" style="display:none;"></div>
+    </div>
+    <div class="waiver-footer">
+      <button onclick="verifyInviteCode()" class="waiver-agree-btn">Continue</button>
     </div>
   </div>
 </div>

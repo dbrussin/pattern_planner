@@ -27,6 +27,9 @@ const MIN_AGL_FT         = 50;      // minimum AGL threshold for pressure-level 
 // Wind cache TTL — 20 minutes
 const CACHE_MS = 20 * 60 * 1000;
 
+// Access gate — trivial obfuscation only, not real security
+const _IC = atob('RE9OVERFTEFZQ1VUQVdBWQ==');
+
 /**
  * Returns a debounced version of fn that delays invocation by `wait` ms.
  * Resets the timer on each call; only the last call within the window executes.

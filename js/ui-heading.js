@@ -164,14 +164,6 @@ function onJrOffsetInput() {
   calculate();
 }
 
-function resetJrOffset() {
-  state.manualJrOffset = false;
-  const el = document.getElementById('jr-offset');
-  el.value       = '';
-  el.style.color = 'var(--muted)';
-  calculate();
-}
-
 function snapJumpRunToWind() {
   state.manualJumpRun = false;
   state.jumpRunHdgDeg = null;
@@ -240,4 +232,65 @@ function autoSetJumpRunHeading() {
 function onDriftThreshChange(v) {
   state.driftThresh = parseInt(v) || 0;
   if (state.pattern) drawPattern();
+}
+
+// ── Green / Red light overrides ───────────────────────────────────────────────
+
+function onGreenLightInput() {
+  const el = document.getElementById('green-light-override');
+  if (!el) return;
+  if (el.value === '') {
+    state.manualGreenLight = false;
+    el.style.color = 'var(--muted)';
+  } else {
+    state.manualGreenLight = true;
+    el.style.color = 'var(--text)';
+  }
+  if (state.pattern) calculate();
+}
+
+function onRedLightInput() {
+  const el = document.getElementById('red-light-override');
+  if (!el) return;
+  if (el.value === '') {
+    state.manualRedLight = false;
+    el.style.color = 'var(--muted)';
+  } else {
+    state.manualRedLight = true;
+    el.style.color = 'var(--text)';
+  }
+  if (state.pattern) calculate();
+}
+
+// ── DZ reference zero point ───────────────────────────────────────────────────
+
+function onDzZeroInput() {
+  state.manualDzZero = true;
+  updateMagDeclination();
+  saveSettings();
+  if (state.pattern) calculate();
+}
+
+function updateMagDeclination() {
+  const latEl = document.getElementById('dz-zero-lat');
+  const lngEl = document.getElementById('dz-zero-lng');
+  const outEl = document.getElementById('dz-mag-decl');
+  if (!latEl || !lngEl || !outEl) return;
+  const lat = parseFloat(latEl.value);
+  const lon = parseFloat(lngEl.value);
+  if (!isFinite(lat) || !isFinite(lon)) { outEl.textContent = '—'; return; }
+  const d = magDeclination(lat, lon);
+  outEl.textContent = (d >= 0 ? '+' : '') + d.toFixed(1) + '°';
+}
+
+// ── Landing spot lat/lon ──────────────────────────────────────────────────────
+
+const _debouncedPlaceFromLatLng = debounce(function() {
+  const lat = parseFloat(document.getElementById('landing-lat')?.value);
+  const lng = parseFloat(document.getElementById('landing-lng')?.value);
+  if (isFinite(lat) && isFinite(lng)) placeTarget(lat, lng);
+}, 800);
+
+function onLandingLatLngInput() {
+  _debouncedPlaceFromLatLng();
 }

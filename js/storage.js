@@ -63,11 +63,13 @@ function resetAllSettings() {
 function initStorage() {
   try {
     if (localStorage.getItem(storageKey('storage_version')) !== STORAGE_VERSION) {
-      // Preserve waiver agreement across storage version changes
-      const waiverAgreed = localStorage.getItem('pp_waiver_version');
+      // Preserve waiver and invite verification across storage version changes
+      const waiverAgreed    = localStorage.getItem('pp_waiver_version');
+      const inviteVerified  = localStorage.getItem('pp_invite_verified');
       Object.keys(localStorage).filter(k => k.startsWith('pp_')).forEach(k => localStorage.removeItem(k));
       localStorage.setItem(storageKey('storage_version'), STORAGE_VERSION);
-      if (waiverAgreed) localStorage.setItem('pp_waiver_version', waiverAgreed);
+      if (waiverAgreed)   localStorage.setItem('pp_waiver_version',  waiverAgreed);
+      if (inviteVerified) localStorage.setItem('pp_invite_verified', inviteVerified);
     }
   } catch(e) {}
 }
@@ -190,7 +192,7 @@ function loadSettings() {
     }
 
     // Sync alt sliders after restoring values
-    ['alt-enter', 'alt-base', 'alt-final'].forEach(id => {
+    ['alt-enter', 'alt-base', 'alt-final', 'alt-exit', 'alt-open'].forEach(id => {
       const num = document.getElementById(id);
       const sl  = document.getElementById(id + '-sl');
       if (num && sl && num.value) sl.value = num.value;
@@ -218,11 +220,13 @@ function loadSettings() {
   } catch(e) { console.warn('loadSettings error:', e); }
   // Re-render legs to ensure standard leg override UI is visible, then sync sliders
   renderLegs();
-  ['alt-enter', 'alt-base', 'alt-final'].forEach(id => {
+  ['alt-enter', 'alt-base', 'alt-final', 'alt-exit', 'alt-open'].forEach(id => {
     const num = document.getElementById(id);
     const sl  = document.getElementById(id + '-sl');
     if (num && sl && num.value) sl.value = num.value;
   });
+  // Update magnetic declination display from restored DZ zero point
+  if (typeof updateMagDeclination === 'function') updateMagDeclination();
   _loadingSettings = false;
 }
 

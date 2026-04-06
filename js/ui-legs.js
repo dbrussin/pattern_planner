@@ -51,15 +51,15 @@ function renderLegs() {
       <div style="margin-bottom:6px;">
         <label style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px;">Alt (ft AGL)</label>
         <div style="display:flex;align-items:center;gap:6px;">
-          <input type="range" id="alt-${xl.id}-sl" min="200" max="5000" step="50" value="${xl.defaultAlt}" style="flex:1;min-width:0;accent-color:var(--accent);" oninput="onLegAlt('alt-${xl.id}','slider')">
+          <input type="range" id="alt-${xl.id}-sl" min="200" max="5000" step="50" value="${xl.defaultAlt}" style="flex:1;min-width:0;" class="alt-slider" oninput="onLegAlt('alt-${xl.id}','slider')">
           <input type="number" id="alt-${xl.id}" value="${xl.defaultAlt}" min="200" max="5000" step="50" style="font-family:'Space Mono',monospace;font-size:14px;color:var(--text);background:transparent;border:none;border-bottom:1px solid var(--border);width:56px;text-align:center;padding:2px 0;flex-shrink:0;" oninput="onLegAlt('alt-${xl.id}','input')" onblur="onLegAlt('alt-${xl.id}','blur')">
         </div>
       </div>
       <div style="margin-bottom:6px;">
         <label style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap;flex-shrink:0;margin-bottom:4px;display:block;">Approach hdg</label>
         <div style="display:flex;align-items:center;gap:6px;">
-          <input type="range" id="hdg-sl-${xl.id}" min="0" max="359" step="1" value="${nomHdg}" style="flex:1;min-width:0;accent-color:var(--accent2);" oninput="onExtraLegHdg('${xl.id}','slider')">
-          <input type="number" id="hdg-${xl.id}" value="${nomHdg}" min="0" max="359" step="1" style="font-family:'Space Mono',monospace;font-size:14px;color:var(--accent2);background:transparent;border:none;border-bottom:1px solid var(--border);width:46px;text-align:center;padding:2px 0;flex-shrink:0;" oninput="onExtraLegHdg('${xl.id}','input')">
+          <input type="range" id="hdg-sl-${xl.id}" min="0" max="359" step="1" value="${nomHdg}" style="flex:1;min-width:0;" class="hdg-slider" oninput="onExtraLegHdg('${xl.id}','slider')">
+          <input type="number" id="hdg-${xl.id}" value="${nomHdg}" min="0" max="359" step="1" style="font-family:'Space Mono',monospace;font-size:14px;color:var(--accent);background:transparent;border:none;border-bottom:1px solid var(--border);width:46px;text-align:center;padding:2px 0;flex-shrink:0;" oninput="onExtraLegHdg('${xl.id}','input')">
         </div>
       </div>
       <details id="leg-details-${xl.id}" class="leg-details" ${detOpen}>
@@ -73,7 +73,7 @@ function renderLegs() {
             <div class="input-grid">
               <div class="input-group"><label for="${xl.id}-glide">Glide (:1)</label><input type="number" id="${xl.id}-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('${xl.id}','glide')"></div>
               <div class="input-group"><label for="${xl.id}-speed">Horiz (kts)</label><input type="number" id="${xl.id}-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('${xl.id}','speed')"></div>
-              <div class="input-group"><label for="${xl.id}-sink">Vert (kts)</label><input type="number" id="${xl.id}-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('${xl.id}','sink')"></div>
+              <div class="input-group"><label for="${xl.id}-sink">Vert (kts)</label><input type="number" id="${xl.id}-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('${xl.id}','sink')" data-allow-empty="true"></div>
             </div>
             <div id="${xl.id}-perf-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
           </div>
@@ -121,7 +121,7 @@ function renderLegs() {
         <div style="display:flex;align-items:center;gap:6px;">
           <div style="flex:1;position:relative;padding-bottom:10px;min-width:0;">
             <input type="range" id="settings-hdg-final-sl" min="0" max="359" step="1"
-              value="${initialFinalHdg}" style="width:100%;accent-color:var(--accent);display:block;"
+              value="${initialFinalHdg}" style="width:100%;display:block;" class="hdg-slider"
               oninput="onSettingsFinalHdg('slider')">
             <div id="settings-wind-pyramid" style="position:absolute;bottom:0;width:0;height:0;
               border-left:7px solid transparent;border-right:7px solid transparent;
@@ -155,7 +155,7 @@ function renderLegs() {
       <div style="margin-bottom:6px;">
         <label style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px;">${altLabel}</label>
         <div style="display:flex;align-items:center;gap:6px;">
-          <input type="range" id="${altId}-sl" min="${altMin}" max="${altMax}" step="${altStep}" value="${altDefault}" style="flex:1;min-width:0;accent-color:var(--accent);" oninput="onLegAlt('${altId}','slider')">
+          <input type="range" id="${altId}-sl" min="${altMin}" max="${altMax}" step="${altStep}" value="${altDefault}" style="flex:1;min-width:0;" class="alt-slider" oninput="onLegAlt('${altId}','slider')">
           <input type="number" id="${altId}" value="${altDefault}" min="${altMin}" max="${altMax}" step="${altStep}" style="font-family:'Space Mono',monospace;font-size:14px;color:var(--text);background:transparent;border:none;border-bottom:1px solid var(--border);width:56px;text-align:center;padding:2px 0;flex-shrink:0;" oninput="onLegAlt('${altId}','input')" onblur="onLegAlt('${altId}','blur')">
         </div>
       </div>
@@ -169,8 +169,8 @@ function renderLegs() {
               <input type="checkbox" id="${key}-hdg-check" ${hdgOverrideChecked} onchange="onLegHdgOverrideToggle('${key}',this.checked)">
             </div>
             <div id="${key}-hdg-row" style="display:${hdgOverrideDisp};align-items:center;gap:6px;margin-bottom:4px;">
-              <input type="range" id="${key}-hdg-sl" min="0" max="359" step="1" value="${hdgVal}" style="flex:1;min-width:0;accent-color:var(--accent2);" oninput="onStdLegHdg('${key}','slider')">
-              <input type="number" id="${key}-hdg" value="${hdgVal}" min="0" max="359" step="1" style="font-family:'Space Mono',monospace;font-size:14px;color:var(--accent2);background:transparent;border:none;border-bottom:1px solid var(--border);width:46px;text-align:center;padding:2px 0;flex-shrink:0;" oninput="onStdLegHdg('${key}','input')">
+              <input type="range" id="${key}-hdg-sl" min="0" max="359" step="1" value="${hdgVal}" style="flex:1;min-width:0;" class="hdg-slider" oninput="onStdLegHdg('${key}','slider')">
+              <input type="number" id="${key}-hdg" value="${hdgVal}" min="0" max="359" step="1" style="font-family:'Space Mono',monospace;font-size:14px;color:var(--accent);background:transparent;border:none;border-bottom:1px solid var(--border);width:46px;text-align:center;padding:2px 0;flex-shrink:0;" oninput="onStdLegHdg('${key}','input')">
             </div>
           </div>` : ''}
           ${zRow}
@@ -182,7 +182,7 @@ function renderLegs() {
             <div class="input-grid">
               <div class="input-group"><label for="${key}-glide">Glide (:1)</label><input type="number" id="${key}-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('${key}','glide')"></div>
               <div class="input-group"><label for="${key}-speed">Horiz (kts)</label><input type="number" id="${key}-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('${key}','speed')"></div>
-              <div class="input-group"><label for="${key}-sink">Vert (kts)</label><input type="number" id="${key}-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('${key}','sink')"></div>
+              <div class="input-group"><label for="${key}-sink">Vert (kts)</label><input type="number" id="${key}-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('${key}','sink')" data-allow-empty="true"></div>
             </div>
             <div id="${key}-perf-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
           </div>
@@ -195,7 +195,7 @@ function renderLegs() {
   // Reset to defaults button
   const resetBtn = document.createElement('button');
   resetBtn.style.cssText = 'width:100%;margin-top:6px;font-family:"Space Mono",monospace;font-size:11px;color:var(--muted);background:transparent;border:1px solid var(--border);border-radius:4px;padding:6px;cursor:pointer;letter-spacing:0.06em;text-transform:uppercase;';
-  resetBtn.textContent = 'Reset to Defaults';
+  resetBtn.textContent = 'Reset Pattern Legs';
   resetBtn.onclick = resetPatternLegs;
   container.appendChild(resetBtn);
 
@@ -228,6 +228,7 @@ function getLegAltConstraints(numId) {
   const altBase  = parseFloat(document.getElementById('alt-base')?.value)  || 600;
   const altFinal = parseFloat(document.getElementById('alt-final')?.value) || 300;
   const altOpen  = parseFloat(document.getElementById('alt-open')?.value)  || 3000;
+  const altExit  = parseFloat(document.getElementById('alt-exit')?.value)  || 13500;
   // Ceiling for the highest canopy leg: must stay below opening altitude
   const topMax   = altOpen - MIN_GAP;
 
@@ -242,6 +243,15 @@ function getLegAltConstraints(numId) {
     const lowestXL = displayOrder.length > 0 ? getAlt(displayOrder[displayOrder.length - 1]) : Infinity;
     const maxVal   = isFinite(lowestXL) ? lowestXL - MIN_GAP : topMax;
     return { min: altBase + MIN_GAP, max: Math.max(altBase + MIN_GAP, maxVal) };
+  }
+  if (numId === 'alt-open') {
+    // Highest canopy alt: max of alt-enter and any extra leg
+    const highestXL = displayOrder.length > 0 ? getAlt(displayOrder[0]) : -Infinity;
+    const highestLeg = isFinite(highestXL) ? Math.max(altEnter, highestXL) : altEnter;
+    return { min: highestLeg + MIN_GAP, max: Math.max(highestLeg + MIN_GAP, altExit - MIN_GAP) };
+  }
+  if (numId === 'alt-exit') {
+    return { min: altOpen + MIN_GAP, max: 25000 };
   }
   if (numId.startsWith('alt-xl')) {
     const xlId = numId.replace('alt-', '');
@@ -261,6 +271,9 @@ function updateAllSliderRanges() {
   const legIds = ['alt-final', 'alt-base', 'alt-enter'];
   legIds.forEach(id => applySliderRange(id));
   (state.extraLegs || []).forEach(xl => applySliderRange(`alt-${xl.id}`));
+  // Jump run altitudes participate in the same constraint chain
+  applySliderRange('alt-open');
+  applySliderRange('alt-exit');
 }
 
 function applySliderRange(numId) {
@@ -302,24 +315,13 @@ function onLegAlt(numId, src) {
 // ── Jump run alt cross-field enforcement ──────────────────────────────────────
 
 function onExitAltChange() {
-  const exitEl = document.getElementById('alt-exit');
-  const openEl = document.getElementById('alt-open');
-  const exit   = parseFloat(exitEl.value);
-  const open   = parseFloat(openEl.value);
-  if (!isNaN(exit) && !isNaN(open) && exit <= open) {
-    exitEl.value = open + 500;
-  }
+  applySliderRange('alt-exit');
+  updateAllSliderRanges();
   calculate();
 }
 
 function onOpenAltChange() {
-  const exitEl = document.getElementById('alt-exit');
-  const openEl = document.getElementById('alt-open');
-  const exit   = parseFloat(exitEl.value);
-  const open   = parseFloat(openEl.value);
-  if (!isNaN(exit) && !isNaN(open) && open >= exit) {
-    openEl.value = exit - 500;
-  }
+  applySliderRange('alt-open');
   updateAllSliderRanges();
   calculate();
 }
@@ -370,7 +372,26 @@ function resetPatternLegs() {
   state.zPattern      = false;
   state.legCustomPerf = Object.fromEntries(LEG_DEFS.map(l => [l.key, false]));
 
+  // Reset heading to auto-compute from wind
+  state.manualHeading  = false;
+  state.finalHeadingDeg = null;
+
   renderLegs();
+  // Collapse all expandable sections and explicitly reset checkbox/visibility state
+  document.querySelectorAll('#legs-container details').forEach(d => { d.open = false; });
+  LEG_DEFS.forEach(def => {
+    const key = def.key;
+    const hdgCheck = document.getElementById(`${key}-hdg-check`);
+    if (hdgCheck) hdgCheck.checked = false;
+    const hdgRow = document.getElementById(`${key}-hdg-row`);
+    if (hdgRow) hdgRow.style.display = 'none';
+    const cpCheck = document.getElementById(`${key}-custom-perf`);
+    if (cpCheck) cpCheck.checked = false;
+    const perf = document.getElementById(`${key}-perf`);
+    if (perf) perf.style.display = 'none';
+  });
+  const zCheck = document.getElementById('dw-z-check');
+  if (zCheck) zCheck.checked = false;
   saveSettings();
   if (state.target) calculate();
 }
@@ -392,17 +413,27 @@ function addExtraLeg() {
   const id    = `xl${idx}`;
   const color = EXTRA_LEG_COLORS[(idx - 1) % EXTRA_LEG_COLORS.length];
 
-  // Default approach heading: 90° rotation from previous leg in circuit direction
-  const sign = state.hand === 'left' ? 1 : -1;
-  let prevNomHdg;
-  if (state.extraLegs.length > 0) {
-    const lastXl = state.extraLegs[state.extraLegs.length - 1];
-    const hdgInp = document.getElementById(`hdg-${lastXl.id}`);
-    prevNomHdg = hdgInp ? (parseInt(hdgInp.value) || lastXl.nomHdg || 0) : (lastXl.nomHdg || 0);
+  // Default approach heading: directly downwind at leg altitude (into-wind = opposite)
+  // Fall back to 90° rotation from previous leg if winds are calm or unavailable.
+  const w = getWindAtAGL(newAlt);
+  const windSpd = vecLen(w);
+  let nomHdg;
+  if (windSpd > MIN_WIND_SPD_KT) {
+    // Wind vector {n,e} points in direction wind blows TO — fly that direction = downwind
+    nomHdg = Math.round((Math.atan2(w.e, w.n) * R2D + 360) % 360);
   } else {
-    prevNomHdg = state.pattern?.dwTrackHdg ?? ((state.pattern?.fHdg ?? 0) + 180) % 360;
+    // Calm winds: fall back to 90° rotation from previous leg
+    const sign = state.hand === 'left' ? 1 : -1;
+    let prevNomHdg;
+    if (state.extraLegs.length > 0) {
+      const lastXl = state.extraLegs[state.extraLegs.length - 1];
+      const hdgInp = document.getElementById(`hdg-${lastXl.id}`);
+      prevNomHdg = hdgInp ? (parseInt(hdgInp.value) || lastXl.nomHdg || 0) : (lastXl.nomHdg || 0);
+    } else {
+      prevNomHdg = state.pattern?.dwTrackHdg ?? ((state.pattern?.fHdg ?? 0) + 180) % 360;
+    }
+    nomHdg = Math.round((prevNomHdg + sign * 90 + 3600) % 360);
   }
-  const nomHdg = Math.round((prevNomHdg + sign * 90 + 3600) % 360);
 
   state.extraLegs.push({ id, defaultAlt: newAlt, color, nomHdg });
   state.legModes[id]      = 'crab';

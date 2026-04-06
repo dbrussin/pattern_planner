@@ -234,9 +234,18 @@ function drawPattern() {
       const jrVec      = hdgVec(p.jrHdg);
       const jrRightVec = {n: jrVec.e, e: -jrVec.n}; // 90° right of heading
 
-      // Natural offset = perpendicular distance from landing target to the line through exit center
-      const landToExitN  = (exitCenter.lat - p.landing.lat) * R_FT * D2R;
-      const landToExitE  = (exitCenter.lng - p.landing.lng) * R_FT * Math.cos(p.landing.lat * D2R) * D2R;
+      // Use DZ reference zero point (if set) instead of landing target for offset/green/red calcs
+      const dzZeroLatEl = document.getElementById('dz-zero-lat');
+      const dzZeroLngEl = document.getElementById('dz-zero-lng');
+      const dzZeroLat = dzZeroLatEl && dzZeroLatEl.value !== '' ? parseFloat(dzZeroLatEl.value) : NaN;
+      const dzZeroLng = dzZeroLngEl && dzZeroLngEl.value !== '' ? parseFloat(dzZeroLngEl.value) : NaN;
+      const dzRef = (isFinite(dzZeroLat) && isFinite(dzZeroLng))
+        ? {lat: dzZeroLat, lng: dzZeroLng}
+        : p.landing;
+
+      // Natural offset = perpendicular distance from DZ reference point to the line through exit center
+      const landToExitN  = (exitCenter.lat - dzRef.lat) * R_FT * D2R;
+      const landToExitE  = (exitCenter.lng - dzRef.lng) * R_FT * Math.cos(dzRef.lat * D2R) * D2R;
       const calcOffsetFt = landToExitN * jrRightVec.n + landToExitE * jrRightVec.e;
       const calcOffsetNm = calcOffsetFt / 6076;
 
@@ -287,22 +296,48 @@ function drawPattern() {
       const proj2    = jrBaseToExitN * jrVec.n + jrBaseToExitE * jrVec.e;
       const distSq2  = jrBaseToExitN ** 2 + jrBaseToExitE ** 2;
       const disc2    = proj2 ** 2 - (distSq2 - exitRFt ** 2);
-      const landToBaseN = (p.landing.lat - jrBase.lat) * R_FT * D2R;
-      const landToBaseE = (p.landing.lng - jrBase.lng) * R_FT * Math.cos(jrBase.lat * D2R) * D2R;
-      const tRef     = landToBaseN * jrVec.n + landToBaseE * jrVec.e;
+      // Use DZ reference point for tRef (distance along jump run from DZ ref to base)
+      const dzToBaseN = (dzRef.lat - jrBase.lat) * R_FT * D2R;
+      const dzToBaseE = (dzRef.lng - jrBase.lng) * R_FT * Math.cos(jrBase.lat * D2R) * D2R;
+      const tRef     = dzToBaseN * jrVec.n + dzToBaseE * jrVec.e;
 
+      const greenEl = document.getElementById('green-light-override');
+      const redEl   = document.getElementById('red-light-override');
       let greenTxt = '', redTxt = '';
       if (disc2 >= 0) {
-        const t1      = proj2 - Math.sqrt(disc2);
-        const t2      = proj2 + Math.sqrt(disc2);
-        const fmtDist = t => {
-          const dt   = t - tRef;
-          const nm   = Math.abs(dt) / 6076;
-          const word = dt >= 0 ? 'past' : 'prior';
-          return `${nm.toFixed(1)}nm ${word}`;
+        const t1 = proj2 - Math.sqrt(disc2);
+        const t2 = proj2 + Math.sqrt(disc2);
+
+        // Calculated values as signed nm from DZ ref
+        const calcGreenNm = (t1 - tRef) / FT_PER_NM;
+        const calcRedNm   = (t2 - tRef) / FT_PER_NM;
+
+        // Update input fields if not manually set
+        if (greenEl && !state.manualGreenLight) {
+          greenEl.value       = calcGreenNm.toFixed(2);
+          greenEl.style.color = 'var(--muted)';
+        }
+        if (redEl && !state.manualRedLight) {
+          redEl.value       = calcRedNm.toFixed(2);
+          redEl.style.color = 'var(--muted)';
+        }
+
+        // Use manual override or calculated value for label
+        const activeGreenNm = state.manualGreenLight && greenEl && greenEl.value !== ''
+          ? parseFloat(greenEl.value) : calcGreenNm;
+        const activeRedNm   = state.manualRedLight   && redEl   && redEl.value   !== ''
+          ? parseFloat(redEl.value)   : calcRedNm;
+
+        const fmtNm = nm => {
+          const word = nm >= 0 ? 'past' : 'prior';
+          return `${Math.abs(nm).toFixed(1)}nm ${word}`;
         };
-        greenTxt = ` · 🟢 ${fmtDist(t1)}`;
-        redTxt   = ` · 🔴 ${fmtDist(t2)}`;
+        greenTxt = ` · 🟢 ${fmtNm(activeGreenNm)}`;
+        redTxt   = ` · 🔴 ${fmtNm(activeRedNm)}`;
+      } else {
+        // No intersection — clear fields if not manually set
+        if (greenEl && !state.manualGreenLight) { greenEl.value = ''; greenEl.style.color = 'var(--muted)'; }
+        if (redEl   && !state.manualRedLight)   { redEl.value   = ''; redEl.style.color   = 'var(--muted)'; }
       }
 
       const sepTxt          = sepSec ? ` · ${sepSec}s sep` : '';

@@ -13,6 +13,9 @@ const state = {
   jumpRunHdgDeg: null,
   manualJumpRun: false,
   manualJrOffset: false,
+  manualGreenLight: false,
+  manualRedLight: false,
+  manualDzZero: false,
   winds: [],
   surfaceWind: null,
   pattern: null,
@@ -38,4 +41,5 @@ const PERSIST_INPUTS = [
   'alt-exit', 'alt-open', 'ff-speed',
   'jr-airspeed', 'exit-sep', 'safety-margin',
   'glide', 'canopy-speed', 'drift-thresh',
+  'dz-zero-lat', 'dz-zero-lng',
 ];
