@@ -79,7 +79,7 @@ async function fetchWinds(forceRefresh = false) {
 
     processWindData(rawData, fieldElevFt);
     updateWindStatusAge(ts);
-    setStatus(`Winds loaded · SFC ${state.surfaceWind.dirDeg}°@${state.surfaceWind.speedKts}kt`);
+    setStatus(`Winds loaded · SFC ${state.surfaceWind.dirDeg ?? '?'}°@${state.surfaceWind.speedKts ?? '?'}kt`);
   } catch(e) {
     if (e.name === 'AbortError') return; // superseded by a newer request
     document.getElementById('fetch-status').textContent = `Fetch failed: ${e.message}`;
@@ -135,15 +135,19 @@ function processWindData(d, fieldElevFt) {
   }
   if (headerCtrl) headerCtrl.style.display = 'flex';
 
-  // Surface wind
+  // Surface wind — guard against null API values (Math.round(null) = 0 is misleading)
+  const _rawDir = d.hourly.winddirection_10m?.[hi];
+  const _rawSpd = d.hourly.windspeed_10m?.[hi];
   state.surfaceWind = {
-    dirDeg:   Math.round(d.hourly.winddirection_10m[hi]),
-    speedKts: Math.round(d.hourly.windspeed_10m[hi]),
+    dirDeg:   _rawDir != null ? Math.round(_rawDir) : null,
+    speedKts: _rawSpd != null ? Math.round(_rawSpd) : null,
   };
   state.fieldElevFt = fieldElevFt;
 
   // ── Build raw arrays for interpolation (keyed by MSL altitude) ──
-  const rawWinds = [{altFt: fieldElevFt, dirDeg: state.surfaceWind.dirDeg, speedKts: state.surfaceWind.speedKts}];
+  const rawWinds = state.surfaceWind.dirDeg != null
+    ? [{altFt: fieldElevFt, dirDeg: state.surfaceWind.dirDeg, speedKts: state.surfaceWind.speedKts ?? 0}]
+    : [];
   const rawTemp  = [];
 
   // Fixed-height-level winds (AGL → MSL), no temperature available
@@ -262,7 +266,7 @@ function processWindData(d, fieldElevFt) {
   _sortedWindsCache = null; _sortedTempCache = null; // invalidate caches
 
   buildWindTable();
-  if (!state.manualHeading) { state.finalHeadingDeg = state.surfaceWind.dirDeg; updateHeadingDisplay(state.surfaceWind.dirDeg); }
+  if (!state.manualHeading && state.surfaceWind.dirDeg != null) { state.finalHeadingDeg = state.surfaceWind.dirDeg; updateHeadingDisplay(state.surfaceWind.dirDeg); }
   autoSetJumpRunHeading();
   updateWindPyramid();
   updateJrPyramid();

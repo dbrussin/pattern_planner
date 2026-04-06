@@ -87,9 +87,12 @@ function renderLegs() {
   // Z-pattern option only shown on downwind, and only when no extra legs exist
   // Final leg uses the dedicated Final Hdg slider — clear any legacy override
   if (state.legHdgOverride?.f != null) { state.legHdgOverride.f = null; }
+  const _barVal = parseFloat(document.getElementById('heading-bar-val')?.value);
   const initialFinalHdg = Math.round(
     state.finalHeadingDeg ??
-    parseFloat(document.getElementById('heading-bar-val')?.value) ?? 0
+    (!isNaN(_barVal) ? _barVal : null) ??
+    state.surfaceWind?.dirDeg ??
+    0
   );
   LEG_DEFS.forEach(def => {
     const { key, label, color, altId, altLabel, altDefault, altMin, altMax, altStep } = def;
@@ -373,10 +376,13 @@ function resetPatternLegs() {
   state.legCustomPerf = Object.fromEntries(LEG_DEFS.map(l => [l.key, false]));
 
   // Reset heading to auto-compute from wind
-  state.manualHeading  = false;
+  state.manualHeading   = false;
   state.finalHeadingDeg = null;
 
   renderLegs();
+  // Sync heading bar to current wind direction AFTER renderLegs() rebuilds the DOM,
+  // so the snapshot-restore doesn't capture and re-apply the stale manual heading.
+  if (state.surfaceWind?.dirDeg != null) updateHeadingDisplay(state.surfaceWind.dirDeg);
   // Collapse all expandable sections and explicitly reset checkbox/visibility state
   document.querySelectorAll('#legs-container details').forEach(d => { d.open = false; });
   LEG_DEFS.forEach(def => {
