@@ -459,13 +459,18 @@ async function fetchMetar(lat, lng) {
     const d    = 0.025;
     const dLon = d / Math.cos(lat * Math.PI / 180);
     const bbox = `${(lat - d).toFixed(4)},${(lng - dLon).toFixed(4)},${(lat + d).toFixed(4)},${(lng + dLon).toFixed(4)}`;
-    const url  = `https://aviationweather.gov/api/data/metar?bbox=${bbox}&format=json&hours=2&mostRecentForEachStation=true`;
+    const url  = `https://aviationweather.gov/api/data/metar?bbox=${bbox}&format=json&hours=1`;
     const data = await (await fetch(url)).json();
     if (!Array.isArray(data) || !data.length) { box.style.display = 'none'; return; }
 
-    // Sort by distance, enforce ≤1 statute mile
-    const withDist = data
-      .map(m => ({ m, dist: _metarDistMi(lat, lng, m.lat, m.lon) }))
+    // Keep only the most recent observation per station, then pick closest
+    const byStation = {};
+    data.forEach(m => {
+      const t = new Date(m.reportTime).getTime();
+      if (!byStation[m.icaoId] || t > byStation[m.icaoId].t) byStation[m.icaoId] = { m, t };
+    });
+    const withDist = Object.values(byStation)
+      .map(({ m }) => ({ m, dist: _metarDistMi(lat, lng, m.lat, m.lon) }))
       .sort((a, b) => a.dist - b.dist);
     const nearest = withDist[0];
     if (nearest.dist > 1.0) { box.style.display = 'none'; return; }
