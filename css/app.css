@@ -433,6 +433,48 @@ input[type=number] { -moz-appearance: textfield; }
 }
 .winds-source-note a { color: var(--accent2); text-decoration: none; }
 
+/* ── METAR BOX ── */
+#metar-box {
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+}
+.metar-section-hdr {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 6px;
+}
+.metar-section-tag {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--muted);
+}
+.metar-speci { color: var(--accent); font-weight: 700; }
+.metar-dist-tag { font-size: 10px; color: var(--muted); font-family: 'Space Mono', monospace; }
+.metar-id-row {
+  display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px;
+}
+.metar-station-id {
+  font-size: 15px; font-weight: 700; color: var(--accent2); font-family: 'Space Mono', monospace;
+}
+.metar-age { font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; }
+.metar-station-name {
+  font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; margin-bottom: 10px;
+}
+.metar-grid {
+  display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; align-items: baseline;
+  margin-bottom: 10px;
+}
+.metar-lbl {
+  font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.metar-val {
+  font-size: 12px; color: var(--text); font-family: 'Space Mono', monospace;
+  text-align: right; word-break: break-word;
+}
+.metar-raw-obs {
+  padding-top: 8px; border-top: 1px solid var(--border);
+  font-size: 10px; color: var(--muted); font-family: 'Space Mono', monospace;
+  line-height: 1.5; word-break: break-all;
+}
+
 /* ── WAIVER MODAL ── */
 .waiver-modal {
   display: none; position: fixed; inset: 0; z-index: 2000;
