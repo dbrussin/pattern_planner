@@ -335,134 +335,147 @@ function _metarDistMi(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function _renderNWSObs(p, stId, stName, distMi) {
-  const COVER = { CLR: 'Clear', SKC: 'Clear', NSC: 'No sig cloud', CAVOK: 'Clear',
+function _decodeWx(wxStr) {
+  if (!wxStr) return '';
+  const INTENSITY = { '-': 'Light', '+': 'Heavy', 'VC': 'In vicinity' };
+  const DESC      = { MI: 'Shallow', BC: 'Patches', PR: 'Partial', DR: 'Drifting', BL: 'Blowing', SH: 'Showers', TS: 'Thunderstorm', FZ: 'Freezing' };
+  const PRECIP    = { DZ: 'Drizzle', RA: 'Rain', SN: 'Snow', SG: 'Snow grains', IC: 'Ice crystals', PL: 'Ice pellets', GR: 'Hail', GS: 'Small hail', UP: 'Unknown precip' };
+  const OBSCUR    = { BR: 'Mist', FG: 'Fog', FU: 'Smoke', VA: 'Volcanic ash', DU: 'Dust', SA: 'Sand', HZ: 'Haze' };
+  const OTHER     = { PO: 'Dust whirls', SQ: 'Squalls', FC: 'Funnel cloud / tornado', SS: 'Sandstorm', DS: 'Dust storm' };
+
+  return wxStr.trim().split(/\s+/).map(grp => {
+    let s = grp, parts = [];
+    if (s.startsWith('VC'))        { parts.push(INTENSITY.VC); s = s.slice(2); }
+    else if (s[0] === '-' || s[0] === '+') { parts.push(INTENSITY[s[0]]); s = s.slice(1); }
+    for (const [c, n] of Object.entries(DESC))   { if (s.startsWith(c)) { parts.push(n); s = s.slice(c.length); break; } }
+    for (const [c, n] of Object.entries(PRECIP)) { if (s.includes(c))   { parts.push(n); s = s.replace(c, ''); break; } }
+    for (const [c, n] of Object.entries(OBSCUR)) { if (s.includes(c))   { parts.push(n); s = s.replace(c, ''); break; } }
+    for (const [c, n] of Object.entries(OTHER))  { if (s.includes(c))   { parts.push(n); break; } }
+    return parts.length ? parts.join(' ') : grp;
+  }).join('; ');
+}
+
+function _renderMetar(m, distMi) {
+  const COVER = { CLR: 'Clear', SKC: 'Clear', CAVOK: 'Clear', NSC: 'No sig cloud',
                   FEW: 'Few', SCT: 'Scattered', BKN: 'Broken', OVC: 'Overcast', VV: 'Vert vis' };
 
-  // Age / time
-  const tsMs   = new Date(p.timestamp).getTime();
-  const ageMin = Math.round((Date.now() - tsMs) / 60000);
+  // Age
+  const rt     = m.reportTime;
+  const rtMs   = new Date(rt.includes('Z') || rt.includes('+') ? rt : rt.replace(' ', 'T') + 'Z').getTime();
+  const ageMin = Math.round((Date.now() - rtMs) / 60000);
   const ageStr = ageMin < 1 ? 'just now' : ageMin < 60 ? `${ageMin} min ago` : `${Math.round(ageMin / 60)}h ago`;
-  const zuluStr = new Date(tsMs).toISOString().slice(11, 16) + 'Z';
 
-  // Wind — NWS wind speed is km/h, convert to kts (÷ 1.852)
-  const wdirDeg = p.windDirection?.value;
-  const wspdKmh = p.windSpeed?.value;
-  const wgstKmh = p.windGust?.value;
-  const wspdKts = wspdKmh != null ? Math.round(wspdKmh / 1.852) : null;
-  const wgstKts = wgstKmh != null ? Math.round(wgstKmh / 1.852) : null;
+  // Time label in Zulu
+  const rtDate = new Date(rtMs);
+  const zuluStr = `${String(rtDate.getUTCHours()).padStart(2, '0')}${String(rtDate.getUTCMinutes()).padStart(2, '0')}Z`;
+
+  // Wind
   let windStr = 'Calm';
-  if (wdirDeg != null && wspdKts != null && wspdKts > 0) {
-    windStr = `${String(Math.round(wdirDeg)).padStart(3, '0')}° @ ${wspdKts} kts`;
-    if (wgstKts) windStr += `, gusting ${wgstKts} kts`;
-  } else if (wspdKts === 0 || wspdKmh === 0) {
-    windStr = 'Calm';
+  if (m.wdir != null && m.wspd != null && m.wspd > 0) {
+    const dir = m.wdir === 'VRB' || m.wdir === 0 && m.wspd === 0
+      ? 'Variable'
+      : `${String(m.wdir).padStart(3, '0')}°`;
+    windStr = `${dir} @ ${m.wspd} kts`;
+    if (m.wgst) windStr += `, gusting ${m.wgst} kts`;
+  } else if (m.wdir === 'VRB') {
+    windStr = `Variable @ ${m.wspd ?? 0} kts`;
   }
 
-  // Visibility — NWS in meters, convert to miles
-  const visM  = p.visibility?.value;
-  const visStr = visM == null ? '--'
-    : visM >= 16000 ? '10+ miles'
-    : `${(visM / 1609.34).toFixed(1)} miles`;
+  // Visibility
+  let visStr = '--';
+  if (m.visib != null) {
+    const v = String(m.visib);
+    visStr = v === '10+' ? '10+ miles' : `${v} mile${v === '1' ? '' : 's'}`;
+  }
 
-  // Sky / cloud layers — NWS base in meters, convert to ft
+  // Sky
   let skyStr = 'Clear';
-  if (p.cloudLayers && p.cloudLayers.length) {
-    skyStr = p.cloudLayers.map(c => {
-      const name   = COVER[c.amount] || c.amount;
-      const baseFt = c.base?.value != null ? Math.round(c.base.value * 3.28084 / 100) * 100 : null;
-      return baseFt != null ? `${name} at ${baseFt.toLocaleString()} ft` : name;
+  if (m.clouds && m.clouds.length) {
+    skyStr = m.clouds.map(c => {
+      const name = COVER[c.cover] || c.cover;
+      return c.base != null ? `${name} at ${c.base.toLocaleString()} ft` : name;
     }).join(' · ');
   }
 
   // Temp / dewpoint / RH
-  const tempC = p.temperature?.value;
-  const dewpC = p.dewpoint?.value;
   let tempStr = '--';
-  if (tempC != null) {
-    tempStr = `${Math.round(tempC)}°C`;
-    if (dewpC != null) {
+  if (m.temp != null) {
+    tempStr = `${Math.round(m.temp)}°C`;
+    if (m.dewp != null) {
       const rh = Math.round(100
-        * Math.exp((17.625 * dewpC) / (243.04 + dewpC))
-        / Math.exp((17.625 * tempC) / (243.04 + tempC)));
-      tempStr += ` / Dew ${Math.round(dewpC)}°C  (${rh}% RH)`;
+        * Math.exp((17.625 * m.dewp) / (243.04 + m.dewp))
+        / Math.exp((17.625 * m.temp) / (243.04 + m.temp)));
+      tempStr += ` / Dew ${Math.round(m.dewp)}°C  (${rh}% RH)`;
     }
   }
 
-  // Altimeter — NWS sea-level pressure in Pa → inHg and hPa
-  const pPa = p.seaLevelPressure?.value ?? p.barometricPressure?.value;
+  // Altimeter (hPa → inHg)
   let altimStr = '--';
-  if (pPa != null) {
-    altimStr = `${(pPa / 3386.389).toFixed(2)} inHg  (${Math.round(pPa / 100)} hPa)`;
+  if (m.altim != null) {
+    const inHg = (m.altim / 33.8639).toFixed(2);
+    altimStr = `${inHg} inHg  (${Math.round(m.altim)} hPa)`;
   }
 
-  // Present weather — NWS provides decoded objects
-  let wxStr = null;
-  if (p.presentWeather?.length) {
-    wxStr = p.presentWeather.map(w => {
-      const parts = [];
-      if (w.intensity) parts.push(w.intensity[0].toUpperCase() + w.intensity.slice(1));
-      if (w.modifier)  parts.push(w.modifier);
-      if (w.weather)   parts.push(w.weather[0].toUpperCase() + w.weather.slice(1));
-      return parts.length ? parts.join(' ') : (w.rawString || '');
-    }).filter(Boolean).join('; ');
-  } else if (p.textDescription) {
-    wxStr = p.textDescription;
-  }
+  // WX phenomena
+  const wxDecoded = m.wxString ? _decodeWx(m.wxString) : null;
 
-  const distStr  = distMi < 0.1 ? '<0.1 mi away' : `${distMi.toFixed(1)} mi away`;
+  const isSpeci = m.metarType === 'SPECI';
+  const distStr = distMi < 0.1 ? '<0.1 mi away' : `${distMi.toFixed(1)} mi away`;
+  const stationName = m.name || '';
+
   const rows = [
     ['Wind',       windStr],
     ['Visibility', visStr],
-    ...(wxStr ? [['Weather', wxStr]] : []),
+    ...(wxDecoded ? [['Weather', wxDecoded]] : []),
     ['Sky',        skyStr],
     ['Temp / Dew', tempStr],
     ['Altimeter',  altimStr],
   ];
-  const gridHTML = rows.map(([l, v]) =>
-    `<div class="metar-lbl">${l}</div><div class="metar-val">${v}</div>`
+
+  const gridHTML = rows.map(([lbl, val]) =>
+    `<div class="metar-lbl">${lbl}</div><div class="metar-val">${val}</div>`
   ).join('');
 
   return `
     <div class="metar-section-hdr">
-      <span class="metar-section-tag">METAR</span>
+      <span class="metar-section-tag">METAR${isSpeci ? ' <span class="metar-speci">SPECI</span>' : ''}</span>
       <span class="metar-dist-tag">${distStr}</span>
     </div>
     <div class="metar-id-row">
-      <span class="metar-station-id">${stId}</span>
+      <span class="metar-station-id">${m.icaoId}</span>
       <span class="metar-age">${zuluStr} · ${ageStr}</span>
     </div>
-    ${stName ? `<div class="metar-station-name">${stName}</div>` : ''}
+    ${stationName ? `<div class="metar-station-name">${stationName}</div>` : ''}
     <div class="metar-grid">${gridHTML}</div>
-    ${p.rawMessage ? `<div class="metar-raw-obs">${p.rawMessage}</div>` : ''}
+    <div class="metar-raw-obs">${m.rawOb || ''}</div>
   `;
 }
 
 async function fetchMetar(lat, lng) {
-  // NWS API (api.weather.gov) sends Access-Control-Allow-Origin: *
-  // so it works from file:// unlike aviationweather.gov which blocks null origin.
-  // Two-step: find nearest station, then fetch its latest observation.
   const box = document.getElementById('metar-box');
   if (!box) return;
   try {
-    const stUrl  = `https://api.weather.gov/stations?point=${lat.toFixed(4)},${lng.toFixed(4)}&limit=10`;
-    const stData = await (await fetch(stUrl, { headers: { Accept: 'application/geo+json' } })).json();
-    if (!stData?.features?.length) { box.style.display = 'none'; return; }
+    // bbox: south,west,north,east — ~1.7 mi buffer each direction, then enforce ≤1 mi client-side
+    const d    = 0.025;
+    const dLon = d / Math.cos(lat * Math.PI / 180);
+    const bbox = `${(lat - d).toFixed(4)},${(lng - dLon).toFixed(4)},${(lat + d).toFixed(4)},${(lng + dLon).toFixed(4)}`;
+    const url  = `https://aviationweather.gov/api/data/metar?bbox=${bbox}&format=json&hours=1`;
+    const data = await (await fetch(url)).json();
+    if (!Array.isArray(data) || !data.length) { box.style.display = 'none'; return; }
 
-    // GeoJSON coords are [lon, lat] — find nearest station within 1 statute mile
-    const withDist = stData.features
-      .map(f => ({ f, dist: _metarDistMi(lat, lng, f.geometry.coordinates[1], f.geometry.coordinates[0]) }))
+    // Keep only the most recent observation per station, then pick closest
+    const byStation = {};
+    data.forEach(m => {
+      const t = new Date(m.reportTime).getTime();
+      if (!byStation[m.icaoId] || t > byStation[m.icaoId].t) byStation[m.icaoId] = { m, t };
+    });
+    const withDist = Object.values(byStation)
+      .map(({ m }) => ({ m, dist: _metarDistMi(lat, lng, m.lat, m.lon) }))
       .sort((a, b) => a.dist - b.dist);
     const nearest = withDist[0];
     if (nearest.dist > 1.0) { box.style.display = 'none'; return; }
 
-    const stId   = nearest.f.properties.stationIdentifier;
-    const stName = nearest.f.properties.name;
-    const obsUrl = `https://api.weather.gov/stations/${stId}/observations/latest`;
-    const obs    = await (await fetch(obsUrl, { headers: { Accept: 'application/geo+json' } })).json();
-    if (!obs?.properties?.timestamp) { box.style.display = 'none'; return; }
-
-    box.innerHTML = _renderNWSObs(obs.properties, stId, stName, nearest.dist);
+    box.innerHTML = _renderMetar(nearest.m, nearest.dist);
     box.style.display = 'block';
   } catch(e) {
     console.warn('METAR fetch failed', e);
