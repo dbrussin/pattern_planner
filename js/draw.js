@@ -16,8 +16,16 @@ function pinIcon(color) {
   });
 }
 
-function legLabel(disp, wc, color, legSec) {
-  const dist = dft(disp);
+// Compute the arc length (ft) a canopy flies through a banked turn.
+// Arc length = R × |Δh_rad|, which is always ≥ the chord displacement magnitude.
+function turnArcLen(turn) {
+  if (!turn || !turn.R || !turn.dh) return 0;
+  return Math.round(turn.R * Math.abs(turn.dh) * D2R);
+}
+
+function legLabel(disp, wc, color, legSec, totalDist, totalSec) {
+  const dist       = totalDist != null ? totalDist : dft(disp);
+  const displaySec = totalSec  != null ? totalSec  : legSec;
   const {along, cross} = wc;
 
   function compLabel(val, type) {
@@ -36,7 +44,7 @@ function legLabel(disp, wc, color, legSec) {
   const pri  = primary   ? `<div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:600;color:${color};text-shadow:${shadow};">${primary}</div>` : '';
   const sec  = secondary ? `<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:400;color:${color};text-shadow:${shadow};">${secondary}</div>` : '';
   const calm = (!primary && !secondary) ? `<div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;color:${color};text-shadow:${shadow};">calm</div>` : '';
-  const secLine = legSec != null ? `<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:400;color:${color};opacity:0.75;text-shadow:${shadow};">${legSec}s</div>` : '';
+  const secLine = displaySec != null ? `<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:400;color:${color};opacity:0.75;text-shadow:${shadow};">${displaySec}s</div>` : '';
 
   return L.divIcon({
     html: `<div style="text-align:center;pointer-events:none;line-height:1.3;">${distLine}${pri}${sec}${calm}${secLine}</div>`,
@@ -439,12 +447,19 @@ function drawPattern() {
     const dwMid = offsetMid(entry,  tBaseTurnStart,  p.dDisp, side * perpFt);
     const bMid  = offsetMid(tBase,  tFinalTurnStart, p.bDisp, side * perpFt);
     const fMid  = offsetMid(tFinal, landing,         p.fDisp, side * perpFt);
-    addL(L.marker(ll(dwMid), {icon: legLabel(p.dDisp, p.dWC, '#f4944d', p.tD_sec), interactive: false, zIndexOffset: 50}));
-    addL(L.marker(ll(bMid),  {icon: legLabel(p.bDisp, p.bWC, '#4df4c8', p.tB_sec), interactive: false, zIndexOffset: 50}));
+    // DW and Base each have a turn at their bottom — include arc length and turn time in totals
+    const dwTotalDist = dft(p.dDisp) + turnArcLen(p.turnDB);
+    const bTotalDist  = dft(p.bDisp) + turnArcLen(p.turnBF);
+    const dwTotalSec  = p.tD_sec + (p.turnDB?.tSec != null ? Math.round(p.turnDB.tSec) : 0);
+    const bTotalSec   = p.tB_sec + (p.turnBF?.tSec != null ? Math.round(p.turnBF.tSec) : 0);
+    addL(L.marker(ll(dwMid), {icon: legLabel(p.dDisp, p.dWC, '#f4944d', p.tD_sec, dwTotalDist, dwTotalSec), interactive: false, zIndexOffset: 50}));
+    addL(L.marker(ll(bMid),  {icon: legLabel(p.bDisp, p.bWC, '#4df4c8', p.tB_sec, bTotalDist,  bTotalSec),  interactive: false, zIndexOffset: 50}));
     addL(L.marker(ll(fMid),  {icon: legLabel(p.fDisp, p.fWC, '#e8f44d', p.tF_sec), interactive: false, zIndexOffset: 50}));
     p.extraLegs?.forEach(xl => {
-      const xlMid = offsetMid(xl.entry, xl.exitTurnStart, xl.disp, side * perpFt);
-      addL(L.marker(ll(xlMid), {icon: legLabel(xl.disp, xl.wc, xl.color, xl.tSec), interactive: false, zIndexOffset: 50}));
+      const xlMid      = offsetMid(xl.entry, xl.exitTurnStart, xl.disp, side * perpFt);
+      const xlTotalDist = dft(xl.disp) + turnArcLen(xl.turnInfo);
+      const xlTotalSec  = xl.tSec + (xl.turnTSec || 0);
+      addL(L.marker(ll(xlMid), {icon: legLabel(xl.disp, xl.wc, xl.color, xl.tSec, xlTotalDist, xlTotalSec), interactive: false, zIndexOffset: 50}));
     });
   }
 

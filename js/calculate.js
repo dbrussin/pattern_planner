@@ -49,6 +49,25 @@ function avgWindInBand(altBotAGL, altTopAGL) {
   };
 }
 
+/**
+ * Average wind vector {n, e} over an altitude band using 200 ft steps.
+ * More accurate than a single midpoint sample for legs spanning large altitude ranges.
+ * Used for straight-leg heading and displacement calculations in calculate().
+ * @param {number} altBot - Bottom of band (ft AGL)
+ * @param {number} altTop - Top of band (ft AGL)
+ * @returns {{n: number, e: number}} Average wind vector (kts, north/east)
+ */
+function avgWindVec(altBot, altTop) {
+  let sumN = 0, sumE = 0, count = 0;
+  for (let agl = altBot; agl < altTop; agl += DRIFT_STEP_FT) {
+    const mid = (agl + Math.min(agl + DRIFT_STEP_FT, altTop)) / 2;
+    const w   = getWindAtAGL(mid);
+    sumN += w.n; sumE += w.e; count++;
+  }
+  if (!count) return getWindAtAGL((altBot + altTop) / 2);
+  return {n: sumN / count, e: sumE / count};
+}
+
 // ── Main pattern solver ───────────────────────────────────────────────────────
 
 /**
@@ -198,7 +217,7 @@ function calculate() {
   const fVec1      = hdgVec(fHdg);
   const fStillFt1  = altF * perfF.glide;
   const tF1        = altF / (dRateF * tasFactor(altF / 2));
-  const wF1        = getWindAtAGL(altF / 2);
+  const wF1        = avgWindVec(0, altF);
   let   p1f, fHdgActual1;
   if (state.legModes.f === 'crab') {
     const r = solveleg('crab', fVec1.n, fVec1.e, fStillFt1, wF1, tF1, null);
@@ -217,7 +236,7 @@ function calculate() {
   const bTE1 = bOverride != null ? hdgVec(bOverride).e : (state.hand === 'left' ?  fTrackUnit1.n : -fTrackUnit1.n);
   const bStillFt1  = (altB - altF) * perfB.glide;
   const tB1        = (altB - altF) / (dRateB * tasFactor((altB + altF) / 2));
-  const wB1        = getWindAtAGL((altB + altF) / 2);
+  const wB1        = avgWindVec(altF, altB);
   const bNomHdg1   = bOverride ?? (state.hand === 'left' ? (fHdg + 90) % 360 : (fHdg - 90 + 360) % 360);
   const p1b        = solveleg(state.legModes.b, bTN1, bTE1, bStillFt1, wB1, tB1, bNomHdg1);
   const bHdg1      = p1b.hdg;
@@ -229,7 +248,7 @@ function calculate() {
   const dwTE1 = dwOverride != null ? hdgVec(dwOverride).e : dwTrackSign * fTrackUnit1.e;
   const dStillFt1  = (altE - altB) * perfDW.glide;
   const tD1        = (altE - altB) / (dRateDW * tasFactor((altE + altB) / 2));
-  const wD1        = getWindAtAGL((altE + altB) / 2);
+  const wD1        = avgWindVec(altB, altE);
   const dwNomHdg1  = dwOverride ?? (state.zPattern ? fHdg : (fHdg + 180) % 360);
   const p1dw       = solveleg(state.legModes.dw, dwTN1, dwTE1, dStillFt1, wD1, tD1, dwNomHdg1);
   const dwHdg1     = p1dw.hdg;
@@ -251,7 +270,7 @@ function calculate() {
   const fVec       = hdgVec(fHdg);
   const fStillFt   = altFstart * perfF.glide;
   const tF         = altFstart / (dRateF * tasFactor(altFstart / 2));
-  const wF         = getWindAtAGL(altFstart / 2);
+  const wF         = avgWindVec(0, altFstart);
   let fDisp, fHdgActual;
   if (state.legModes.f === 'crab') {
     const dfN = wF.n * (tF / 60) * FT_PER_NM, dfE = wF.e * (tF / 60) * FT_PER_NM;
@@ -274,7 +293,7 @@ function calculate() {
   const bTE = bOverride != null ? hdgVec(bOverride).e : (state.hand === 'left' ?  fTrackUnit.n : -fTrackUnit.n);
   const bStillFt   = (altBstart - altF) * perfB.glide;
   const tB         = (altBstart - altF) / (dRateB * tasFactor((altBstart + altF) / 2));
-  const wB         = getWindAtAGL((altBstart + altF) / 2);
+  const wB         = avgWindVec(altF, altBstart);
   let bHdg, bDisp;
   const bNomHdg = bOverride ?? (state.hand === 'left' ? (fHdg + 90) % 360 : (fHdg - 90 + 360) % 360);
   if (state.legModes.b === 'crab') {
@@ -297,7 +316,7 @@ function calculate() {
   const dwTE = dwOverride != null ? hdgVec(dwOverride).e : dwTrackSign * fTrackUnit.e;
   const dStillFt = (altE - altB) * perfDW.glide;
   const tD       = (altE - altB) / (dRateDW * tasFactor((altE + altB) / 2));
-  const wD       = getWindAtAGL((altE + altB) / 2);
+  const wD       = avgWindVec(altB, altE);
   const driftN   = wD.n * (tD / 60) * FT_PER_NM, driftE = wD.e * (tD / 60) * FT_PER_NM;
   let dwHdg, dDisp;
   const isZPattern = state.zPattern;
@@ -349,7 +368,7 @@ function calculate() {
       const xlPerf   = getLegPerf(xl.id);
       const dRateXL  = (xlPerf.cSpd / xlPerf.glide) * FT_MIN_PER_KT;
       const tXL      = (xl.alt - topAlt) / (dRateXL * tasFactor((xl.alt + topAlt) / 2));
-      const wXL      = getWindAtAGL((xl.alt + topAlt) / 2);
+      const wXL      = avgWindVec(topAlt, xl.alt);
       const driftXLN = wXL.n * (tXL / 60) * FT_PER_NM;
       const driftXLE = wXL.e * (tXL / 60) * FT_PER_NM;
 
