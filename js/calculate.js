@@ -165,11 +165,16 @@ function calculate() {
   // heading by dh*f with accumulated wind drift w*(f*tSec/60)*FT_PER_NM.
   function calcTurn(h1, h2, altAGL, cSpd, glide, patternSign = 0) {
     let dh = ((h2 - h1 + 540) % 360) - 180;            // signed shortest path (°)
-    // Near ±180°: the shortest-arc formula is discontinuous — a tiny heading change
-    // can flip a 179° right turn to a 179° left turn (or vice versa), causing the arc
-    // to jump to the opposite side and the leg entry point to move dramatically.
-    // When the turn is within 10° of a full reversal, force the pattern-hand direction.
-    if (patternSign !== 0 && Math.abs(dh) > 170 && patternSign * dh < 0) dh = -dh;
+    // Always force the turn to go in the pattern-hand direction.
+    // Without this, extra legs with user-specified headings can produce arcs that go
+    // the wrong way (shortest path ≠ pattern direction), causing turn paths to cross
+    // over themselves and the backward position chain to place leg entry points wildly.
+    // Standard-leg headings are computed to already agree with patternSign, so this
+    // only changes behaviour for extra-leg turns with a naturally wrong-direction arc.
+    if (patternSign !== 0) {
+      if (patternSign > 0 && dh < 0) dh += 360;  // right-hand pattern → right turn
+      if (patternSign < 0 && dh > 0) dh -= 360;  // left-hand pattern  → left turn
+    }
     const dhRad = Math.abs(dh) * D2R;
     const w     = getWindAtAGL(altAGL);
     if (dhRad < 0.001) return {dN: 0, dE: 0, tSec: 0, altConsumed: 0, R: 0, h1, h2, dh: 0, sign: 1, w};
