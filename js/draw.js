@@ -110,9 +110,9 @@ function drawPattern() {
   addL(L.polyline([ll(tBase),          ll(tFinalTurnStart)], {color: '#4df4c8', weight: 3, opacity: 0.9}));
   addL(L.polyline([ll(tFinal),         ll(landing)],         {color: '#e8f44d', weight: 3, opacity: 0.95}));
 
-  // Turn arc segments (dashed, match leg color, reduced opacity)
-  addL(L.polyline([ll(tBaseTurnStart), ll(tBase)],           {color: '#f4944d', weight: 2, opacity: 0.5, dashArray: '4 4'}));
-  addL(L.polyline([ll(tFinalTurnStart),ll(tFinal)],          {color: '#4df4c8', weight: 2, opacity: 0.5, dashArray: '4 4'}));
+  // Turn arc segments (solid, colored to match the following leg)
+  addL(L.polyline([ll(tBaseTurnStart), ll(tBase)],           {color: '#4df4c8', weight: 3, opacity: 0.9}));
+  addL(L.polyline([ll(tFinalTurnStart),ll(tFinal)],          {color: '#e8f44d', weight: 3, opacity: 0.95}));
 
   // Steered heading lines (dashed, colored to match leg) when drift is significant
   if (dwDrift > DRIFT_THRESH) addL(L.polyline([ll(entry),  ll(dwSteered)], {color: 'rgba(244,148,77,0.6)',  weight: 2, dashArray: '6 4'}));
@@ -124,16 +124,17 @@ function drawPattern() {
   addL(L.marker(ll(tBase),  {icon: pinIcon('#4df4c8'), zIndexOffset: 100}));
   addL(L.marker(ll(tFinal), {icon: pinIcon('#e8f44d'), zIndexOffset: 100}));
 
-  // Turn-start markers (smaller rings, where straight leg ends and turn arc begins)
-  addL(L.marker(ll(tBaseTurnStart),  {icon: turnStartIcon('#f4944d'), zIndexOffset: 90}));
-  addL(L.marker(ll(tFinalTurnStart), {icon: turnStartIcon('#4df4c8'), zIndexOffset: 90}));
+  // Turn-start markers (smaller rings, colored to match following leg)
+  addL(L.marker(ll(tBaseTurnStart),  {icon: turnStartIcon('#4df4c8'), zIndexOffset: 90}));
+  addL(L.marker(ll(tFinalTurnStart), {icon: turnStartIcon('#e8f44d'), zIndexOffset: 90}));
 
   // Extra legs above downwind
   if (p.extraLegs?.length) {
     p.extraLegs.forEach(xl => {
-      // Straight portion ends at exitTurnStart; dashed turn segment continues to exit
+      // Straight portion + turn segment — turn colored to match the leg below (DW or next lower extra)
+      // For simplicity the turn arc uses the same extra leg color; the leg below handles its own color.
       addL(L.polyline([ll(xl.entry), ll(xl.exitTurnStart)], {color: xl.color, weight: 3, opacity: 0.9}));
-      addL(L.polyline([ll(xl.exitTurnStart), ll(xl.exit)],  {color: xl.color, weight: 2, opacity: 0.5, dashArray: '4 4'}));
+      addL(L.polyline([ll(xl.exitTurnStart), ll(xl.exit)],  {color: xl.color, weight: 3, opacity: 0.9}));
       if (xl.drift > DRIFT_THRESH)
         addL(L.polyline([ll(xl.entry), ll(xl.steered)], {color: xl.color, weight: 2, opacity: 0.5, dashArray: '6 4'}));
       addL(L.marker(ll(xl.entry),         {icon: pinIcon(xl.color),       zIndexOffset: 100}));
@@ -399,9 +400,11 @@ function drawPattern() {
         letter-spacing:0.04em;pointer-events:none;">${txt}</div>`,
       iconSize: [100, 20], iconAnchor: [-6, 10], className: '',
     });
-    addL(L.marker(ll(entry),  {icon: turnLabelIcon(`${p.altE}ft AGL`, '#f4944d'), interactive: false, zIndexOffset: 60}));
-    addL(L.marker(ll(tBase),  {icon: turnLabelIcon(`${p.altB}ft AGL`, '#4df4c8'), interactive: false, zIndexOffset: 60}));
-    addL(L.marker(ll(tFinal), {icon: turnLabelIcon(`${p.altF}ft AGL`, '#e8f44d'), interactive: false, zIndexOffset: 60}));
+    // altE: DW entry (no preceding turn — label at entry itself)
+    // altB/altF: turns begin at these altitudes, so label at the geographic turn-start point
+    addL(L.marker(ll(entry),           {icon: turnLabelIcon(`${p.altE}ft AGL`, '#f4944d'), interactive: false, zIndexOffset: 60}));
+    addL(L.marker(ll(tBaseTurnStart),  {icon: turnLabelIcon(`${p.altB}ft AGL`, '#4df4c8'), interactive: false, zIndexOffset: 60}));
+    addL(L.marker(ll(tFinalTurnStart), {icon: turnLabelIcon(`${p.altF}ft AGL`, '#e8f44d'), interactive: false, zIndexOffset: 60}));
     p.extraLegs?.forEach(xl =>
       addL(L.marker(ll(xl.entry), {icon: turnLabelIcon(`${xl.altTop}ft AGL`, xl.color), interactive: false, zIndexOffset: 60})));
   }

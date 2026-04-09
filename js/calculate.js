@@ -160,8 +160,8 @@ function calculate() {
     // Descent rate in banked turn (TAS-adjusted, increased by 1/cos(bank))
     const dRateTurn = (cSpd / glide) * FT_MIN_PER_KT * tasFactor(altAGL) / Math.cos(bankRad);
     return {
-      dN:          hv.n * chord + w.n * tMin * FT_PER_NM,
-      dE:          hv.e * chord + w.e * tMin * FT_PER_NM,
+      dN:          hv.n * chord + w.n * (tMin / 60) * FT_PER_NM,
+      dE:          hv.e * chord + w.e * (tMin / 60) * FT_PER_NM,
       tSec,
       altConsumed: dRateTurn * tMin,
     };
