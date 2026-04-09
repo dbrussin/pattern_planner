@@ -93,31 +93,51 @@ function legChevron(from, to, trackHdg, color) {
 function drawPattern() {
   clearPattern();
   const p = state.pattern; if (!p) return;
-  const {entry, tBase, tFinal, landing, bSteered, fSteered, dwSteered, bDrift, fDrift, dwDrift} = p;
+  const {entry, tBase, tFinal, landing, tBaseTurnStart, tFinalTurnStart,
+         bSteered, fSteered, dwSteered, bDrift, fDrift, dwDrift} = p;
   const DRIFT_THRESH = state.driftThresh ?? 5;
 
-  // Ground track lines (solid)
-  addL(L.polyline([ll(entry),  ll(tBase)],   {color: '#f4944d', weight: 3, opacity: 0.9}));
-  addL(L.polyline([ll(tBase),  ll(tFinal)],  {color: '#4df4c8', weight: 3, opacity: 0.9}));
-  addL(L.polyline([ll(tFinal), ll(landing)], {color: '#e8f44d', weight: 3, opacity: 0.95}));
+  // Small marker for the point where a straight leg ends and the turn arc begins
+  function turnStartIcon(color) {
+    return L.divIcon({
+      html: `<div style="width:7px;height:7px;border:2px solid ${color};border-radius:50%;opacity:0.65;"></div>`,
+      iconSize: [7, 7], iconAnchor: [3, 3], className: '',
+    });
+  }
+
+  // Ground track lines (solid, ending at turn-start points)
+  addL(L.polyline([ll(entry),          ll(tBaseTurnStart)],  {color: '#f4944d', weight: 3, opacity: 0.9}));
+  addL(L.polyline([ll(tBase),          ll(tFinalTurnStart)], {color: '#4df4c8', weight: 3, opacity: 0.9}));
+  addL(L.polyline([ll(tFinal),         ll(landing)],         {color: '#e8f44d', weight: 3, opacity: 0.95}));
+
+  // Turn arc segments (dashed, match leg color, reduced opacity)
+  addL(L.polyline([ll(tBaseTurnStart), ll(tBase)],           {color: '#f4944d', weight: 2, opacity: 0.5, dashArray: '4 4'}));
+  addL(L.polyline([ll(tFinalTurnStart),ll(tFinal)],          {color: '#4df4c8', weight: 2, opacity: 0.5, dashArray: '4 4'}));
 
   // Steered heading lines (dashed, colored to match leg) when drift is significant
   if (dwDrift > DRIFT_THRESH) addL(L.polyline([ll(entry),  ll(dwSteered)], {color: 'rgba(244,148,77,0.6)',  weight: 2, dashArray: '6 4'}));
   if (bDrift  > DRIFT_THRESH) addL(L.polyline([ll(tBase),  ll(bSteered)],  {color: 'rgba(77,244,200,0.6)',  weight: 2, dashArray: '6 4'}));
   if (fDrift  > DRIFT_THRESH) addL(L.polyline([ll(tFinal), ll(fSteered)],  {color: 'rgba(232,244,77,0.6)',  weight: 2, dashArray: '6 4'}));
 
-  // Turn point markers
+  // Leg-start markers (post-turn positions, where the new leg heading begins)
   addL(L.marker(ll(entry),  {icon: pinIcon('#f4944d'), zIndexOffset: 100}));
   addL(L.marker(ll(tBase),  {icon: pinIcon('#4df4c8'), zIndexOffset: 100}));
   addL(L.marker(ll(tFinal), {icon: pinIcon('#e8f44d'), zIndexOffset: 100}));
 
+  // Turn-start markers (smaller rings, where straight leg ends and turn arc begins)
+  addL(L.marker(ll(tBaseTurnStart),  {icon: turnStartIcon('#f4944d'), zIndexOffset: 90}));
+  addL(L.marker(ll(tFinalTurnStart), {icon: turnStartIcon('#4df4c8'), zIndexOffset: 90}));
+
   // Extra legs above downwind
   if (p.extraLegs?.length) {
     p.extraLegs.forEach(xl => {
-      addL(L.polyline([ll(xl.entry), ll(xl.exit)], {color: xl.color, weight: 3, opacity: 0.9}));
+      // Straight portion ends at exitTurnStart; dashed turn segment continues to exit
+      addL(L.polyline([ll(xl.entry), ll(xl.exitTurnStart)], {color: xl.color, weight: 3, opacity: 0.9}));
+      addL(L.polyline([ll(xl.exitTurnStart), ll(xl.exit)],  {color: xl.color, weight: 2, opacity: 0.5, dashArray: '4 4'}));
       if (xl.drift > DRIFT_THRESH)
         addL(L.polyline([ll(xl.entry), ll(xl.steered)], {color: xl.color, weight: 2, opacity: 0.5, dashArray: '6 4'}));
-      addL(L.marker(ll(xl.entry), {icon: pinIcon(xl.color), zIndexOffset: 100}));
+      addL(L.marker(ll(xl.entry),         {icon: pinIcon(xl.color),       zIndexOffset: 100}));
+      addL(L.marker(ll(xl.exitTurnStart), {icon: turnStartIcon(xl.color), zIndexOffset: 90}));
     });
   }
 
@@ -387,15 +407,16 @@ function drawPattern() {
   }
 
   // ── Leg distance / wind / timing labels ──
+  // Label midpoints are computed along the straight leg (entry→turnStart), not the full leg+turn.
   if (state.layers.legDistances) {
-    const dwMid = offsetMid(entry,  tBase,   p.dDisp, side * perpFt);
-    const bMid  = offsetMid(tBase,  tFinal,  p.bDisp, side * perpFt);
-    const fMid  = offsetMid(tFinal, landing, p.fDisp, side * perpFt);
+    const dwMid = offsetMid(entry,  tBaseTurnStart,  p.dDisp, side * perpFt);
+    const bMid  = offsetMid(tBase,  tFinalTurnStart, p.bDisp, side * perpFt);
+    const fMid  = offsetMid(tFinal, landing,         p.fDisp, side * perpFt);
     addL(L.marker(ll(dwMid), {icon: legLabel(p.dDisp, p.dWC, '#f4944d', p.tD_sec), interactive: false, zIndexOffset: 50}));
     addL(L.marker(ll(bMid),  {icon: legLabel(p.bDisp, p.bWC, '#4df4c8', p.tB_sec), interactive: false, zIndexOffset: 50}));
     addL(L.marker(ll(fMid),  {icon: legLabel(p.fDisp, p.fWC, '#e8f44d', p.tF_sec), interactive: false, zIndexOffset: 50}));
     p.extraLegs?.forEach(xl => {
-      const xlMid = offsetMid(xl.entry, xl.exit, xl.disp, side * perpFt);
+      const xlMid = offsetMid(xl.entry, xl.exitTurnStart, xl.disp, side * perpFt);
       addL(L.marker(ll(xlMid), {icon: legLabel(xl.disp, xl.wc, xl.color, xl.tSec), interactive: false, zIndexOffset: 50}));
     });
   }
@@ -403,24 +424,24 @@ function drawPattern() {
   // ── Heading labels (track + steered) ──
   if (state.layers.legHeadings) {
     // Track + steer heading labels on opposite perpendicular side from distance labels
-    const dwMidH = offsetMid(entry,  tBase,   p.dDisp, -side * perpFt);
-    const bMidH  = offsetMid(tBase,  tFinal,  p.bDisp, -side * perpFt);
-    const fMidH  = offsetMid(tFinal, landing, p.fDisp, -side * perpFt);
+    const dwMidH = offsetMid(entry,  tBaseTurnStart,  p.dDisp, -side * perpFt);
+    const bMidH  = offsetMid(tBase,  tFinalTurnStart, p.bDisp, -side * perpFt);
+    const fMidH  = offsetMid(tFinal, landing,         p.fDisp, -side * perpFt);
     addL(L.marker(ll(dwMidH), {icon: hdgLabelIcon(p.dwTrackHdg, p.dwHdg, dwDrift > DRIFT_THRESH, '#f4944d'), interactive: false, zIndexOffset: 50}));
     addL(L.marker(ll(bMidH),  {icon: hdgLabelIcon(p.bTrackHdg,  p.bHdg,  bDrift  > DRIFT_THRESH, '#4df4c8'), interactive: false, zIndexOffset: 50}));
     addL(L.marker(ll(fMidH),  {icon: hdgLabelIcon(p.fTrackHdg,  p.fHdgActual, fDrift > DRIFT_THRESH, '#e8f44d'), interactive: false, zIndexOffset: 50}));
     p.extraLegs?.forEach(xl => {
-      const xlMidH = offsetMid(xl.entry, xl.exit, xl.disp, -side * perpFt);
+      const xlMidH = offsetMid(xl.entry, xl.exitTurnStart, xl.disp, -side * perpFt);
       addL(L.marker(ll(xlMidH), {icon: hdgLabelIcon(xl.trackHdg, xl.hdg, xl.drift > DRIFT_THRESH, xl.color), interactive: false, zIndexOffset: 50}));
     });
   }
 
-  // ── Directional arrows on each leg ──
+  // ── Directional arrows on each leg (on the straight leg portion only) ──
   if (state.layers.legArrows) {
-    addL(legChevron(entry,  tBase,   p.dwTrackHdg, '#f4944d'));
-    addL(legChevron(tBase,  tFinal,  p.bTrackHdg,  '#4df4c8'));
-    addL(legChevron(tFinal, landing, p.fTrackHdg,  '#e8f44d'));
-    p.extraLegs?.forEach(xl => addL(legChevron(xl.entry, xl.exit, xl.trackHdg, xl.color)));
+    addL(legChevron(entry,  tBaseTurnStart,  p.dwTrackHdg, '#f4944d'));
+    addL(legChevron(tBase,  tFinalTurnStart, p.bTrackHdg,  '#4df4c8'));
+    addL(legChevron(tFinal, landing,         p.fTrackHdg,  '#e8f44d'));
+    p.extraLegs?.forEach(xl => addL(legChevron(xl.entry, xl.exitTurnStart, xl.trackHdg, xl.color)));
   }
 
   // ── Wind arrow at landing target ──
@@ -450,7 +471,7 @@ function drawPattern() {
 
   // fitBounds only on first draw per target — keeps map stable during slider rotation
   if (!state.fitDone) {
-    const fitPts = [ll(entry), ll(tBase), ll(tFinal), ll(landing)];
+    const fitPts = [ll(entry), ll(tBase), ll(tFinal), ll(landing), ll(tBaseTurnStart), ll(tFinalTurnStart)];
     p.extraLegs?.forEach(xl => fitPts.push(ll(xl.entry)));
     map.fitBounds(L.latLngBounds(fitPts), {padding: [80, 80]});
     state.fitDone = true;

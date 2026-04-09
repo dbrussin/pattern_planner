@@ -1,6 +1,8 @@
 // ─── CALCULATE ─────────────────────────────────────────────────────────────────
 // Core pattern solver and wind-integration helpers.
 // Depends on: config, state, geometry, ui (getLegPerf, setStatus, updateJumpRunDisplay)
+// Turn model: coordinated banked turn; radius = v_TAS²/(g·tan θ); altitude consumed
+// via increased descent rate 1/cos(θ); two-pass to propagate altitude adjustments.
 
 /**
  * Compute integrated wind drift during descent through an altitude band using Riemann sums.
@@ -71,6 +73,9 @@ function calculate() {
   const _jrAirspeed = parseFloat(document.getElementById('jr-airspeed').value);
   const _exitSep    = parseFloat(document.getElementById('exit-sep').value);
 
+  const bankDeg = Math.max(10, Math.min(60, parseFloat(document.getElementById('turn-bank')?.value) || 30));
+  const bankRad = bankDeg * D2R;
+
   const altExit       = isNaN(_altExit)    ? 13500 : _altExit;
   const altOpen       = isNaN(_altOpen)    ? 3000  : _altOpen;
   const ffSpeedMph    = isNaN(_ffSpeed)    ? 120   : _ffSpeed;
@@ -133,16 +138,118 @@ function calculate() {
   const dRateB  = (perfB.cSpd  / perfB.glide)  * FT_MIN_PER_KT;
   const dRateDW = (perfDW.cSpd / perfDW.glide) * FT_MIN_PER_KT;
 
-  const tF = altF / (dRateF * tasFactor(altF / 2));
-  const tB = (altB - altF) / (dRateB * tasFactor((altB + altF) / 2));
-  const tD = (altE - altB) / (dRateDW * tasFactor((altE + altB) / 2));
+  // ── Turn displacement helper ──────────────────────────────────────────────────
+  // Models a coordinated banked turn from heading h1 to h2 at altAGL.
+  // Returns geographic displacement (ft), turn time (s), and altitude consumed (ft).
+  // Uses arc-chord geometry: chord = 2R·sin(|Δh|/2) in direction of average heading.
+  // Altitude consumed = banked descent rate × turn time (increased by 1/cos(bank)).
+  function calcTurn(h1, h2, altAGL, cSpd, glide) {
+    const dh    = ((h2 - h1 + 540) % 360) - 180;      // signed shortest path (°)
+    const dhRad = Math.abs(dh) * D2R;
+    if (dhRad < 0.001) return {dN: 0, dE: 0, tSec: 0, altConsumed: 0};
+    const tas    = cSpd * tasFactor(altAGL);            // TAS (kts)
+    const v_ft_s = tas * FT_MIN_PER_KT / 60;           // TAS (ft/s)
+    const omega  = G_FT_S2 * Math.tan(bankRad) / v_ft_s; // turn rate (rad/s)
+    const R      = v_ft_s / omega;                      // turn radius (ft)
+    const tSec   = dhRad / omega;                       // turn time (s)
+    const hAvg   = (h1 + dh / 2 + 360) % 360;         // avg heading during arc
+    const hv     = hdgVec(hAvg);
+    const chord  = 2 * R * Math.sin(dhRad / 2);        // arc chord (ft)
+    const w      = getWindAtAGL(altAGL);
+    const tMin   = tSec / 60;
+    // Descent rate in banked turn (TAS-adjusted, increased by 1/cos(bank))
+    const dRateTurn = (cSpd / glide) * FT_MIN_PER_KT * tasFactor(altAGL) / Math.cos(bankRad);
+    return {
+      dN:          hv.n * chord + w.n * tMin * FT_PER_NM,
+      dE:          hv.e * chord + w.e * tMin * FT_PER_NM,
+      tSec,
+      altConsumed: dRateTurn * tMin,
+    };
+  }
 
-  // ── Final leg ──
-  const wF       = getWindAtAGL(altF / 2);
-  const fVec     = hdgVec(fHdg);
-  const fStillFt = altF * perfF.glide;
+  // ── Leg heading solver (pure function, no side-effects) ───────────────────────
+  // Solves crab or drift heading+displacement for a leg given track direction,
+  // still-air glide distance, wind, and time. Returns {hdg, disp}.
+  function solveleg(mode, trackN, trackE, stillFt, w, tMin, nomHdg) {
+    const driftN = w.n * (tMin / 60) * FT_PER_NM, driftE = w.e * (tMin / 60) * FT_PER_NM;
+    if (mode === 'crab') {
+      const bc = -2 * (trackN * driftN + trackE * driftE);
+      const cc = driftN ** 2 + driftE ** 2 - stillFt ** 2;
+      const bd = bc ** 2 - 4 * cc;
+      const k  = bd >= 0 ? (-bc + Math.sqrt(bd)) / 2 : stillFt;
+      const rN = trackN * k - driftN, rE = trackE * k - driftE;
+      return {
+        hdg:  (Math.atan2(rE, rN) * R2D + 360) % 360,
+        disp: {dN: rN + driftN, dE: rE + driftE},
+      };
+    } else {
+      const hdg = (Math.atan2(trackE, trackN) * R2D + 360) % 360;
+      const h   = nomHdg ?? hdg;
+      const hv  = hdgVec(h);
+      return {hdg: h, disp: {dN: hv.n * stillFt + driftN, dE: hv.e * stillFt + driftE}};
+    }
+  }
+
+  // ── Pass 1: headings at nominal altitudes ─────────────────────────────────────
+  // Final leg
+  const fVec1      = hdgVec(fHdg);
+  const fStillFt1  = altF * perfF.glide;
+  const tF1        = altF / (dRateF * tasFactor(altF / 2));
+  const wF1        = getWindAtAGL(altF / 2);
+  let   p1f, fHdgActual1;
+  if (state.legModes.f === 'crab') {
+    const r = solveleg('crab', fVec1.n, fVec1.e, fStillFt1, wF1, tF1, null);
+    fHdgActual1 = r.hdg; p1f = r.disp;
+  } else {
+    fHdgActual1 = fHdg;
+    p1f = {dN: fVec1.n * fStillFt1 + wF1.n * (tF1 / 60) * FT_PER_NM,
+           dE: fVec1.e * fStillFt1 + wF1.e * (tF1 / 60) * FT_PER_NM};
+  }
+  // We need fTrackUnit for base/DW direction — use pass-1 final disp
+  const fTrackUnit1 = normalize({n: p1f.dN, e: p1f.dE});
+
+  // Base leg at nominal altitudes
+  const bOverride  = state.legHdgOverride?.b;
+  const bTN1 = bOverride != null ? hdgVec(bOverride).n : (state.hand === 'left' ? -fTrackUnit1.e :  fTrackUnit1.e);
+  const bTE1 = bOverride != null ? hdgVec(bOverride).e : (state.hand === 'left' ?  fTrackUnit1.n : -fTrackUnit1.n);
+  const bStillFt1  = (altB - altF) * perfB.glide;
+  const tB1        = (altB - altF) / (dRateB * tasFactor((altB + altF) / 2));
+  const wB1        = getWindAtAGL((altB + altF) / 2);
+  const bNomHdg1   = bOverride ?? (state.hand === 'left' ? (fHdg + 90) % 360 : (fHdg - 90 + 360) % 360);
+  const p1b        = solveleg(state.legModes.b, bTN1, bTE1, bStillFt1, wB1, tB1, bNomHdg1);
+  const bHdg1      = p1b.hdg;
+
+  // Downwind leg at nominal altitudes (heading only needed for pass-1 turns)
+  const dwOverride = state.legHdgOverride?.dw;
+  const dwTrackSign = state.zPattern ? 1 : -1;
+  const dwTN1 = dwOverride != null ? hdgVec(dwOverride).n : dwTrackSign * fTrackUnit1.n;
+  const dwTE1 = dwOverride != null ? hdgVec(dwOverride).e : dwTrackSign * fTrackUnit1.e;
+  const dStillFt1  = (altE - altB) * perfDW.glide;
+  const tD1        = (altE - altB) / (dRateDW * tasFactor((altE + altB) / 2));
+  const wD1        = getWindAtAGL((altE + altB) / 2);
+  const dwNomHdg1  = dwOverride ?? (state.zPattern ? fHdg : (fHdg + 180) % 360);
+  const p1dw       = solveleg(state.legModes.dw, dwTN1, dwTE1, dStillFt1, wD1, tD1, dwNomHdg1);
+  const dwHdg1     = p1dw.hdg;
+
+  // Pass-1 turns (determine altitude consumed at each turn boundary)
+  const avgCSpdBF   = (perfB.cSpd  + perfF.cSpd)  / 2;
+  const avgGlideBF  = (perfB.glide + perfF.glide)  / 2;
+  const avgCSpdDB   = (perfDW.cSpd + perfB.cSpd)   / 2;
+  const avgGlideDB  = (perfDW.glide + perfB.glide)  / 2;
+  const turn1BF = calcTurn(bHdg1, fHdgActual1, altF, avgCSpdBF, avgGlideBF);
+  const turn1DB = calcTurn(dwHdg1, bHdg1,      altB, avgCSpdDB, avgGlideDB);
+
+  // ── Pass 2: adjusted altitudes ────────────────────────────────────────────────
+  // Altitude consumed by each turn reduces the starting altitude of the following leg.
+  const altFstart = Math.max(50, altF - turn1BF.altConsumed);  // final leg start alt
+  const altBstart = Math.max(altFstart + 50, altB - turn1DB.altConsumed);  // base leg start alt
+
+  // Final leg (adjusted)
+  const fVec       = hdgVec(fHdg);
+  const fStillFt   = altFstart * perfF.glide;
+  const tF         = altFstart / (dRateF * tasFactor(altFstart / 2));
+  const wF         = getWindAtAGL(altFstart / 2);
   let fDisp, fHdgActual;
-
   if (state.legModes.f === 'crab') {
     const dfN = wF.n * (tF / 60) * FT_PER_NM, dfE = wF.e * (tF / 60) * FT_PER_NM;
     const bfc = -2 * (fVec.n * dfN + fVec.e * dfE);
@@ -157,20 +264,16 @@ function calculate() {
     fHdgActual = fHdg;
     fDisp = {dN: fVec.n * fStillFt + wF.n * (tF / 60) * FT_PER_NM, dE: fVec.e * fStillFt + wF.e * (tF / 60) * FT_PER_NM};
   }
-
-  const {lat: tLat, lng: tLng} = state.target;
-  const tFinal     = offsetLL(tLat, tLng, -fDisp.dN, -fDisp.dE);
   const fTrackUnit = normalize({n: fDisp.dN, e: fDisp.dE});
 
-  // ── Base leg ──
-  const wB       = getWindAtAGL((altB + altF) / 2);
-  const bStillFt = (altB - altF) * perfB.glide;
-  let bHdg, bDisp;
-
-  const bOverride = state.legHdgOverride?.b;
+  // Base leg (adjusted: altBstart → altF)
   const bTN = bOverride != null ? hdgVec(bOverride).n : (state.hand === 'left' ? -fTrackUnit.e :  fTrackUnit.e);
   const bTE = bOverride != null ? hdgVec(bOverride).e : (state.hand === 'left' ?  fTrackUnit.n : -fTrackUnit.n);
-
+  const bStillFt   = (altBstart - altF) * perfB.glide;
+  const tB         = (altBstart - altF) / (dRateB * tasFactor((altBstart + altF) / 2));
+  const wB         = getWindAtAGL((altBstart + altF) / 2);
+  let bHdg, bDisp;
+  const bNomHdg = bOverride ?? (state.hand === 'left' ? (fHdg + 90) % 360 : (fHdg - 90 + 360) % 360);
   if (state.legModes.b === 'crab') {
     const dbN = wB.n * (tB / 60) * FT_PER_NM, dbE = wB.e * (tB / 60) * FT_PER_NM;
     const bc  = -2 * (bTN * dbN + bTE * dbE);
@@ -182,30 +285,19 @@ function calculate() {
     bHdg  = (Math.atan2(bRE, bRN) * R2D + 360) % 360;
     bDisp = {dN: bRN + dbN, dE: bRE + dbE};
   } else {
-    bHdg  = bOverride ?? (state.hand === 'left' ? (fHdg + 90) % 360 : (fHdg - 90 + 360) % 360);
+    bHdg  = bNomHdg;
     bDisp = {dN: hdgVec(bHdg).n * bStillFt + wB.n * (tB / 60) * FT_PER_NM, dE: hdgVec(bHdg).e * bStillFt + wB.e * (tB / 60) * FT_PER_NM};
   }
-  const tBase = offsetLL(tFinal.lat, tFinal.lng, -bDisp.dN, -bDisp.dE);
 
-  // ── Downwind leg ──
-  const wD       = getWindAtAGL((altE + altB) / 2);
+  // Downwind leg (altE → altB; turns happen outside DW altitude band — unchanged)
+  const dwTN = dwOverride != null ? hdgVec(dwOverride).n : dwTrackSign * fTrackUnit.n;
+  const dwTE = dwOverride != null ? hdgVec(dwOverride).e : dwTrackSign * fTrackUnit.e;
   const dStillFt = (altE - altB) * perfDW.glide;
+  const tD       = (altE - altB) / (dRateDW * tasFactor((altE + altB) / 2));
+  const wD       = getWindAtAGL((altE + altB) / 2);
   const driftN   = wD.n * (tD / 60) * FT_PER_NM, driftE = wD.e * (tD / 60) * FT_PER_NM;
   let dwHdg, dDisp;
-
-  // Target track direction: override > Z=upwind (fTrackUnit) > normal=downwind (-fTrackUnit)
-  const dwOverride = state.legHdgOverride?.dw;
-  let dwTN, dwTE;
-  if (dwOverride != null) {
-    dwTN = hdgVec(dwOverride).n;
-    dwTE = hdgVec(dwOverride).e;
-  } else {
-    const dwTrackSign = state.zPattern ? 1 : -1;
-    dwTN = dwTrackSign * fTrackUnit.n;
-    dwTE = dwTrackSign * fTrackUnit.e;
-  }
   const isZPattern = state.zPattern;
-
   if (state.legModes.dw === 'crab') {
     const b1 = -2 * (dwTN * driftN + dwTE * driftE);
     const c1 = driftN ** 2 + driftE ** 2 - dStillFt ** 2;
@@ -216,17 +308,30 @@ function calculate() {
     dwHdg = (Math.atan2(rE, rN) * R2D + 360) % 360;
     dDisp = {dN: rN + driftN, dE: rE + driftE};
   } else {
-    // Drift: steer in target track direction, drift freely
     dwHdg = dwOverride ?? (state.zPattern ? fHdg : (fHdg + 180) % 360);
     dDisp = {dN: hdgVec(dwHdg).n * dStillFt + driftN, dE: hdgVec(dwHdg).e * dStillFt + driftE};
   }
-  const entry = offsetLL(tBase.lat, tBase.lng, -dDisp.dN, -dDisp.dE);
+
+  // ── Pass-2 turns (with adjusted headings) ─────────────────────────────────────
+  const turnBF = calcTurn(bHdg, fHdgActual, altF, avgCSpdBF, avgGlideBF);
+  const turnDB = calcTurn(dwHdg, bHdg,      altB, avgCSpdDB, avgGlideDB);
+
+  // ── Backward position chain ───────────────────────────────────────────────────
+  // tFinal = where final leg begins (after B→F turn); tBase = where base begins (after DW→B turn).
+  // tFinalTurnStart / tBaseTurnStart = geographic points where each turn begins.
+  const {lat: tLat, lng: tLng} = state.target;
+  const tFinal          = offsetLL(tLat, tLng, -fDisp.dN, -fDisp.dE);
+  const tFinalTurnStart = offsetLL(tFinal.lat, tFinal.lng, -turnBF.dN, -turnBF.dE);
+  const tBase           = offsetLL(tFinalTurnStart.lat, tFinalTurnStart.lng, -bDisp.dN, -bDisp.dE);
+  const tBaseTurnStart  = offsetLL(tBase.lat, tBase.lng, -turnDB.dN, -turnDB.dE);
+  const entry           = offsetLL(tBaseTurnStart.lat, tBaseTurnStart.lng, -dDisp.dN, -dDisp.dE);
 
   // ── Extra legs above downwind ─────────────────────────────────────────────
   // Each extra leg heading is user-specified via the Approach Hdg input.
+  // Turns are modeled at each transition (extra→lower extra, or lowest extra→DW).
   const extraLegResults = [];
   {
-    let topPoint = entry;
+    let topPoint = entry;   // bottom of the current chain (post-turn entry of lower leg)
     let topAlt   = altE;
 
     // Sort lowest extra altitude first so we chain correctly upward
@@ -267,7 +372,20 @@ function calculate() {
         xlDisp = { dN: hdgVec(xlHdg).n * xStillFt + driftXLN, dE: hdgVec(xlHdg).e * xStillFt + driftXLE };
       }
 
-      const xlEntry     = offsetLL(topPoint.lat, topPoint.lng, -xlDisp.dN, -xlDisp.dE);
+      // Turn from this extra leg heading to the lower leg heading, at topAlt.
+      // lowerHdg: heading of the leg immediately below this one (DW or previous extra leg).
+      const lowerHdg   = i === 0 ? dwHdg : extraLegResults[extraLegResults.length - 1].hdg;
+      const lowerPerf  = i === 0 ? perfDW : getLegPerf(extrasSorted[i - 1].id);
+      const turnXL = calcTurn(xlHdg, lowerHdg, topAlt,
+        (xlPerf.cSpd + lowerPerf.cSpd) / 2,
+        (xlPerf.glide + lowerPerf.glide) / 2);
+
+      // xl.exitTurnStart = where this leg's straight flight ends (turn begins)
+      // xl.exit          = where the lower leg begins (after the turn)
+      const xlExit          = topPoint;                                                   // post-turn, lower leg starts here
+      const xlExitTurnStart = offsetLL(xlExit.lat, xlExit.lng, -turnXL.dN, -turnXL.dE); // turn begins here
+      const xlEntry         = offsetLL(xlExitTurnStart.lat, xlExitTurnStart.lng, -xlDisp.dN, -xlDisp.dE);
+
       const xlTrackUnit = normalize({n: xlDisp.dN, e: xlDisp.dE});
       const xlCrossVec  = { n: -xlTrackUnit.e, e: xlTrackUnit.n };
       const xlTrackHdg  = (Math.atan2(xlDisp.dE, xlDisp.dN) * R2D + 360) % 360;
@@ -275,20 +393,22 @@ function calculate() {
       if (xlDrift > 180) xlDrift = 360 - xlDrift;
 
       extraLegResults.push({
-        id:       xl.id,
-        entry:    xlEntry,       // top of leg (far from landing, entered first)
-        exit:     topPoint,      // bottom of leg (closer to landing)
-        disp:     xlDisp,
-        hdg:      xlHdg,
+        id:            xl.id,
+        entry:         xlEntry,         // top of leg (far from landing, entered first)
+        exit:          xlExit,          // bottom of leg = start of lower leg (post-turn)
+        exitTurnStart: xlExitTurnStart, // where straight flight ends and turn begins
+        disp:          xlDisp,
+        hdg:           xlHdg,
         nomHdg,
-        trackHdg: xlTrackHdg,
-        drift:    xlDrift,
-        altTop:   xl.alt,
-        altBot:   topAlt,
-        color:    xl.color,
-        tSec:     Math.round(tXL * 60),
-        wc:       { along: safeWC(wXL, xlTrackUnit), cross: safeWC(wXL, xlCrossVec) },
-        steered:  offsetLL(xlEntry.lat, xlEntry.lng, hdgVec(xlHdg).n * xStillFt, hdgVec(xlHdg).e * xStillFt),
+        trackHdg:      xlTrackHdg,
+        drift:         xlDrift,
+        altTop:        xl.alt,
+        altBot:        topAlt,
+        color:         xl.color,
+        tSec:          Math.round(tXL * 60),
+        turnTSec:      Math.round(turnXL.tSec),
+        wc:            { along: safeWC(wXL, xlTrackUnit), cross: safeWC(wXL, xlCrossVec) },
+        steered:       offsetLL(xlEntry.lat, xlEntry.lng, hdgVec(xlHdg).n * xStillFt, hdgVec(xlHdg).e * xStillFt),
       });
 
       topPoint = xlEntry;
@@ -336,6 +456,9 @@ function calculate() {
 
   state.pattern = {
     entry, tBase, tFinal, landing: state.target,
+    tBaseTurnStart, tFinalTurnStart,
+    turnBF, turnDB,
+    altFstart, altBstart,
     bSteered, fSteered, dwSteered,
     bDrift, fDrift, dwDrift, DRIFT_THRESH,
     fHdg, fHdgActual, bHdg, dwHdg,

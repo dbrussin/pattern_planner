@@ -19,6 +19,7 @@ const R2D  = 180 / Math.PI;
 // ── Conversion constants ──────────────────────────────────────────────────────
 const FT_PER_NM          = 6076;    // feet per nautical mile
 const FT_MIN_PER_KT      = 101.269; // ft/min per knot (horizontal speed → descent rate)
+const G_FT_S2            = 32.174;  // gravitational acceleration (ft/s²) for turn radius
 const DRIFT_STEP_FT      = 200;     // Riemann integration step for wind drift (ft)
 const MIN_WIND_SPD_KT    = 0.5;     // minimum wind speed for jump-run auto-heading (kts)
 const STATUTE_MI_PER_DEG = 69;      // approximate statute miles per degree of latitude

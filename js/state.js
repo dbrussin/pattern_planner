@@ -41,5 +41,6 @@ const PERSIST_INPUTS = [
   'alt-exit', 'alt-open', 'ff-speed',
   'jr-airspeed', 'exit-sep', 'safety-margin',
   'glide', 'canopy-speed', 'drift-thresh',
+  'turn-bank',
   'dz-zero-lat', 'dz-zero-lng',
 ];
