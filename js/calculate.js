@@ -272,7 +272,7 @@ function calculate() {
   const avgCSpdDB   = (perfDW.cSpd + perfB.cSpd)   / 2;
   const avgGlideDB  = (perfDW.glide + perfB.glide)  / 2;
   const turn1BF = calcTurn(bHdg1, fHdgActual1, altF, avgCSpdBF, avgGlideBF, patternSign);
-  const turn1DB = calcTurn(dwHdg1, bHdg1,      altB, avgCSpdDB, avgGlideDB, patternSign);
+  const turn1DB = calcTurn(dwHdg1, bHdg1,      altB, avgCSpdDB, avgGlideDB, state.zPattern ? 0 : patternSign);
 
   // ── Pass 2: adjusted altitudes ────────────────────────────────────────────────
   // Altitude consumed by each turn reduces the starting altitude of the following leg.
@@ -349,7 +349,7 @@ function calculate() {
 
   // ── Pass-2 turns (with adjusted headings) ─────────────────────────────────────
   const turnBF = calcTurn(bHdg, fHdgActual, altF, avgCSpdBF, avgGlideBF, patternSign);
-  const turnDB = calcTurn(dwHdg, bHdg,      altB, avgCSpdDB, avgGlideDB, patternSign);
+  const turnDB = calcTurn(dwHdg, bHdg,      altB, avgCSpdDB, avgGlideDB, state.zPattern ? 0 : patternSign);
 
   // ── Backward position chain ───────────────────────────────────────────────────
   // tFinal = where final leg begins (after B→F turn); tBase = where base begins (after DW→B turn).
@@ -458,10 +458,10 @@ function calculate() {
         altTop:        xl.alt,
         altBot:        topAlt,
         color:         xl.color,
-        tSec:          p2.tSec,
+        tSec:          p1.tSec,
         turnTSec:      Math.round(turnXL.tSec),
         wc:            { along: safeWC(wXL, xlTrackUnit), cross: safeWC(wXL, xlCrossVec) },
-        steered:       offsetLL(xlEntry.lat, xlEntry.lng, hdgVec(xlHdg).n * p2.still, hdgVec(xlHdg).e * p2.still),
+        steered:       offsetLL(xlEntry.lat, xlEntry.lng, hdgVec(xlHdg).n * p1.still, hdgVec(xlHdg).e * p1.still),
       });
 
       topPoint = xlEntry;
