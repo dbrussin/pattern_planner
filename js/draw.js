@@ -444,33 +444,29 @@ function drawPattern() {
   }
 
   // ── Leg distance / wind / timing labels ──
-  // Each leg's label covers its own altitude band: the incoming turn arc (colored to this
-  // leg, from the leg above) plus the straight portion down to the next turn altitude.
-  // DW→Base arc belongs to Base; Base→Final arc belongs to Final; each XL's exit arc
-  // belongs to the leg below it.  The highest leg in the chain has no incoming arc.
+  // Each leg's label covers its own altitude band: its exit turn arc plus straight flight.
+  // DW→Base arc belongs to Base; Base→Final arc belongs to Final.
+  // Each extra leg's exit arc belongs to that extra leg (mirrors DW→Base attribution:
+  // the turn altitude is consumed from the leg that executes the turn, so it shows there).
+  // DW has no incoming arc — the lowest extra leg's exit turn is already shown on that leg.
   if (state.layers.legDistances) {
     const dwMid = offsetMid(entry,  tBaseTurnStart,  p.dDisp, side * perpFt);
     const bMid  = offsetMid(tBase,  tFinalTurnStart, p.bDisp, side * perpFt);
     const fMid  = offsetMid(tFinal, landing,         p.fDisp, side * perpFt);
-    // DW: incoming arc only if there is a lowest extra leg whose exit turn is DW-colored
-    const dwIncoming  = p.extraLegs?.length ? p.extraLegs[0] : null;
-    const dwTotalDist = dwIncoming ? turnArcLen(dwIncoming.turnInfo) + dft(p.dDisp) : null;
-    const dwTotalSec  = dwIncoming ? (dwIncoming.turnTSec || 0) + p.tD_sec : null;
     // Base: incoming arc = DW→Base turn
     const bTotalDist  = turnArcLen(p.turnDB) + dft(p.bDisp);
     const bTotalSec   = (p.turnDB?.tSec != null ? Math.round(p.turnDB.tSec) : 0) + p.tB_sec;
     // Final: incoming arc = Base→Final turn
     const fTotalDist  = turnArcLen(p.turnBF) + dft(p.fDisp);
     const fTotalSec   = (p.turnBF?.tSec != null ? Math.round(p.turnBF.tSec) : 0) + p.tF_sec;
-    addL(L.marker(ll(dwMid), {icon: legLabel(p.dDisp, p.dWC, '#f4944d', p.tD_sec, dwTotalDist, dwTotalSec), interactive: false, zIndexOffset: 50}));
+    addL(L.marker(ll(dwMid), {icon: legLabel(p.dDisp, p.dWC, '#f4944d', p.tD_sec, null, null), interactive: false, zIndexOffset: 50}));
     addL(L.marker(ll(bMid),  {icon: legLabel(p.bDisp, p.bWC, '#4df4c8', p.tB_sec, bTotalDist,  bTotalSec),  interactive: false, zIndexOffset: 50}));
     addL(L.marker(ll(fMid),  {icon: legLabel(p.fDisp, p.fWC, '#e8f44d', p.tF_sec, fTotalDist,  fTotalSec),  interactive: false, zIndexOffset: 50}));
-    p.extraLegs?.forEach((xl, xlIdx) => {
+    p.extraLegs?.forEach((xl) => {
       const xlMid = offsetMid(xl.entry, xl.exitTurnStart, xl.disp, side * perpFt);
-      // Incoming arc = the exit turn of the XL immediately above this one (if any)
-      const incomingXL  = xlIdx < p.extraLegs.length - 1 ? p.extraLegs[xlIdx + 1] : null;
-      const xlTotalDist = incomingXL ? turnArcLen(incomingXL.turnInfo) + dft(xl.disp) : null;
-      const xlTotalSec  = incomingXL ? (incomingXL.turnTSec || 0) + xl.tSec : null;
+      // Each extra leg's total includes its own exit turn (the turn it performs when leaving)
+      const xlTotalDist = turnArcLen(xl.turnInfo) + dft(xl.disp);
+      const xlTotalSec  = (xl.turnTSec || 0) + xl.tSec;
       addL(L.marker(ll(xlMid), {icon: legLabel(xl.disp, xl.wc, xl.color, xl.tSec, xlTotalDist, xlTotalSec), interactive: false, zIndexOffset: 50}));
     });
   }
