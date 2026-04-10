@@ -506,12 +506,28 @@ function onStdLegHdg(key, src) {
 function onLegHdgOverrideToggle(key, checked) {
   if (!state.legHdgOverride) state.legHdgOverride = {};
   if (checked) {
-    // Pre-populate with current computed track heading
+    // Pre-populate with the heading value that, when used as the override, produces
+    // NO immediate change to the leg position.
+    //
+    // In crab mode the override is consumed as the TRACK direction, so init from
+    // the computed track heading (≈ perpendicular to final for base, ≈ opposite
+    // final for downwind).  In drift mode the override is consumed as the STEER /
+    // nominal heading (bNomHdg / dwNomHdg), so init from the steer heading (bHdg /
+    // dwHdg).  Using the track heading in drift mode would cause a jump because the
+    // actual over-ground track diverges from the steer heading when wind is present.
     let defaultHdg = 0;
     if (state.pattern) {
-      if      (key === 'dw') defaultHdg = Math.round(state.pattern.dwTrackHdg ?? (state.pattern.fHdg + 180) % 360 ?? 180);
-      else if (key === 'b')  defaultHdg = Math.round(state.pattern.bTrackHdg  ?? state.pattern.bHdg  ?? 0);
-      else if (key === 'f')  defaultHdg = Math.round(state.pattern.fTrackHdg  ?? state.pattern.fHdgActual ?? 0);
+      if (key === 'dw') {
+        defaultHdg = state.legModes.dw === 'crab'
+          ? Math.round(state.pattern.dwTrackHdg ?? (state.pattern.fHdg + 180) % 360)
+          : Math.round(state.pattern.dwHdg       ?? (state.pattern.fHdg + 180) % 360);
+      } else if (key === 'b') {
+        defaultHdg = state.legModes.b === 'crab'
+          ? Math.round(state.pattern.bTrackHdg ?? state.pattern.bHdg ?? 0)
+          : Math.round(state.pattern.bHdg       ?? state.pattern.bTrackHdg ?? 0);
+      } else if (key === 'f') {
+        defaultHdg = Math.round(state.pattern.fTrackHdg ?? state.pattern.fHdgActual ?? 0);
+      }
     }
     state.legHdgOverride[key] = defaultHdg;
     const row = document.getElementById(`${key}-hdg-row`);
