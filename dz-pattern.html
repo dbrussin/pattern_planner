@@ -68,8 +68,8 @@
     oninput="onHeadingInput(this.value)" onblur="onHeadingBlur()">
   <div id="heading-bar-slider-wrap">
     <input type="range" id="heading-bar-slider" min="0" max="359" step="1" value="0" oninput="onHeadingSlider(this.value)">
-    <div id="wind-pyramid"></div>
-    <div id="wind-pyramid-hit" onclick="snapToWind()" title="Snap to into-wind heading"></div>
+    <div id="wind-pyramid" class="pyramid"></div>
+    <div id="wind-pyramid-hit" class="pyramid-hit" onclick="snapToWind()" title="Snap to into-wind heading"></div>
   </div>
   <div class="hand-toggle">
     <button id="btn-left"  class="active" onclick="setHand('left')">L</button>
@@ -152,17 +152,17 @@
       <div class="input-group"><label for="drift-thresh">Steered Hdg Threshold (°)</label><input type="number" id="drift-thresh" value="5" min="0" max="45" step="1" oninput="onDriftThreshChange(this.value)"></div>
       <div class="input-group">
         <label for="jr-offset">Jump Run Offset (nm)</label>
-        <input type="number" id="jr-offset" value="" min="-10" max="10" step="0.1"
+        <input type="number" id="jr-offset" class="muted-input" value="" min="-10" max="10" step="0.1"
           placeholder="calc" oninput="onJrOffsetInput()" data-allow-empty="true">
       </div>
       <div class="input-group">
         <label for="green-light-override">Green Light (nm)</label>
-        <input type="number" id="green-light-override" value="" step="0.1"
+        <input type="number" id="green-light-override" class="muted-input" value="" step="0.1"
           placeholder="calc" oninput="onGreenLightInput()" data-allow-empty="true">
       </div>
       <div class="input-group">
         <label for="red-light-override">Red Light (nm)</label>
-        <input type="number" id="red-light-override" value="" step="0.1"
+        <input type="number" id="red-light-override" class="muted-input" value="" step="0.1"
           placeholder="calc" oninput="onRedLightInput()" data-allow-empty="true">
       </div>
     </div>
@@ -177,8 +177,8 @@
         <input type="range" id="jr-hdg-slider" min="0" max="359" step="1" value="0"
           class="jr-slider"
           oninput="onJumpRunSlider(this.value)">
-        <div id="jr-wind-pyramid"></div>
-        <div id="jr-wind-pyramid-hit"
+        <div id="jr-wind-pyramid" class="pyramid"></div>
+        <div id="jr-wind-pyramid-hit" class="pyramid-hit"
           onclick="snapJumpRunToWind()" title="Snap to into-wind heading"></div>
       </div>
     </div>

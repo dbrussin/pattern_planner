@@ -4,6 +4,46 @@
 
 // ── Leg cards (data-driven from LEG_DEFS in config.js) ────────────────────────
 
+// Shared HTML fragment builders (keep token-light templates DRY)
+function _legAltField(id, label, def, min, max, step) {
+  return `
+      <div class="leg-field">
+        <label class="leg-field-label">${label}</label>
+        <div class="leg-slider-row">
+          <input type="range" id="${id}-sl" class="alt-slider" min="${min}" max="${max}" step="${step}" value="${def}" oninput="onLegAlt('${id}','slider')">
+          <input type="number" id="${id}" class="leg-num" min="${min}" max="${max}" step="${step}" value="${def}" oninput="onLegAlt('${id}','input')" onblur="onLegAlt('${id}','blur')">
+        </div>
+      </div>`;
+}
+function _legPerfBlock(key, openCls) {
+  return `
+          <div class="leg-opt-row">
+            <label class="leg-opt-label">Custom performance</label>
+            <input type="checkbox" id="${key}-custom-perf"${openCls ? ' checked' : ''} onchange="updatePerfSections()">
+          </div>
+          <div id="${key}-perf" class="leg-perf${openCls ? ' leg-perf--open' : ''}">
+            <div class="input-grid">
+              <div class="input-group"><label for="${key}-glide">Glide (:1)</label><input type="number" id="${key}-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('${key}','glide')"></div>
+              <div class="input-group"><label for="${key}-speed">Horiz (kts)</label><input type="number" id="${key}-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('${key}','speed')"></div>
+              <div class="input-group"><label for="${key}-sink">Vert (kts)</label><input type="number" id="${key}-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('${key}','sink')" data-allow-empty="true"></div>
+            </div>
+            <div id="${key}-perf-note" class="field-note leg-perf-note"></div>
+          </div>`;
+}
+function _legHeader(id, label, color, extraBtns = '') {
+  const mode = state.legModes[id] || 'crab';
+  return `
+      <div class="leg-header">
+        <div class="leg-color-dot" style="background:${color}"></div>
+        <span class="leg-title">${label}</span>
+        <div class="leg-mode-group">
+          <button id="${id}-crab"  class="leg-mode-btn${mode === 'crab'  ? ' active' : ''}" onclick="setLegMode('${id}','crab')">Crab</button>
+          <button id="${id}-drift" class="leg-mode-btn${mode === 'drift' ? ' active' : ''}" onclick="setLegMode('${id}','drift')">Drift</button>
+        </div>
+        ${extraBtns}
+      </div>`;
+}
+
 function renderLegs() {
   const container = document.getElementById('legs-container');
   if (!container) return;
@@ -24,62 +64,30 @@ function renderLegs() {
   const hasExtras    = state.extraLegs.length > 0;
   const extrasSorted = [...state.extraLegs].sort((a, b) => b.defaultAlt - a.defaultAlt);
   extrasSorted.forEach(xl => {
-    const mode        = state.legModes[xl.id] || 'crab';
-    const crabActive  = mode === 'crab'  ? ' active' : '';
-    const driftActive = mode === 'drift' ? ' active' : '';
-    const removeBtn   = xl.id === lifoId
+    const removeBtn = xl.id === lifoId
       ? `<button class="leg-remove-btn" onclick="removeExtraLeg('${xl.id}')" title="Remove leg">×</button>`
       : '';
-    const cpChecked   = state.legCustomPerf[xl.id]  ? 'checked' : '';
-    const perfDisp    = state.legCustomPerf[xl.id]  ? 'block'   : 'none';
-    const detOpen     = state.legCustomPerf[xl.id]  ? 'open'    : '';
-    const legNum      = parseInt(xl.id.replace('xl', '')) + 3;
-    const nomHdg      = xl.nomHdg ?? 0;
+    const cp       = !!state.legCustomPerf[xl.id];
+    const detOpen  = cp ? 'open' : '';
+    const legNum   = parseInt(xl.id.replace('xl', '')) + 3;
+    const nomHdg   = xl.nomHdg ?? 0;
 
     const card = document.createElement('div');
-    card.style.cssText = 'background:var(--panel2);border-radius:6px;padding:8px 10px;border:1px solid var(--border);';
-    card.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-        <div style="width:10px;height:10px;border-radius:50%;background:${xl.color};flex-shrink:0;"></div>
-        <span style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);flex:1;">Leg ${legNum}</span>
-        <div style="display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden;">
-          <button id="${xl.id}-crab"  class="leg-mode-btn${crabActive}"  onclick="setLegMode('${xl.id}','crab')">Crab</button>
-          <button id="${xl.id}-drift" class="leg-mode-btn${driftActive}" onclick="setLegMode('${xl.id}','drift')">Drift</button>
-        </div>
-        ${removeBtn}
-      </div>
-      <div style="margin-bottom:6px;">
-        <label style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px;">Alt (ft AGL)</label>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <input type="range" id="alt-${xl.id}-sl" min="200" max="5000" step="50" value="${xl.defaultAlt}" style="flex:1;min-width:0;" class="alt-slider" oninput="onLegAlt('alt-${xl.id}','slider')">
-          <input type="number" id="alt-${xl.id}" value="${xl.defaultAlt}" min="200" max="5000" step="50" style="font-family:'Space Mono',monospace;font-size:14px;color:var(--text);background:transparent;border:none;border-bottom:1px solid var(--border);width:56px;text-align:center;padding:2px 0;flex-shrink:0;" oninput="onLegAlt('alt-${xl.id}','input')" onblur="onLegAlt('alt-${xl.id}','blur')">
-        </div>
-      </div>
-      <div style="margin-bottom:6px;">
-        <label style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap;flex-shrink:0;margin-bottom:4px;display:block;">Approach hdg</label>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <input type="range" id="hdg-sl-${xl.id}" min="0" max="359" step="1" value="${nomHdg}" style="flex:1;min-width:0;" class="hdg-slider" oninput="onExtraLegHdg('${xl.id}','slider')">
-          <input type="number" id="hdg-${xl.id}" value="${nomHdg}" min="0" max="359" step="1" style="font-family:'Space Mono',monospace;font-size:14px;color:var(--accent);background:transparent;border:none;border-bottom:1px solid var(--border);width:46px;text-align:center;padding:2px 0;flex-shrink:0;" oninput="onExtraLegHdg('${xl.id}','input')">
+    card.className = 'leg-card';
+    card.innerHTML = `${_legHeader(xl.id, `Leg ${legNum}`, xl.color, removeBtn)}
+      ${_legAltField(`alt-${xl.id}`, 'Alt (ft AGL)', xl.defaultAlt, 200, 5000, 50)}
+      <div class="leg-field">
+        <label class="leg-field-label">Approach hdg</label>
+        <div class="leg-slider-row">
+          <input type="range" id="hdg-sl-${xl.id}" class="hdg-slider" min="0" max="359" step="1" value="${nomHdg}" oninput="onExtraLegHdg('${xl.id}','slider')">
+          <input type="number" id="hdg-${xl.id}" class="leg-num leg-num--hdg" min="0" max="359" step="1" value="${nomHdg}" oninput="onExtraLegHdg('${xl.id}','input')">
         </div>
       </div>
       <details id="leg-details-${xl.id}" class="leg-details" ${detOpen}>
         <summary class="leg-details-summary"><span class="leg-details-arrow">▸</span>More options</summary>
-        <div class="leg-details-body">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <label style="font-size:12px;color:var(--muted);flex:1;">Custom performance</label>
-            <input type="checkbox" id="${xl.id}-custom-perf" ${cpChecked} onchange="updatePerfSections()">
-          </div>
-          <div id="${xl.id}-perf" style="display:${perfDisp};margin-top:4px;">
-            <div class="input-grid">
-              <div class="input-group"><label for="${xl.id}-glide">Glide (:1)</label><input type="number" id="${xl.id}-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('${xl.id}','glide')"></div>
-              <div class="input-group"><label for="${xl.id}-speed">Horiz (kts)</label><input type="number" id="${xl.id}-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('${xl.id}','speed')"></div>
-              <div class="input-group"><label for="${xl.id}-sink">Vert (kts)</label><input type="number" id="${xl.id}-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('${xl.id}','sink')" data-allow-empty="true"></div>
-            </div>
-            <div id="${xl.id}-perf-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
-          </div>
+        <div class="leg-details-body">${_legPerfBlock(xl.id, cp)}
         </div>
-      </details>
-    `;
+      </details>`;
     container.appendChild(card);
   });
 
@@ -96,108 +104,62 @@ function renderLegs() {
   );
   LEG_DEFS.forEach(def => {
     const { key, label, color, altId, altLabel, altDefault, altMin, altMax, altStep } = def;
-    const mode        = state.legModes[key];
-    const crabActive  = mode === 'crab'  ? ' active' : '';
-    const driftActive = mode === 'drift' ? ' active' : '';
 
     const showZ     = !hasExtras && key === 'dw';
-    const zChecked  = showZ && state.zPattern ? 'checked' : '';
-    const cpChecked = state.legCustomPerf[key]  ? 'checked' : '';
-    const perfDisp  = state.legCustomPerf[key]  ? 'block'   : 'none';
-
-    const hdgOverride        = state.legHdgOverride?.[key] ?? null;
-    const hdgOverrideChecked = hdgOverride != null ? 'checked' : '';
-    const hdgOverrideDisp    = hdgOverride != null ? 'flex'    : 'none';
-    const hdgVal             = hdgOverride ?? 0;
-    const zDisabled          = showZ && hdgOverride != null;
-    const detOpen            = (state.legCustomPerf[key] || (showZ && state.zPattern) || hdgOverride != null) ? 'open' : '';
+    const cp        = !!state.legCustomPerf[key];
+    const hdgOverride = state.legHdgOverride?.[key] ?? null;
+    const hdgOvrOn  = hdgOverride != null;
+    const hdgVal    = hdgOverride ?? 0;
+    const zDisabled = showZ && hdgOvrOn;
+    const detOpen   = (cp || (showZ && state.zPattern) || hdgOvrOn) ? 'open' : '';
 
     const zRow = showZ ? `
-      <div id="dw-z-row" style="display:flex;align-items:center;gap:6px;margin-bottom:4px;${zDisabled ? 'opacity:0.4;pointer-events:none;' : ''}">
-        <label style="font-size:12px;color:var(--muted);flex:1;">Z pattern (downwind same direction as final)</label>
-        <input type="checkbox" id="dw-z-check" ${zChecked} ${zDisabled ? 'disabled' : ''} onchange="toggleZPattern(this.checked)">
-      </div>` : '';
+          <div id="dw-z-row" class="leg-opt-row${zDisabled ? ' leg-opt-row--disabled' : ''}">
+            <label class="leg-opt-label">Z pattern (downwind same direction as final)</label>
+            <input type="checkbox" id="dw-z-check"${state.zPattern ? ' checked' : ''}${zDisabled ? ' disabled' : ''} onchange="toggleZPattern(this.checked)">
+          </div>` : '';
 
     const finalHdgRow = key === 'f' ? `
-      <div style="margin-bottom:6px;">
-        <label style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px;">Final Hdg</label>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <div style="flex:1;position:relative;padding-bottom:10px;min-width:0;">
-            <input type="range" id="settings-hdg-final-sl" min="0" max="359" step="1"
-              value="${initialFinalHdg}" style="width:100%;display:block;" class="hdg-slider"
-              oninput="onSettingsFinalHdg('slider')">
-            <div id="settings-wind-pyramid" style="position:absolute;bottom:0;width:0;height:0;
-              border-left:7px solid transparent;border-right:7px solid transparent;
-              border-bottom:12px solid var(--accent);transform:translateX(-50%);
-              pointer-events:none;display:none;
-              filter:drop-shadow(0 0 3px rgba(232,244,77,0.5));"></div>
-            <div id="settings-wind-pyramid-hit" style="position:absolute;bottom:0;width:28px;height:14px;
-              transform:translateX(-50%);cursor:pointer;display:none;"
-              onclick="snapToWind()" title="Snap to into-wind heading"></div>
+      <div class="leg-field">
+        <label class="leg-field-label">Final Hdg</label>
+        <div class="leg-slider-row">
+          <div class="leg-final-hdg-wrap">
+            <input type="range" id="settings-hdg-final-sl" class="hdg-slider" min="0" max="359" step="1" value="${initialFinalHdg}" oninput="onSettingsFinalHdg('slider')">
+            <div id="settings-wind-pyramid" class="pyramid"></div>
+            <div id="settings-wind-pyramid-hit" class="pyramid-hit" onclick="snapToWind()" title="Snap to into-wind heading"></div>
           </div>
-          <input type="number" id="settings-hdg-final" min="0" max="359" step="1"
-            value="${initialFinalHdg}"
-            style="font-family:'Space Mono',monospace;font-size:14px;color:var(--accent);
-            background:transparent;border:none;border-bottom:1px solid var(--border);
-            width:46px;text-align:center;padding:2px 0;flex-shrink:0;"
-            oninput="onSettingsFinalHdg('input')">
+          <input type="number" id="settings-hdg-final" class="leg-num leg-num--hdg" min="0" max="359" step="1" value="${initialFinalHdg}" oninput="onSettingsFinalHdg('input')">
         </div>
       </div>` : '';
 
+    const hdgOverrideRow = key !== 'f' ? `
+          <div id="${key}-hdg-override-wrap" class="leg-field">
+            <div class="leg-opt-row">
+              <label class="leg-opt-label">Override approach hdg</label>
+              <input type="checkbox" id="${key}-hdg-check"${hdgOvrOn ? ' checked' : ''} onchange="onLegHdgOverrideToggle('${key}',this.checked)">
+            </div>
+            <div id="${key}-hdg-row" class="leg-slider-row${hdgOvrOn ? '' : ' is-hidden'}">
+              <input type="range" id="${key}-hdg-sl" class="hdg-slider" min="0" max="359" step="1" value="${hdgVal}" oninput="onStdLegHdg('${key}','slider')">
+              <input type="number" id="${key}-hdg" class="leg-num leg-num--hdg" min="0" max="359" step="1" value="${hdgVal}" oninput="onStdLegHdg('${key}','input')">
+            </div>
+          </div>` : '';
+
     const card = document.createElement('div');
-    card.style.cssText = 'background:var(--panel2);border-radius:6px;padding:8px 10px;border:1px solid var(--border);';
-    card.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-        <div style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;"></div>
-        <span style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);flex:1;">${label}</span>
-        <div style="display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden;">
-          <button id="${key}-crab"  class="leg-mode-btn${crabActive}"  onclick="setLegMode('${key}','crab')">Crab</button>
-          <button id="${key}-drift" class="leg-mode-btn${driftActive}" onclick="setLegMode('${key}','drift')">Drift</button>
-        </div>
-      </div>
-      <div style="margin-bottom:6px;">
-        <label style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px;">${altLabel}</label>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <input type="range" id="${altId}-sl" min="${altMin}" max="${altMax}" step="${altStep}" value="${altDefault}" style="flex:1;min-width:0;" class="alt-slider" oninput="onLegAlt('${altId}','slider')">
-          <input type="number" id="${altId}" value="${altDefault}" min="${altMin}" max="${altMax}" step="${altStep}" style="font-family:'Space Mono',monospace;font-size:14px;color:var(--text);background:transparent;border:none;border-bottom:1px solid var(--border);width:56px;text-align:center;padding:2px 0;flex-shrink:0;" oninput="onLegAlt('${altId}','input')" onblur="onLegAlt('${altId}','blur')">
-        </div>
-      </div>
+    card.className = 'leg-card';
+    card.innerHTML = `${_legHeader(key, label, color)}
+      ${_legAltField(altId, altLabel, altDefault, altMin, altMax, altStep)}
       ${finalHdgRow}
       <details id="leg-details-${key}" class="leg-details" ${detOpen}>
         <summary class="leg-details-summary"><span class="leg-details-arrow">▸</span>More options</summary>
-        <div class="leg-details-body">
-          ${key !== 'f' ? `<div id="${key}-hdg-override-wrap" style="margin-bottom:4px;">
-            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-              <label style="font-size:12px;color:var(--muted);flex:1;">Override approach hdg</label>
-              <input type="checkbox" id="${key}-hdg-check" ${hdgOverrideChecked} onchange="onLegHdgOverrideToggle('${key}',this.checked)">
-            </div>
-            <div id="${key}-hdg-row" style="display:${hdgOverrideDisp};align-items:center;gap:6px;margin-bottom:4px;">
-              <input type="range" id="${key}-hdg-sl" min="0" max="359" step="1" value="${hdgVal}" style="flex:1;min-width:0;" class="hdg-slider" oninput="onStdLegHdg('${key}','slider')">
-              <input type="number" id="${key}-hdg" value="${hdgVal}" min="0" max="359" step="1" style="font-family:'Space Mono',monospace;font-size:14px;color:var(--accent);background:transparent;border:none;border-bottom:1px solid var(--border);width:46px;text-align:center;padding:2px 0;flex-shrink:0;" oninput="onStdLegHdg('${key}','input')">
-            </div>
-          </div>` : ''}
-          ${zRow}
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <label style="font-size:12px;color:var(--muted);flex:1;">Custom performance</label>
-            <input type="checkbox" id="${key}-custom-perf" ${cpChecked} onchange="updatePerfSections()">
-          </div>
-          <div id="${key}-perf" style="display:${perfDisp};margin-top:4px;">
-            <div class="input-grid">
-              <div class="input-group"><label for="${key}-glide">Glide (:1)</label><input type="number" id="${key}-glide" value="2.5" min="1" max="10" step="0.1" oninput="onLegCanopyInput('${key}','glide')"></div>
-              <div class="input-group"><label for="${key}-speed">Horiz (kts)</label><input type="number" id="${key}-speed" value="28" min="10" max="60" step="0.5" oninput="onLegCanopyInput('${key}','speed')"></div>
-              <div class="input-group"><label for="${key}-sink">Vert (kts)</label><input type="number" id="${key}-sink" value="" min="1" max="30" step="0.1" placeholder="calc" oninput="onLegCanopyInput('${key}','sink')" data-allow-empty="true"></div>
-            </div>
-            <div id="${key}-perf-note" class="field-note" style="margin-top:4px;min-height:1em;"></div>
-          </div>
+        <div class="leg-details-body">${hdgOverrideRow}${zRow}${_legPerfBlock(key, cp)}
         </div>
-      </details>
-    `;
+      </details>`;
     container.appendChild(card);
   });
 
   // Reset to defaults button
   const resetBtn = document.createElement('button');
-  resetBtn.style.cssText = 'width:100%;margin-top:6px;font-family:"Space Mono",monospace;font-size:11px;color:var(--muted);background:transparent;border:1px solid var(--border);border-radius:4px;padding:6px;cursor:pointer;letter-spacing:0.06em;text-transform:uppercase;';
+  resetBtn.className = 'leg-reset-btn';
   resetBtn.textContent = 'Reset Pattern Legs';
   resetBtn.onclick = resetPatternLegs;
   container.appendChild(resetBtn);
@@ -506,15 +468,8 @@ function onStdLegHdg(key, src) {
 function onLegHdgOverrideToggle(key, checked) {
   if (!state.legHdgOverride) state.legHdgOverride = {};
   if (checked) {
-    // Pre-populate with the heading value that, when used as the override, produces
-    // NO immediate change to the leg position.
-    //
-    // In crab mode the override is consumed as the TRACK direction, so init from
-    // the computed track heading (≈ perpendicular to final for base, ≈ opposite
-    // final for downwind).  In drift mode the override is consumed as the STEER /
-    // nominal heading (bNomHdg / dwNomHdg), so init from the steer heading (bHdg /
-    // dwHdg).  Using the track heading in drift mode would cause a jump because the
-    // actual over-ground track diverges from the steer heading when wind is present.
+    // Seed with a value that produces no immediate jump: crab mode consumes the
+    // override as TRACK, drift mode consumes it as STEER. Pick accordingly.
     let defaultHdg = 0;
     if (state.pattern) {
       if (key === 'dw') {

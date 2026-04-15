@@ -68,8 +68,8 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior-y: none; backgr
 #heading-bar-val { font-family: 'Space Mono', monospace; font-size: 16px; color: var(--accent); min-width: 46px; flex-shrink: 0; }
 #heading-bar-slider-wrap { flex: 1; position: relative; min-width: 0; padding-bottom: 12px; margin-left: 6px; }
 #heading-bar-slider { width: 100%; accent-color: var(--accent); display: block; }
-/* Pyramid indicator */
-#wind-pyramid {
+/* Shared pyramid indicator (wind direction cue on heading/JR/final sliders) */
+.pyramid {
   position: absolute; bottom: 0; width: 0; height: 0;
   border-left: 7px solid transparent;
   border-right: 7px solid transparent;
@@ -78,7 +78,7 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior-y: none; backgr
   pointer-events: none; display: none;
   filter: drop-shadow(0 0 3px rgba(232,244,77,0.5));
 }
-#wind-pyramid-hit {
+.pyramid-hit {
   position: absolute; bottom: 0; width: 28px; height: 14px;
   transform: translateX(-50%); cursor: pointer; display: none;
 }
@@ -273,6 +273,50 @@ input[type=number] { -moz-appearance: textfield; }
 }
 .leg-mode-btn.active { background: var(--accent); color: var(--bg); }
 
+/* ── LEG CARDS (rendered by renderLegs() in ui-legs.js) ── */
+#legs-container { display: flex; flex-direction: column; gap: 8px; }
+.leg-card {
+  background: var(--panel2); border-radius: 6px; padding: 8px 10px;
+  border: 1px solid var(--border);
+}
+.leg-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.leg-color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.leg-title {
+  font-size: 13px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text); flex: 1;
+}
+.leg-mode-group {
+  display: flex; border: 1px solid var(--border); border-radius: 3px; overflow: hidden;
+}
+.leg-field { margin-bottom: 6px; }
+.leg-field-label {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); display: block; margin-bottom: 4px;
+}
+.leg-slider-row { display: flex; align-items: center; gap: 6px; }
+.leg-slider-row input[type=range] { flex: 1; min-width: 0; }
+.leg-num {
+  font-family: 'Space Mono', monospace; font-size: 14px; color: var(--text);
+  background: transparent; border: none; border-bottom: 1px solid var(--border);
+  width: 56px; text-align: center; padding: 2px 0; flex-shrink: 0;
+}
+.leg-num--hdg { width: 46px; color: var(--accent); }
+.leg-opt-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.leg-opt-label { font-size: 12px; color: var(--muted); flex: 1; }
+.leg-opt-row--disabled { opacity: 0.4; pointer-events: none; }
+.is-hidden { display: none; }
+.leg-perf { display: none; margin-top: 4px; }
+.leg-perf--open { display: block; }
+.leg-perf-note { margin-top: 4px; min-height: 1em; }
+.leg-final-hdg-wrap { flex: 1; position: relative; padding-bottom: 10px; min-width: 0; }
+.leg-final-hdg-wrap input[type=range] { width: 100%; display: block; }
+.leg-reset-btn {
+  width: 100%; margin-top: 6px;
+  font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted);
+  background: transparent; border: 1px solid var(--border); border-radius: 4px;
+  padding: 6px; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase;
+}
+
 /* ── PULL TO REFRESH ── */
 #pull-indicator {
   position: fixed; top: var(--header-h); left: 50%; transform: translateX(-50%) translateY(-100%);
@@ -357,22 +401,8 @@ input[type=number] { -moz-appearance: textfield; }
 /* Semantic slider classes — use on any range input */
 .alt-slider { accent-color: var(--accent-alt); }
 .hdg-slider { accent-color: var(--accent); }
-#jr-wind-pyramid {
-  position: absolute; bottom: 0; width: 0; height: 0;
-  border-left: 7px solid transparent; border-right: 7px solid transparent;
-  border-bottom: 12px solid var(--accent); transform: translateX(-50%);
-  pointer-events: none; display: none;
-  filter: drop-shadow(0 0 3px rgba(232,244,77,0.5));
-}
-#jr-wind-pyramid-hit {
-  position: absolute; bottom: 0; width: 28px; height: 14px;
-  transform: translateX(-50%); cursor: pointer; display: none;
-}
-
 /* ── SETTINGS OVERLAY ── */
-#jr-offset { color: var(--muted); }
-#green-light-override { color: var(--muted); }
-#red-light-override   { color: var(--muted); }
+.muted-input { color: var(--muted); }
 .section-label--action { display: flex; align-items: center; justify-content: space-between; }
 #canopy-calc-note { margin-top: 4px; min-height: 1em; }
 .field-note-sm { margin-top: 2px; }

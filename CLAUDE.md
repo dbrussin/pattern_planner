@@ -25,7 +25,7 @@ js/draw.js           — drawPattern(), clearPattern(), Leaflet polyline/marker/
 js/ui-overlays.js    — setStatus(), toggleOverlay(), closeOverlay(), toggleLayer(), setHand(), showLegend()
 js/ui-heading.js     — heading bar, forecast offset, jump run heading, green/red light, DZ zero, landing lat/lng, mag declination
 js/ui-canopy.js      — canopyThird(), updateCanopyCalc(), updateLegCanopyCalc(), getLegPerf(), setLegMode(), toggleZPattern()
-js/ui-legs.js        — renderLegs(), addExtraLeg(), removeExtraLeg(), leg alt/hdg handlers, heading overrides, altitude constraints
+js/ui-legs.js        — renderLegs() (uses shared _legHeader/_legAltField/_legPerfBlock helpers + .leg-* CSS classes), addExtraLeg(), removeExtraLeg(), leg alt/hdg handlers, heading overrides, altitude constraints
 js/search.js         — DZ search (USPA GeoJSON + Nominatim geocoding), goToMyLocation()
 js/app.js            — map init, placeTarget(), tile failover, invite code gate, waiver, pull-to-refresh, init sequence
 ```
@@ -81,9 +81,19 @@ Settings persist to `localStorage` with `pp_` prefix via `storageKey()`. Wind da
 2. Update response parsing if format changed
 3. Clear wind cache if schema changed (`pp_wc_*` keys)
 
+## Token-Efficiency Guidance (for Claude Code)
+
+Claude Code has a 10,000-token per-Read limit. Keep each source file comfortably under that budget:
+
+- **No single file should exceed ~8,000 tokens** (~32 KB of code). Files currently at risk if extended: `dz-pattern.html`, `css/app.css`, `js/draw.js`, `js/calculate.js`, `js/ui-legs.js`, `js/wind.js`.
+- **Prefer CSS classes over inline styles** in JS template literals. `renderLegs()` uses `.leg-card`, `.leg-header`, `.leg-field`, `.leg-num`, `.leg-perf` etc. from `css/app.css` — add a new class rather than inlining a `style="..."` attribute.
+- **Prefer shared helpers over duplication.** In `renderLegs()` the fragment builders `_legHeader()`, `_legAltField()`, `_legPerfBlock()` are reused across standard and extra legs. Put new shared markup in helpers.
+- **Keep comments terse.** A one-line hint that names the algorithm ("fixed-point iteration on turn-consumed altitudes") is more useful than 15 lines re-explaining it. Skip JSDoc prose on private helpers.
+- **Shared CSS classes** for repeat patterns: `.pyramid` / `.pyramid-hit` (heading-bar, JR, final-hdg wind indicators); `.muted-input` (optional number inputs that start greyed out); `.is-hidden` (generic display:none modifier).
+- If a file creeps past ~8k tokens, **split it** (like the old `ui.js` → `ui-overlays.js`, `ui-heading.js`, `ui-canopy.js`, `ui-legs.js`) rather than compacting aggressively.
+
 ## Known Technical Debt
 
-- **Inline styles in renderLegs()**: Leg cards in `ui-legs.js` use `style.cssText` and inline `style=` in template literals instead of CSS classes
 - **Inline styles in draw.js**: Leaflet `divIcon` HTML contains inline styles (hard to avoid with Leaflet's API)
 - **Silent error handling**: Some `try/catch` blocks swallow errors (e.g. `initStorage()`, `loadSettings()` outer catch)
 - **No JS input validation**: Numeric inputs rely on HTML `min`/`max` only; no JS clamping
@@ -95,12 +105,17 @@ Settings persist to `localStorage` with `pp_` prefix via `storageKey()`. Wind da
 - ~~Magic numbers~~: All in `config.js`
 - ~~Duplicated canopy calc~~: Shared `canopyThird()` in `ui-canopy.js`
 - ~~NaN propagation~~: `updateWindByIdx()` rejects non-numeric input
+- ~~Inline styles in `renderLegs()`~~: Replaced with `.leg-*` classes in `css/app.css`
+- ~~Duplicate pyramid CSS~~: Consolidated into shared `.pyramid` / `.pyramid-hit` classes
+- ~~Orphan `js/ui.js`~~: Deleted (functionality lives in `ui-overlays.js` / `ui-heading.js` / `ui-canopy.js` / `ui-legs.js`)
 
 ## CSS Notes
 
 - All styles in `css/app.css`; organized by `/* ── SECTION ── */` comments
 - Custom properties on `:root`: `--bg`, `--panel`, `--panel2`, `--border`, `--accent` (yellow), `--accent2` (teal), `--accent-alt` (green, altitude sliders), `--text`, `--muted`, leg colors (`--final-color`, `--base-color`, `--downwind-color`), layout sizes (`--header-h`, `--heading-bar-h`, `--icon-bar-w`)
 - No `@media` breakpoints; uses `min()` for responsive widths; `@media (prefers-reduced-motion)` disables transitions
+- **Leg-card classes** (used by `renderLegs()` in `ui-legs.js`): `.leg-card`, `.leg-header`, `.leg-color-dot`, `.leg-title`, `.leg-mode-group`, `.leg-mode-btn`, `.leg-field`, `.leg-field-label`, `.leg-slider-row`, `.leg-num`, `.leg-num--hdg`, `.leg-opt-row`, `.leg-opt-label`, `.leg-opt-row--disabled`, `.leg-perf`, `.leg-perf--open`, `.leg-perf-note`, `.leg-final-hdg-wrap`, `.leg-reset-btn`
+- **Shared utilities**: `.pyramid` / `.pyramid-hit` (wind-direction indicator on range sliders), `.muted-input` (optional input displayed in muted color until typed into), `.is-hidden` (generic display:none)
 
 ## Domain Glossary
 
