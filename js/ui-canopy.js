@@ -38,7 +38,8 @@ function updatePerfSections() {
     const cb      = document.getElementById(`${leg}-custom-perf`);
     const section = document.getElementById(`${leg}-perf`);
     if (!cb || !section) return;
-    const wasOpen = section.style.display !== 'none';
+    //const wasOpen = section.style.display !== 'none';
+    const wasOpen = !!state.legCustomPerf[leg];
     const isOpen  = cb.checked;
     state.legCustomPerf[leg]  = isOpen;
     section.style.display     = isOpen ? 'block' : 'none';
