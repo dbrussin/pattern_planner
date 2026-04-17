@@ -111,9 +111,11 @@ function processWindData(d, fieldElevFt) {
   const nowMs = Date.now();
   let hi = -1;
   if (d.utc_offset_seconds != null) {
+    // Append 'Z' so the string is parsed as a nominal UTC value (browser-timezone-
+    // independent), then subtract the location's UTC offset to get actual UTC ms.
     hi = d.hourly.time.reduce((best, t, i) => {
-      const apiMs  = new Date(t).getTime() - d.utc_offset_seconds * 1000;
-      const bestMs = new Date(d.hourly.time[best]).getTime() - d.utc_offset_seconds * 1000;
+      const apiMs  = new Date(t + 'Z').getTime() - d.utc_offset_seconds * 1000;
+      const bestMs = new Date(d.hourly.time[best] + 'Z').getTime() - d.utc_offset_seconds * 1000;
       return Math.abs(apiMs - nowMs) < Math.abs(bestMs - nowMs) ? i : best;
     }, 0);
   } else {
