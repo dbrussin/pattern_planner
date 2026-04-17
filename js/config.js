@@ -47,7 +47,9 @@ function debounce(fn, wait) {
 }
 
 // GFS API: pressure levels (hPa) to query for winds + temperature
-const PRESSURE_LEVELS = [1000, 975, 950, 925, 850, 700, 600, 500, 400, 300];
+// Includes intermediate levels (900–725 hPa) to fill the ~5k–10k ft gap
+// that standard winds-aloft reports cover at 6k and 9k ft.
+const PRESSURE_LEVELS = [1000, 975, 950, 925, 900, 875, 850, 825, 800, 775, 750, 725, 700, 600, 500, 400, 300];
 
 // GFS API: fixed height levels above ground (metres)
 const HEIGHT_LEVELS = [80, 120, 180]; // → ~262, 394, 591 ft AGL
