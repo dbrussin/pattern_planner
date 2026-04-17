@@ -65,7 +65,7 @@ async function fetchWinds(forceRefresh = false) {
     const htVars     = HEIGHT_LEVELS.flatMap(h => [`windspeed_${h}m`, `winddirection_${h}m`]).join(',');
 
     // forecast_days=2 ensures +12h is always available regardless of current hour
-    const url = `https://api.open-meteo.com/v1/gfs?latitude=${lat}&longitude=${lng}&hourly=${plWindVars},${plHgtVars},${plTmpVars},${htVars},windspeed_10m,winddirection_10m&wind_speed_unit=kn&forecast_days=2&timezone=auto`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=${plWindVars},${plHgtVars},${plTmpVars},${htVars},windspeed_10m,winddirection_10m&wind_speed_unit=kn&forecast_days=2&timezone=auto`;
     const rawData = await (await fetch(url, {signal})).json();
 
     if (!rawData?.hourly?.time?.length) {
