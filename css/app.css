@@ -637,49 +637,53 @@ input[type=number] { -moz-appearance: textfield; }
   display: flex; flex-direction: column; overflow: hidden;
 }
 .forecast-modal-hdr {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
-.forecast-modal-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.forecast-modal-title { font-size: 14px; font-weight: 700; color: var(--text); flex: 1; }
+.fc-toggle-btn {
+  font-size: 11px; font-weight: 600; padding: 4px 10px;
+  background: var(--panel2); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--accent2); cursor: pointer; white-space: nowrap;
+}
+.fc-toggle-btn:active { background: var(--border); }
 .forecast-modal-status {
-  padding: 10px 16px; font-size: 12px; color: var(--muted);
+  padding: 3px 12px 5px; font-size: 11px; color: var(--muted);
   font-family: 'Space Mono', monospace; flex-shrink: 0;
 }
 .forecast-table-wrap { overflow: auto; flex: 1; }
 .forecast-table {
-  border-collapse: collapse; font-size: 11px; font-family: 'Space Mono', monospace;
+  border-collapse: collapse; font-size: 10px; font-family: 'Space Mono', monospace;
   white-space: nowrap;
 }
 .forecast-table th, .forecast-table td {
-  border: 1px solid var(--border); padding: 4px 6px; text-align: center; vertical-align: middle;
+  border: 1px solid var(--border); padding: 2px 4px; text-align: center; vertical-align: middle;
 }
 .forecast-table thead th {
   background: var(--panel2); color: var(--muted); position: sticky; top: 0; z-index: 1;
 }
 .forecast-table .ft-row-hdr {
   background: var(--panel2); color: var(--accent2); position: sticky; left: 0; z-index: 2;
-  font-weight: 600; min-width: 56px;
+  font-weight: 600; min-width: 48px;
 }
 .forecast-table thead .ft-row-hdr { z-index: 3; }
 .forecast-table .ft-day-hdr { background: var(--panel2); border-bottom: none; }
-/* Day columns: yellow tint */
 .ft-hr-hdr { color: var(--muted); }
 .ft-hdr-day { color: var(--accent) !important; background: rgba(232,244,77,0.08) !important; }
 /* SFC row — always shows text */
 .ft-sfc-hdr { color: var(--text) !important; }
-.ft-sfc-cell { background: var(--panel2); padding: 3px 5px; }
-.ft-cell-temp  { display: block; color: var(--text); font-weight: 600; }
-.ft-cell-speed { display: block; color: var(--text); font-weight: 600; }
-.ft-cell-gust  { display: block; color: var(--accent); font-size: 10px; }
-.ft-cell-dir   { display: block; color: var(--muted); font-size: 10px; }
-.ft-cell-precip-prob { display: block; color: var(--accent2); font-size: 10px; }
-.ft-cell-precip      { display: block; color: var(--accent2); font-size: 10px; }
-/* Pressure-level cells — grayscale bg, text hidden until hover/tap */
-.ft-pl-cell { background: rgb(26,26,26); padding: 3px 5px; cursor: default; }
-.ft-hidden { display: block; opacity: 0; font-size: 10px; line-height: 1.3;
-             transition: opacity 0.1s; pointer-events: none; }
-.ft-pl-cell:hover .ft-hidden,
-.ft-pl-cell.ft-touched .ft-hidden {
-  opacity: 1; color: var(--ftc, var(--text));
-}
-.ft-cell-cloud { display: block; font-size: 10px; }
+.ft-sfc-cell { background: var(--panel2); padding: 2px 4px; line-height: 1.2; }
+.ft-cell-temp        { display: block; color: var(--text); font-weight: 600; }
+.ft-cell-speed       { display: block; color: var(--text); font-weight: 600; }
+.ft-cell-gust        { display: block; color: var(--accent); }
+.ft-cell-dir         { display: block; color: var(--muted); }
+.ft-cell-precip-prob { display: block; color: var(--accent2); }
+.ft-cell-precip      { display: block; color: var(--accent2); }
+/* Pressure-level cells — grayscale bg; compact by default, expand when details on */
+.ft-pl-cell { height: 20px; min-width: 42px; padding: 0 4px; cursor: default; }
+.ft-hidden { display: none; line-height: 1.3; }
+.ft-cell-cloud { display: none; }
+/* Show all hidden text when toggle is on */
+.ft-details-on .ft-pl-cell { height: auto; padding: 2px 4px; }
+.ft-details-on .ft-hidden,
+.ft-details-on .ft-cell-cloud { display: block; color: var(--ftc, var(--text)); }
