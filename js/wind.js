@@ -455,12 +455,12 @@ async function fetchMetar(lat, lng) {
     const stData = await (await fetch(`${stationsUrl}?limit=10`)).json();
     if (!stData?.features?.length) { box.style.display = 'none'; return; }
 
-    // GeoJSON coords are [lon, lat] — find nearest within 1 statute mile
+    // GeoJSON coords are [lon, lat] — find nearest within 10 statute mile
     const withDist = stData.features
       .map(f => ({ f, dist: _metarDistMi(lat, lng, f.geometry.coordinates[1], f.geometry.coordinates[0]) }))
       .sort((a, b) => a.dist - b.dist);
     const nearest = withDist[0];
-    if (nearest.dist > 5.0) { box.style.display = 'none'; return; }
+    if (nearest.dist > 10.0) { box.style.display = 'none'; return; }
 
     const stId   = nearest.f.properties.stationIdentifier;
     const stName = nearest.f.properties.name;
