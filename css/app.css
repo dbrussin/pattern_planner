@@ -456,6 +456,19 @@ input[type=number] { -moz-appearance: textfield; }
   font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent2);
   white-space: nowrap; min-width: 32px; text-align: right;
 }
+.wind-tray-meta {
+  margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; line-height: 1.5;
+  min-height: 0;
+}
+.view-forecast-btn {
+  display: block; width: 100%; margin-top: 10px;
+  padding: 7px 0; background: var(--panel2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--accent2); font-size: 12px; font-weight: 600;
+  cursor: pointer; letter-spacing: 0.04em;
+}
+.view-forecast-btn:disabled { opacity: 0.4; cursor: default; }
+.view-forecast-btn:not(:disabled):active { background: var(--border); }
 .winds-source-note {
   margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border);
   font-size: 10px; color: var(--muted); font-family: 'Space Mono', monospace; line-height: 1.6;
@@ -616,3 +629,59 @@ input[type=number] { -moz-appearance: textfield; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
+
+/* ── FORECAST MODAL ── */
+.forecast-modal-card {
+  background: var(--panel); border-radius: 12px;
+  width: min(96vw, 900px); max-height: 85vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.forecast-modal-hdr {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.forecast-modal-hdr-info { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.forecast-modal-title { font-size: 14px; font-weight: 700; color: var(--text); }
+.fc-toggle-btn {
+  font-size: 11px; font-weight: 600; padding: 4px 10px;
+  background: var(--panel2); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--accent2); cursor: pointer; white-space: nowrap;
+}
+.fc-toggle-btn:active { background: var(--border); }
+.forecast-modal-status { font-size: 10px; color: var(--muted); font-family: 'Space Mono', monospace; }
+.forecast-table-wrap { overflow: auto; flex: 1; }
+.forecast-table {
+  border-collapse: collapse; font-size: 10px; font-family: 'Space Mono', monospace;
+  white-space: nowrap;
+}
+.forecast-table th, .forecast-table td {
+  border: 1px solid var(--border); padding: 2px 4px; text-align: center; vertical-align: middle;
+}
+.forecast-table thead th {
+  background: var(--panel2); color: var(--muted); position: sticky; top: 0; z-index: 1;
+}
+.forecast-table .ft-row-hdr {
+  background: var(--panel2); color: var(--accent2); position: sticky; left: 0; z-index: 2;
+  font-weight: 600; min-width: 48px;
+}
+.forecast-table thead .ft-row-hdr { z-index: 3; }
+.forecast-table .ft-day-hdr { background: var(--panel2); border-bottom: none; }
+.ft-hr-hdr { color: var(--muted); }
+.ft-hdr-day { color: var(--accent) !important; background: rgba(232,244,77,0.08) !important; }
+/* SFC row — always shows text */
+.ft-sfc-hdr { color: var(--text) !important; }
+.ft-sfc-cell { background: var(--panel2); padding: 2px 4px; line-height: 1.2; }
+.ft-cell-temp        { display: block; color: var(--text); font-weight: 600; }
+.ft-cell-speed       { display: block; color: var(--text); font-weight: 600; }
+.ft-cell-gust        { display: block; color: var(--accent); }
+.ft-cell-dir         { display: block; color: var(--muted); }
+.ft-cell-precip-prob { display: block; color: var(--accent2); }
+.ft-cell-precip      { display: block; color: var(--accent2); }
+/* Pressure-level cells — grayscale bg; compact by default, expand when details on */
+.ft-pl-cell { height: 20px; min-width: 42px; padding: 0 4px; cursor: default; }
+.ft-hidden { display: none; line-height: 1.3; }
+.ft-cell-cloud { display: none; }
+/* Show all hidden text when toggle is on */
+.ft-details-on .ft-pl-cell { height: auto; padding: 2px 4px; }
+.ft-details-on .ft-hidden,
+.ft-details-on .ft-cell-cloud { display: block; color: var(--ftc, var(--text)); }

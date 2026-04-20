@@ -478,12 +478,17 @@ async function fetchMetar(lat, lng) {
 // ── Status age display ────────────────────────────────────────────────────────
 
 function updateWindStatusAge(ts) {
-  const sw      = state.surfaceWind;
-  const ageMin  = Math.round((Date.now() - ts) / 60000);
-  const ageStr  = ageMin < 1 ? 'just now' : `${ageMin}m ago`;
+  const ageMin    = Math.round((Date.now() - ts) / 60000);
+  const ageStr    = ageMin < 1 ? 'just now' : `${ageMin}m ago`;
   const offsetStr = state.forecastOffset > 0 ? ` · +${state.forecastOffset}h forecast` : '';
-  document.getElementById('fetch-status').textContent =
-    `SFC: ${sw.dirDeg}° @ ${sw.speedKts}kt · Elev ${state.fieldElevFt}ft MSL\nLoaded ${ageStr}${offsetStr} · teal = real data · grey = interpolated`;
+
+  document.getElementById('fetch-status').textContent = '';
+  const metaEl = document.getElementById('wind-tray-meta');
+  if (metaEl) metaEl.textContent = `Elev ${state.fieldElevFt}ft MSL · Loaded ${ageStr}${offsetStr}`;
+
+  const fBtn = document.getElementById('view-forecast-btn');
+  if (fBtn) fBtn.disabled = false;
+
   const ageEl = document.getElementById('wind-loaded-age');
   if (ageEl) ageEl.textContent = `loaded ${ageStr}`;
 }

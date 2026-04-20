@@ -468,12 +468,29 @@
     </div>
     <div class="wind-header"><span>Alt AGL</span><span>Dir °T</span><span>Spd kts</span><span>°C</span></div>
     <div id="wind-rows"></div>
+    <div id="wind-tray-meta" class="wind-tray-meta"></div>
+    <button id="view-forecast-btn" class="view-forecast-btn" disabled onclick="openForecastModal()">View Full Forecast</button>
     <div class="winds-source-note">
       Source: <a href="https://open-meteo.com" target="_blank">open-meteo.com</a> GFS.<br>
       Teal rows: real model data · Grey rows: interpolated.<br>
       Values are editable — tap any cell to adjust.
     </div>
     <div id="metar-box" style="display:none"></div>
+  </div>
+</div>
+
+<!-- FULL FORECAST MODAL -->
+<div id="forecast-modal" class="waiver-modal" style="display:none" role="dialog" aria-modal="true">
+  <div class="forecast-modal-card">
+    <div class="forecast-modal-hdr">
+      <div class="forecast-modal-hdr-info">
+        <span class="forecast-modal-title">96-Hour Forecast</span>
+        <span id="forecast-modal-status" class="forecast-modal-status"></span>
+      </div>
+      <button id="fc-details-toggle" class="fc-toggle-btn" onclick="toggleFcDetails()">Show Details</button>
+      <button class="overlay-close" onclick="closeForecastModal()">✕</button>
+    </div>
+    <div class="forecast-table-wrap" id="forecast-table-wrap"></div>
   </div>
 </div>
 
@@ -491,5 +508,6 @@
 <script src="js/ui-legs.js"></script>
 <script src="js/search.js"></script>
 <script src="js/app.js"></script>
+<script src="js/ui-forecast.js"></script>
 </body>
 </html>
