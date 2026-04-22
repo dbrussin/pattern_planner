@@ -1,8 +1,8 @@
 // ─── Pattern Planner Service Worker ────────────────────────────────────────────
-// Cache-first for app shell; pass-through for weather APIs and map tiles.
-// Bump CACHE_NAME when deploying updated app files.
+// Network-first for app shell (so deploys take effect on next load); cache only
+// rescues offline. Pass-through for weather APIs and map tiles.
 
-const CACHE_NAME = 'pp-shell-v1';
+const CACHE_NAME = 'pp-shell-v2';
 
 // App shell — everything needed to render offline (APIs still need network)
 const SHELL = [
@@ -72,24 +72,35 @@ self.addEventListener('fetch', e => {
     return; // let the browser handle natively
   }
 
-  // Cache-first for everything else (app shell + CDN assets)
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
+  const sameOrigin = url.origin === self.location.origin;
+  const isUnpkg = url.hostname === 'unpkg.com';
 
-      return fetch(e.request).then(resp => {
-        // Only cache successful responses from known-safe origins
-        if (resp.ok && (url.origin === self.location.origin || url.hostname === 'unpkg.com')) {
+  // Leaflet on unpkg is pinned — safe to serve cache-first.
+  if (isUnpkg) {
+    e.respondWith(
+      caches.match(e.request).then(cached => cached || fetch(e.request).then(resp => {
+        if (resp.ok) {
           const clone = resp.clone();
           caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
         }
         return resp;
-      });
-    }).catch(() => {
-      // Offline fallback: serve the app shell HTML for navigation requests
-      if (e.request.mode === 'navigate') {
-        return caches.match('./dz-pattern.html');
+      }))
+    );
+    return;
+  }
+
+  // Network-first for the app shell so deploys take effect immediately.
+  // Falls back to cache only when offline.
+  e.respondWith(
+    fetch(e.request).then(resp => {
+      if (resp.ok && sameOrigin) {
+        const clone = resp.clone();
+        caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
       }
-    })
+      return resp;
+    }).catch(() => caches.match(e.request).then(cached => {
+      if (cached) return cached;
+      if (e.request.mode === 'navigate') return caches.match('./dz-pattern.html');
+    }))
   );
 });
