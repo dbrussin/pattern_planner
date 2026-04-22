@@ -144,7 +144,7 @@ function _buildFcSfcRow(times, h) {
       (temp  != null ? `<span class="ft-cell-temp">${Math.round(temp)}°</span>` : '') +
       (spd   != null ? `<span class="ft-cell-speed">${Math.round(spd)}kt</span>` : '') +
       (gust  != null && Math.round(gust) !== Math.round(spd ?? 0)
-        ? `<span class="ft-cell-gust">g${Math.round(gust)}</span>` : '') +
+        ? `<span class="ft-cell-gust">G${Math.round(gust)}</span>` : '') +
       (dir   != null ? `<span class="ft-cell-dir">${Math.round(dir)}°</span>` : '') +
       (pProb != null ? `<span class="ft-cell-precip-prob">${Math.round(pProb)}%</span>` : '') +
       (precip != null && precip > 0 ? `<span class="ft-cell-precip">${precip.toFixed(1)}mm</span>` : '') +
