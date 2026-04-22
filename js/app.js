@@ -259,3 +259,28 @@ if (navigator.storage?.persist) {
     if (!granted) console.info('[PWA] Persistent storage not granted — data may be evicted after ~7 days of inactivity on iOS');
   });
 }
+
+// ── Android/Chrome install prompt ─────────────────────────────────────────────
+
+let _installPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _installPrompt = e;
+  // Don't show the banner if already running as installed PWA
+  if (window.matchMedia('(display-mode: standalone)').matches) return;
+  const banner = document.getElementById('install-banner');
+  if (banner) banner.classList.remove('is-hidden');
+});
+
+function pwaInstall() {
+  if (!_installPrompt) return;
+  _installPrompt.prompt();
+  _installPrompt.userChoice.then(() => { _installPrompt = null; });
+  pwaDismiss();
+}
+
+function pwaDismiss() {
+  const banner = document.getElementById('install-banner');
+  if (banner) banner.classList.add('is-hidden');
+}

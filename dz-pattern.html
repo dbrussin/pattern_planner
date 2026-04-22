@@ -47,6 +47,13 @@
   <div id="dz-dropdown"></div>
 </div>
 
+<!-- PWA INSTALL BANNER (shown by beforeinstallprompt on Android/Chrome) -->
+<div id="install-banner" class="is-hidden">
+  <span class="install-banner-text">Add Pattern Planner to your home screen</span>
+  <button class="install-banner-btn" onclick="pwaInstall()">Install</button>
+  <button class="install-banner-dismiss" onclick="pwaDismiss()" aria-label="Dismiss">✕</button>
+</div>
+
 <!-- MAP -->
 <div id="map"></div>
 <div id="pull-indicator">↓ Release to refresh winds</div>
