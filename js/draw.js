@@ -508,6 +508,8 @@ function drawPattern() {
     const arrowPt   = offsetLL(state.target.lat, state.target.lng,
       upwindVec.n * 350 + hdgVec(fromDeg + 90).n * 200,
       upwindVec.e * 350 + hdgVec(fromDeg + 90).e * 200);
+    const gustKts   = state.surfaceWind?.gustKts;
+    const gustTxt   = gustKts != null ? ` G${gustKts}` : '';
     addL(L.marker(ll(arrowPt), {
       icon: L.divIcon({
         html: `<div style="display:flex;align-items:center;gap:4px;pointer-events:none;">
@@ -516,9 +518,9 @@ function drawPattern() {
               transform="rotate(${velDeg},7,7)"/>
           </svg>
           <span style="font-family:'Space Mono',monospace;font-size:12px;color:#fff;
-            text-shadow:0 0 5px #000,0 1px 4px #000;white-space:nowrap;">${Math.round(fromDeg)}°@${Math.round(ws)}kt</span>
+            text-shadow:0 0 5px #000,0 1px 4px #000;white-space:nowrap;">${Math.round(fromDeg)}°@${Math.round(ws)}kt${gustTxt}</span>
         </div>`,
-        iconSize: [90, 14], iconAnchor: [45, 7], className: '',
+        iconSize: [110, 14], iconAnchor: [55, 7], className: '',
       }),
       interactive: false, zIndexOffset: 200,
     }));

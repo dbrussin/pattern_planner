@@ -52,7 +52,7 @@ function debounce(fn, wait) {
 const PRESSURE_LEVELS = [1000, 975, 950, 925, 900, 875, 850, 825, 800, 775, 750, 725, 700, 675, 650, 625, 600, 575, 550, 525, 500];
 
 // GFS API: fixed height levels above ground (metres)
-const HEIGHT_LEVELS = [80, 120, 180]; // → ~262, 394, 591 ft AGL
+const HEIGHT_LEVELS = [80]; // → ~262 ft AGL
 
 // Display rows: interpolated wind altitudes shown in the wind table (ft AGL)
 const INTERP_ALTS_FT = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000, 14000];
