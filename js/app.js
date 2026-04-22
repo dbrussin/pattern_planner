@@ -249,6 +249,14 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(err => {
       console.info('[PWA] Service worker registration failed:', err);
     });
+    // Reload once when a new SW takes control so users pick up fresh code
+    // without having to manually hard-refresh.
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloading) return;
+      reloading = true;
+      window.location.reload();
+    });
   });
 }
 
