@@ -96,6 +96,26 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior-y: none; backgr
 }
 .hand-toggle button.active { background: var(--accent); color: var(--bg); }
 
+/* ── PWA INSTALL BANNER ── */
+#install-banner {
+  position: fixed; top: var(--header-h); left: 0; right: 0; z-index: 498;
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  background: var(--panel2); border-bottom: 1px solid var(--accent);
+  font-size: 13px; font-weight: 600; letter-spacing: 0.03em; color: var(--text);
+}
+#install-banner.is-hidden { display: none; }
+.install-banner-text { flex: 1; }
+.install-banner-btn {
+  background: var(--accent); color: var(--bg); border: none; border-radius: 4px;
+  padding: 5px 14px; font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.05em; cursor: pointer;
+  flex-shrink: 0;
+}
+.install-banner-dismiss {
+  background: transparent; border: none; color: var(--muted); font-size: 14px;
+  cursor: pointer; padding: 4px 6px; flex-shrink: 0; line-height: 1;
+}
+
 /* ── MAP ── */
 #map { position: fixed; top: var(--header-h); left: 0; right: 0; bottom: var(--heading-bar-h); z-index: 1; }
 

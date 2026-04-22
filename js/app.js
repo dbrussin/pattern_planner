@@ -241,3 +241,46 @@ document.addEventListener('visibilitychange', () => {
   if (cached) updateWindStatusAge(cached.ts);
   else fetchWinds().then(calculate);
 });
+
+// ── PWA: service worker + persistent storage ──────────────────────────────────
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => {
+      console.info('[PWA] Service worker registration failed:', err);
+    });
+  });
+}
+
+// Request persistent storage so iOS doesn't purge localStorage on inactivity.
+// navigator.storage.persist() is available in iOS 15.4+ for installed PWAs.
+if (navigator.storage?.persist) {
+  navigator.storage.persist().then(granted => {
+    if (!granted) console.info('[PWA] Persistent storage not granted — data may be evicted after ~7 days of inactivity on iOS');
+  });
+}
+
+// ── Android/Chrome install prompt ─────────────────────────────────────────────
+
+let _installPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _installPrompt = e;
+  // Don't show the banner if already running as installed PWA
+  if (window.matchMedia('(display-mode: standalone)').matches) return;
+  const banner = document.getElementById('install-banner');
+  if (banner) banner.classList.remove('is-hidden');
+});
+
+function pwaInstall() {
+  if (!_installPrompt) return;
+  _installPrompt.prompt();
+  _installPrompt.userChoice.then(() => { _installPrompt = null; });
+  pwaDismiss();
+}
+
+function pwaDismiss() {
+  const banner = document.getElementById('install-banner');
+  if (banner) banner.classList.add('is-hidden');
+}
