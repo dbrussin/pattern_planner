@@ -312,16 +312,24 @@ function buildWindTable() {
     tempEl.className = 'temp-label';
     if (w.tempC !== null && w.tempC !== undefined) tempEl.textContent = Math.round(w.tempC) + '°';
 
-    row.appendChild(altEl); row.appendChild(dirEl); row.appendChild(spdEl); row.appendChild(tempEl);
-    c.appendChild(row);
-
-    // Gust info line below SFC row — display only, not editable
-    if (i === 0 && state.surfaceWind?.gustKts != null) {
-      const gustEl = document.createElement('div');
-      gustEl.className = 'wind-gust-info';
-      gustEl.textContent = `gusts ${state.surfaceWind.gustKts}kt`;
-      c.appendChild(gustEl);
+    row.appendChild(altEl);
+    row.appendChild(dirEl);
+    // SFC row: wrap SPD input with a yellow gust overlay (display-only, hidden on focus)
+    if (i === 0 && state.surfaceWind?.gustKts > 0) {
+      const spdWrap = document.createElement('div');
+      spdWrap.className = 'wind-spd-wrap';
+      spdEl.classList.add('wind-spd-with-gust');
+      const gustSpan = document.createElement('span');
+      gustSpan.className = 'wind-gust-inline';
+      gustSpan.textContent = `G${state.surfaceWind.gustKts}`;
+      spdWrap.appendChild(spdEl);
+      spdWrap.appendChild(gustSpan);
+      row.appendChild(spdWrap);
+    } else {
+      row.appendChild(spdEl);
     }
+    row.appendChild(tempEl);
+    c.appendChild(row);
   });
 }
 

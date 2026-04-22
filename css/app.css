@@ -234,7 +234,14 @@ input[type=number] { -moz-appearance: textfield; }
 .wind-row.interpolated .alt-label { color: var(--muted); }
 .wind-row.real input { border-color: var(--accent2); }
 .wind-row.interpolated input { border-color: var(--border); }
-.wind-gust-info { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent); text-align: right; padding-right: 2px; margin-bottom: 8px; margin-top: -2px; }
+.wind-spd-wrap { position: relative; }
+.wind-row input.wind-spd-with-gust { padding-right: 34px; }
+.wind-gust-inline {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  font-family: 'Space Mono', monospace; font-size: 12px; color: var(--accent);
+  pointer-events: none; white-space: nowrap;
+}
+.wind-spd-wrap:focus-within .wind-gust-inline { display: none; }
 .fetch-btn {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   width: 100%; padding: 10px; background: var(--panel2); border: 1px solid var(--border);
