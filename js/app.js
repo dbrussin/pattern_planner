@@ -234,14 +234,6 @@ document.addEventListener('keydown', e => {
 window.addEventListener('resize', () => { if (state.surfaceWind) updateWindPyramid(); updateJrPyramid(); });
 setTimeout(() => map.invalidateSize(), 300);
 
-// Immediately check wind freshness when tab becomes visible (e.g. after sleep or switching tabs)
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden || !state.target) return;
-  const cached = findCachedWinds(state.target.lat, state.target.lng);
-  if (cached) updateWindStatusAge(cached.ts);
-  else fetchWinds().then(calculate);
-});
-
 // ── PWA: service worker + persistent storage ──────────────────────────────────
 
 if ('serviceWorker' in navigator) {
