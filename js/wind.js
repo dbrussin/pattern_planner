@@ -98,6 +98,39 @@ async function fetchWinds(forceRefresh = false) {
 
 // ── Wind data processing ──────────────────────────────────────────────────────
 
+// Slot key of the hi/mi most recently rendered by processWindData, so the 60s
+// auto-refresh tick can skip work when the nearest slot hasn't advanced.
+let _lastProcessedSlotKey = null;
+
+/**
+ * Pick the hourly (hi) and nearest 15-min (mi) slot indices for 'now' from a
+ * cached or freshly-fetched Open-Meteo response. Pure — no side effects — so
+ * the auto-refresh tick can peek at slot boundaries without disturbing state.
+ * `mi` is -1 when viewing a future forecast offset (minutely_15 unused) or
+ * when the response has no minutely_15 block.
+ * @param {object} d - Parsed Open-Meteo forecast response
+ * @returns {{hi:number, mi:number}}
+ */
+function _pickForecastIndices(d) {
+  const nowMs   = Date.now();
+  const hasOff  = d.utc_offset_seconds != null;
+  const nearest = (arr) => hasOff
+    ? arr.reduce((best, t, i) => {
+        const apiMs  = new Date(t + 'Z').getTime() - d.utc_offset_seconds * 1000;
+        const bestMs = new Date(arr[best] + 'Z').getTime() - d.utc_offset_seconds * 1000;
+        return Math.abs(apiMs - nowMs) < Math.abs(bestMs - nowMs) ? i : best;
+      }, 0)
+    : arr.reduce((best, t, i) =>
+        Math.abs(new Date(t).getTime() - nowMs) < Math.abs(new Date(arr[best]).getTime() - nowMs) ? i : best, 0);
+
+  let hi = nearest(d.hourly.time);
+  hi = Math.max(0, Math.min(hi + (state.forecastOffset || 0), d.hourly.time.length - 1));
+  const mi = ((state.forecastOffset || 0) === 0 && d.minutely_15?.time?.length)
+    ? nearest(d.minutely_15.time)
+    : -1;
+  return { hi, mi };
+}
+
 /**
  * Process raw GFS API response into state.winds and surface wind display.
  * Selects the nearest forecast hour (adjusted by state.forecastOffset), builds
@@ -108,42 +141,11 @@ async function fetchWinds(forceRefresh = false) {
  * @param {number} fieldElevFt - Field elevation MSL (ft); converts pressure-level altitudes to AGL
  */
 function processWindData(d, fieldElevFt) {
-  // Find base hour index by comparing UTC timestamps so the client's local
-  // timezone doesn't affect which forecast hour is selected (BUG-5).
-  const nowMs = Date.now();
-  let hi = -1;
-  if (d.utc_offset_seconds != null) {
-    // Append 'Z' so the string is parsed as a nominal UTC value (browser-timezone-
-    // independent), then subtract the location's UTC offset to get actual UTC ms.
-    hi = d.hourly.time.reduce((best, t, i) => {
-      const apiMs  = new Date(t + 'Z').getTime() - d.utc_offset_seconds * 1000;
-      const bestMs = new Date(d.hourly.time[best] + 'Z').getTime() - d.utc_offset_seconds * 1000;
-      return Math.abs(apiMs - nowMs) < Math.abs(bestMs - nowMs) ? i : best;
-    }, 0);
-  } else {
-    // Fallback: nearest timestamp (works when client TZ matches API TZ)
-    hi = d.hourly.time.reduce((best, t, i) =>
-      Math.abs(new Date(t).getTime() - nowMs) < Math.abs(new Date(d.hourly.time[best]).getTime() - nowMs) ? i : best, 0);
-  }
-  hi = Math.max(0, Math.min(hi + (state.forecastOffset || 0), d.hourly.time.length - 1));
-
-  // Find nearest 15-minute slot for fresher 10m/80m readings, but only when
-  // viewing 'now' — at any positive forecast offset the hourly value at the top
-  // of the hour is identical to the corresponding 15-min slot, so no benefit.
-  let mi = -1;
-  if ((state.forecastOffset || 0) === 0 && d.minutely_15?.time?.length) {
-    const m15 = d.minutely_15.time;
-    if (d.utc_offset_seconds != null) {
-      mi = m15.reduce((best, t, i) => {
-        const apiMs  = new Date(t + 'Z').getTime() - d.utc_offset_seconds * 1000;
-        const bestMs = new Date(m15[best] + 'Z').getTime() - d.utc_offset_seconds * 1000;
-        return Math.abs(apiMs - nowMs) < Math.abs(bestMs - nowMs) ? i : best;
-      }, 0);
-    } else {
-      mi = m15.reduce((best, t, i) =>
-        Math.abs(new Date(t).getTime() - nowMs) < Math.abs(new Date(m15[best]).getTime() - nowMs) ? i : best, 0);
-    }
-  }
+  // Find base hour index (hi) and nearest 15-min slot (mi, only when viewing
+  // 'now') so 10m/80m readings can come from the fresher minutely_15 stream.
+  // Comparing timestamps via UTC keeps the client's local timezone irrelevant
+  // to which forecast hour is selected (BUG-5).
+  const { hi, mi } = _pickForecastIndices(d);
 
   // Pick freshest available value for a given variable name: prefers minutely_15
   // slot when active (forecastOffset === 0), falls back to the hourly slot.
@@ -304,6 +306,8 @@ function processWindData(d, fieldElevFt) {
   autoSetJumpRunHeading();
   updateWindPyramid();
   updateJrPyramid();
+
+  _lastProcessedSlotKey = `${hi}|${mi}|${state.forecastOffset || 0}`;
 }
 
 // ── Wind table UI ─────────────────────────────────────────────────────────────
@@ -540,6 +544,9 @@ function updateWindStatusAge(ts) {
 
 // ── Auto-refresh ──────────────────────────────────────────────────────────────
 // Check every 60s; fetch fresh data if cache is stale and page is visible.
+// On cache hit, re-run processWindData whenever the nearest hourly (hi) or
+// minutely_15 (mi) slot has advanced so the 15-min readings don't go stale
+// for up to 20 min while the tab sits open.
 
 const _windRefreshInterval = setInterval(() => {
   if (!state.target || document.hidden) return;
@@ -547,4 +554,11 @@ const _windRefreshInterval = setInterval(() => {
   if (!cached) { fetchWinds().then(calculate).catch(e => console.error('Wind auto-refresh failed:', e)); return; }
   updateWindStatusAge(cached.ts);
   fetchMetar(state.target.lat, state.target.lng);
+
+  const { hi, mi } = _pickForecastIndices(cached.rawData);
+  const key = `${hi}|${mi}|${state.forecastOffset || 0}`;
+  if (key !== _lastProcessedSlotKey) {
+    processWindData(cached.rawData, cached.fieldElevFt);
+    calculate();
+  }
 }, 60 * 1000);
