@@ -65,7 +65,9 @@ async function fetchWinds(forceRefresh = false) {
     const htVars     = HEIGHT_LEVELS.flatMap(h => [`windspeed_${h}m`, `winddirection_${h}m`]).join(',');
 
     // forecast_days=2 ensures +12h is always available regardless of current hour
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=${plWindVars},${plHgtVars},${plTmpVars},${htVars},windspeed_10m,winddirection_10m,windgusts_10m&wind_speed_unit=kn&forecast_days=2&timezone=auto`;
+    // minutely_15 gives fresher 10m/80m readings than the hourly forecast for 'now'.
+    const m15Vars = 'windspeed_10m,winddirection_10m,windgusts_10m,windspeed_80m,winddirection_80m';
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=${plWindVars},${plHgtVars},${plTmpVars},${htVars},windspeed_10m,winddirection_10m,windgusts_10m&minutely_15=${m15Vars}&wind_speed_unit=kn&forecast_days=2&timezone=auto`;
     const rawData = await (await fetch(url, {signal})).json();
 
     if (!rawData?.hourly?.time?.length) {
@@ -125,6 +127,31 @@ function processWindData(d, fieldElevFt) {
   }
   hi = Math.max(0, Math.min(hi + (state.forecastOffset || 0), d.hourly.time.length - 1));
 
+  // Find nearest 15-minute slot for fresher 10m/80m readings, but only when
+  // viewing 'now' — at any positive forecast offset the hourly value at the top
+  // of the hour is identical to the corresponding 15-min slot, so no benefit.
+  let mi = -1;
+  if ((state.forecastOffset || 0) === 0 && d.minutely_15?.time?.length) {
+    const m15 = d.minutely_15.time;
+    if (d.utc_offset_seconds != null) {
+      mi = m15.reduce((best, t, i) => {
+        const apiMs  = new Date(t + 'Z').getTime() - d.utc_offset_seconds * 1000;
+        const bestMs = new Date(m15[best] + 'Z').getTime() - d.utc_offset_seconds * 1000;
+        return Math.abs(apiMs - nowMs) < Math.abs(bestMs - nowMs) ? i : best;
+      }, 0);
+    } else {
+      mi = m15.reduce((best, t, i) =>
+        Math.abs(new Date(t).getTime() - nowMs) < Math.abs(new Date(m15[best]).getTime() - nowMs) ? i : best, 0);
+    }
+  }
+
+  // Pick freshest available value for a given variable name: prefers minutely_15
+  // slot when active (forecastOffset === 0), falls back to the hourly slot.
+  const liveVal = (varName) => {
+    if (mi >= 0 && d.minutely_15?.[varName]?.[mi] != null) return d.minutely_15[varName][mi];
+    return d.hourly[varName]?.[hi];
+  };
+
   // Update header forecast time label
   const effectiveDate = new Date(d.hourly.time[hi]);
   const timeLabel     = document.getElementById('forecast-time-label');
@@ -140,9 +167,9 @@ function processWindData(d, fieldElevFt) {
   if (headerCtrl) headerCtrl.style.display = 'flex';
 
   // Surface wind — guard against null API values (Math.round(null) = 0 is misleading)
-  const _rawDir  = d.hourly.winddirection_10m?.[hi];
-  const _rawSpd  = d.hourly.windspeed_10m?.[hi];
-  const _rawGust = d.hourly.windgusts_10m?.[hi];
+  const _rawDir  = liveVal('winddirection_10m');
+  const _rawSpd  = liveVal('windspeed_10m');
+  const _rawGust = liveVal('windgusts_10m');
   state.surfaceWind = {
     dirDeg:   _rawDir  != null ? Math.round(_rawDir)  : null,
     speedKts: _rawSpd  != null ? Math.round(_rawSpd)  : null,
@@ -160,8 +187,8 @@ function processWindData(d, fieldElevFt) {
   // Store unrounded values — rounding happens at display time only.
   const htAGLft = {80: 262};
   HEIGHT_LEVELS.forEach(hm => {
-    const spd = d.hourly[`windspeed_${hm}m`]?.[hi];
-    const dir = d.hourly[`winddirection_${hm}m`]?.[hi];
+    const spd = liveVal(`windspeed_${hm}m`);
+    const dir = liveVal(`winddirection_${hm}m`);
     if (spd != null && dir != null)
       rawWinds.push({altFt: state.fieldElevFt + htAGLft[hm], dirDeg: dir, speedKts: spd});
   });
@@ -220,8 +247,8 @@ function processWindData(d, fieldElevFt) {
 
   // Fixed height-level rows (262ft AGL) — stored unrounded
   HEIGHT_LEVELS.forEach(hm => {
-    const spd = d.hourly[`windspeed_${hm}m`]?.[hi];
-    const dir = d.hourly[`winddirection_${hm}m`]?.[hi];
+    const spd = liveVal(`windspeed_${hm}m`);
+    const dir = liveVal(`winddirection_${hm}m`);
     const agl = htAGLft[hm];
     if (spd != null && dir != null) {
       allRows.push({
