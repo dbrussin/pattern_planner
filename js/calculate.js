@@ -71,17 +71,41 @@ function safeWC(w, unitVec) {
   return Math.round(w.n * unitVec.n + w.e * unitVec.e);
 }
 
-// ── Main pattern solver ───────────────────────────────────────────────────────
+// ── Main entry: mode dispatcher ───────────────────────────────────────────────
 
 /**
- * Main pattern solver. Reads DOM inputs, computes wind-adjusted headings and turn points
- * for all legs, stores result in state.pattern, then calls drawPattern().
- * No-op if state.target is null or required inputs are NaN/invalid.
- * Validates altitude ordering (100 ft minimum gaps) and shows errors via setStatus().
+ * Top-level entry point. Runs each enabled mode's solver, then redraws.
+ * Modes (state.modes.canopy, state.modes.freefall) are independent on/off toggles.
+ * Each mode writes to its own state slot (state.pattern, state.freefall) which the
+ * matching draw function reads. New modes plug in here and in drawPattern().
  */
 function calculate() {
   if (!state.target) return;
+  if (state.modes.canopy)   calculateCanopyPattern();
+  else                      state.pattern = null;
+  if (state.modes.freefall) calculateFreefallPlan();
+  else                      state.freefall = null;
+  drawPattern();
+}
 
+/**
+ * Freefall plan stub — populated by future jump run planner / movement planner.
+ * Will read shared inputs (winds, exit alt, opening alt, jump run heading) and
+ * produce per-group exit timing, drift tracks, and breakoff points.
+ */
+function calculateFreefallPlan() {
+  state.freefall = null;
+}
+
+// ── Canopy pattern solver ─────────────────────────────────────────────────────
+
+/**
+ * Canopy mode solver. Reads DOM inputs, computes wind-adjusted headings and turn
+ * points for all legs, stores result in state.pattern. Caller (calculate()) draws.
+ * No-op via early return if required inputs are NaN/invalid; validation errors
+ * surface via setStatus(). Altitude ordering enforced with 100 ft minimum gaps.
+ */
+function calculateCanopyPattern() {
   const glide  = parseFloat(document.getElementById('glide').value);
   const cSpd   = parseFloat(document.getElementById('canopy-speed').value);
   const altE   = parseFloat(document.getElementById('alt-enter').value);
@@ -493,6 +517,4 @@ function calculate() {
     fieldElevFt: state.fieldElevFt,
     extraLegs: extraLegResults,
   };
-
-  drawPattern();
 }

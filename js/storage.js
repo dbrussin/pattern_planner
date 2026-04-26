@@ -22,6 +22,7 @@ function saveSettings() {
       const el = document.getElementById(id);
       if (el && el.value !== '') localStorage.setItem(storageKey(id), el.value);
     });
+    localStorage.setItem(storageKey('modes'),      JSON.stringify(state.modes));
     localStorage.setItem(storageKey('hand'),       state.hand);
     localStorage.setItem(storageKey('layers'),     JSON.stringify(state.layers));
     localStorage.setItem(storageKey('leg_modes'),  JSON.stringify(state.legModes));
@@ -99,6 +100,25 @@ function loadSettings() {
         Object.assign(state.legHdgOverride, saved);
       } catch(e) {}
     }
+
+    // Mode toggles (canopy / freefall on-off)
+    const modesStr = localStorage.getItem(storageKey('modes'));
+    if (modesStr) {
+      try {
+        const saved = JSON.parse(modesStr);
+        Object.keys(state.modes).forEach(name => {
+          if (typeof saved[name] === 'boolean') state.modes[name] = saved[name];
+        });
+      } catch(e) {}
+    }
+    // Sync mode toggle buttons to current state.modes
+    Object.keys(state.modes).forEach(name => {
+      const btn = document.getElementById(`mode-${name}`);
+      if (btn) {
+        btn.classList.toggle('active', state.modes[name]);
+        btn.textContent = state.modes[name] ? 'On' : 'Off';
+      }
+    });
 
     // Hand
     const hand = localStorage.getItem(storageKey('hand'));

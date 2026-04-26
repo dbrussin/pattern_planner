@@ -20,9 +20,9 @@ js/state.js          — global `state` object, PERSIST_INPUTS list, STORAGE_VER
 js/storage.js        — localStorage persistence (save/load/reset), wind cache, storageKey() helper
 js/geometry.js       — spherical math (offsetLL, hdgVec, windVec), wind/temp interpolation, magDeclination(), tasFactor()
 js/wind.js           — fetchElevation(), fetchWinds(), processWindData(), buildWindTable(), auto-refresh
-js/calculate.js      — integratedDrift(), avgWindInBand(), calculate() — main pattern solver
-js/draw.js           — drawPattern(), clearPattern(), Leaflet polyline/marker/label/zone helpers
-js/ui-overlays.js    — setStatus(), toggleOverlay(), closeOverlay(), toggleLayer(), setHand(), showLegend()
+js/calculate.js      — integratedDrift(), avgWindInBand(), calculate() (mode dispatcher), calculateCanopyPattern(), calculateFreefallPlan() (stub)
+js/draw.js           — drawPattern() (mode dispatcher), drawCanopyPattern(), drawFreefallPlan() (stub), clearPattern(), Leaflet polyline/marker/label/zone helpers
+js/ui-overlays.js    — setStatus(), toggleOverlay(), closeOverlay(), toggleLayer(), toggleMode(), setHand(), showLegend()
 js/ui-heading.js     — heading bar, forecast offset, jump run heading, green/red light, DZ zero, landing lat/lng, mag declination
 js/ui-canopy.js      — canopyThird(), updateCanopyCalc(), updateLegCanopyCalc(), getLegPerf(), setLegMode(), toggleZPattern()
 js/ui-legs.js        — renderLegs() (uses shared _legHeader/_legAltField/_legPerfBlock helpers + .leg-* CSS classes), addExtraLeg(), removeExtraLeg(), leg alt/hdg handlers, heading overrides, altitude constraints
@@ -34,19 +34,43 @@ js/app.js            — map init, placeTarget(), tile failover, invite code gat
 
 1. Leaflet CDN → 2. config → 3. state → 4. storage → 5. geometry → 6. wind → 7. calculate → 8. draw → 9. ui-overlays → 10. ui-heading → 11. ui-canopy → 12. ui-legs (calls `renderLegs()` at load) → 13. search (IIFE fetches DZ list) → 14. app (runs `initStorage()`, `loadSettings()`, attaches listeners)
 
+### Mode System
+
+The app supports multiple **independent** pattern modes — both can be on simultaneously, or either off. Sub-mode distinctions (e.g. movement planner) live as options nested inside their parent mode.
+
+- **`state.modes.canopy`** (default on) — single-canopy landing pattern. Future: flocking / HAHO multi-canopy.
+- **`state.modes.freefall`** (default off) — jump run planner, group spacing, movement planner. Currently a stub.
+
+UX toggles live in the **Layers overlay** (`#overlay-labels`) under "Pattern Modes" — `mode-canopy`, `mode-freefall` buttons wired to `toggleMode(name)` in `js/ui-overlays.js`.
+
+`calculate()` and `drawPattern()` are thin **additive dispatchers**: each runs every enabled mode's solver/renderer in sequence. Each mode owns its own state slot:
+
+| Mode     | Solver                       | Renderer                | State slot       |
+|----------|------------------------------|-------------------------|------------------|
+| canopy   | `calculateCanopyPattern()`   | `drawCanopyPattern()`   | `state.pattern`  |
+| freefall | `calculateFreefallPlan()`    | `drawFreefallPlan()`    | `state.freefall` |
+
+To add a new mode: register a key in `state.modes`, add a row in the Layers overlay HTML, implement the solver and renderer, and dispatch to them from `calculate()` and `drawPattern()`.
+
 ### State
 
-A single `state` object in `js/state.js` holds all app state. Key persisted fields: `hand`, `layers`, `legModes`, `zPattern`, `legCustomPerf`, `extraLegs`, `legHdgOverride`, `driftThresh`. Non-persisted: `target`, `winds`, `surfaceWind`, `pattern`, `forecastOffset`, `fieldElevFt`, `fitDone`. Manual-override flags: `manualHeading`, `manualJumpRun`, `manualJrOffset`, `manualGreenLight`, `manualRedLight`, `manualDzZero`. See `js/state.js` for full definition.
+A single `state` object in `js/state.js` holds all app state, grouped into:
 
-Settings persist to `localStorage` with `pp_` prefix via `storageKey()`. Wind data cached with 20-min TTL keyed by `lat.toFixed(2),lng.toFixed(2)`. `initStorage()` wipes all `pp_*` keys on version mismatch (preserving `pp_waiver_version` and `pp_invite_verified`).
+- **Mode toggles**: `modes.canopy`, `modes.freefall` (persisted)
+- **Shared / mode-agnostic**: `target`, `winds`, `surfaceWind`, `forecastOffset`, `fieldElevFt`, `fitDone`, `driftThresh`, `layers`
+- **Canopy result + canopy-mode state**: `pattern` (result), `hand`, `finalHeadingDeg`, `manualHeading`, `legModes`, `zPattern`, `legCustomPerf`, `extraLegs`, `nextExtraLegIdx`, `legHdgOverride`
+- **Jump run** (currently emitted by canopy calc; freefall jump-run planner will write to the same fields): `jumpRunHdgDeg`, `manualJumpRun`, `manualJrOffset`, `manualGreenLight`, `manualRedLight`, `manualDzZero`
+- **Freefall result** (placeholder): `freefall`
+
+Settings persist to `localStorage` with `pp_` prefix via `storageKey()`. Wind data cached with 20-min TTL keyed by `lat.toFixed(2),lng.toFixed(2)`. `initStorage()` wipes all `pp_*` keys on `STORAGE_VERSION` mismatch (preserving `pp_waiver_version` and `pp_invite_verified`).
 
 ### Data Flow
 
-1. Invite code gate → waiver agreement → `loadSettings()` restores persisted state
+1. Invite code gate → waiver agreement → `loadSettings()` restores persisted state (incl. mode toggles)
 2. User taps map → `placeTarget()` → `fetchElevation()` → `fetchWinds()` (GFS via Open-Meteo)
 3. `processWindData()` builds wind table at 1k ft intervals from surface to 14k AGL
-4. `calculate()` reads DOM inputs + state, solves wind-adjusted headings/turn points for all legs
-5. `drawPattern()` renders Leaflet polylines, markers, zones, labels on map
+4. `calculate()` dispatches to each enabled mode's solver; each writes its own state slot
+5. `drawPattern()` dispatches to each enabled mode's renderer; clears layers once at the top
 
 ### External Dependencies (all CDN/API)
 
@@ -75,6 +99,13 @@ Settings persist to `localStorage` with `pp_` prefix via `storageKey()`. Wind da
 2. `renderLegs()` in `ui-legs.js` auto-generates the UI card
 3. Add calculation logic in `calculate.js`
 4. Add drawing logic in `draw.js`
+
+### Adding a new top-level mode
+1. Add key to `state.modes` in `js/state.js` (default off for new modes)
+2. Add a `<div class="layer-row">` row under "Pattern Modes" in the Layers overlay (`#overlay-labels` in `dz-pattern.html`); button id `mode-<key>`, `onclick="toggleMode('<key>')"`
+3. Implement `calculate<Mode>()` solver and `draw<Mode>()` renderer; dispatch to them from `calculate()` (in `calculate.js`) and `drawPattern()` (in `draw.js`)
+4. Add a state slot for the mode's result (e.g. `state.<mode>`) and clear it when the mode is off
+5. Bump `STORAGE_VERSION` in `config.js` if the persisted shape changes
 
 ### Changing an API endpoint
 1. Update URL in the fetch function (`wind.js` for Open-Meteo, `search.js` for Nominatim)

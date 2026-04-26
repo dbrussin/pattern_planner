@@ -85,11 +85,31 @@ function legChevron(from, to, trackHdg, color) {
   });
 }
 
-// ── Main draw function ────────────────────────────────────────────────────────
+// ── Main entry: mode dispatcher ───────────────────────────────────────────────
 
 /**
- * Render the full landing pattern on the Leaflet map using state.pattern.
- * Clears previous pattern layers, then draws (conditional on state.layers flags):
+ * Top-level render. Clears previous map layers, then renders each enabled mode.
+ * Modes (state.modes.canopy, state.modes.freefall) are independent on/off.
+ * Each mode's renderer reads from its own state slot and is responsible for
+ * conditional layer visibility via state.layers.* flags.
+ */
+function drawPattern() {
+  clearPattern();
+  if (state.modes.canopy)   drawCanopyPattern();
+  if (state.modes.freefall) drawFreefallPlan();
+}
+
+/**
+ * Freefall renderer stub — populated by future jump run planner / movement planner.
+ * Will read state.freefall (groups, exit timing, drift tracks, breakoff points).
+ */
+function drawFreefallPlan() { /* no-op until freefall mode is implemented */ }
+
+// ── Canopy pattern renderer ───────────────────────────────────────────────────
+
+/**
+ * Render the canopy landing pattern from state.pattern. Caller (drawPattern)
+ * has already cleared previous layers. Conditional on state.layers flags:
  * - Ground track polylines (solid, leg colors) and steered heading lines (dashed)
  * - Turn point markers and extra leg markers
  * - Canopy entry rings, opening ring, exit ring (safety zones)
@@ -98,8 +118,7 @@ function legChevron(from, to, trackHdg, color) {
  * - Wind arrow at landing target
  * Fits map bounds on first draw per target (state.fitDone = false).
  */
-function drawPattern() {
-  clearPattern();
+function drawCanopyPattern() {
   const p = state.pattern; if (!p) return;
   const {entry, tBase, tFinal, landing, tBaseTurnStart, tFinalTurnStart,
          bSteered, fSteered, dwSteered, bDrift, fDrift, dwDrift} = p;

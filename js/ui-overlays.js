@@ -57,6 +57,22 @@ function toggleLayer(name) {
   if (state.pattern) drawPattern();
 }
 
+// ── Mode toggles (canopy / freefall — independent on/off) ────────────────────
+
+function toggleMode(name) {
+  if (!(name in state.modes)) return;
+  state.modes[name] = !state.modes[name];
+  const el = document.getElementById(`mode-${name}`);
+  if (el) {
+    el.classList.toggle('active', state.modes[name]);
+    el.textContent = state.modes[name] ? 'On' : 'Off';
+  }
+  saveSettings();
+  // Recompute and redraw (each enabled mode's solver runs, others clear their slot)
+  if (state.target) calculate();
+  else drawPattern();
+}
+
 // ── Hand (L/R) toggle ─────────────────────────────────────────────────────────
 
 function setHand(h) {

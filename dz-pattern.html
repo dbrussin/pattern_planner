@@ -242,8 +242,18 @@
     <button class="overlay-close" onclick="closeOverlay('labels')">✕</button>
   </div>
   <div class="overlay-body">
-    <div class="field-note field-note-mb">Toggle map layers on and off.</div>
+    <div class="field-note field-note-mb">Toggle pattern modes and map layers.</div>
     <div class="layers-list">
+
+      <div class="layer-section-header">Pattern Modes</div>
+      <div class="layer-row">
+        <span class="layer-label">Canopy</span>
+        <div id="mode-canopy" class="layer-toggle active" onclick="toggleMode('canopy')" role="button" tabindex="0" aria-label="Toggle canopy mode">On</div>
+      </div>
+      <div class="layer-row">
+        <span class="layer-label">Freefall</span>
+        <div id="mode-freefall" class="layer-toggle" onclick="toggleMode('freefall')" role="button" tabindex="0" aria-label="Toggle freefall mode">Off</div>
+      </div>
 
       <div class="layer-section-header">Airspace</div>
       <div class="layer-row">
