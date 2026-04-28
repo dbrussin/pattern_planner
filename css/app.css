@@ -344,6 +344,46 @@ input[type=number] { -moz-appearance: textfield; }
   padding: 6px; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase;
 }
 
+/* ── GROUP CARDS (rendered by renderGroups() in ui-groups.js) ── */
+#groups-container { display: flex; flex-direction: column; gap: 8px; }
+.group-card {
+  background: var(--panel2); border-radius: 6px; padding: 8px 10px;
+  border: 1px solid var(--border);
+}
+.group-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+.group-row:last-child { margin-bottom: 0; }
+.group-name-input {
+  flex: 1 1 80px; min-width: 60px;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 600;
+  background: transparent; border: none; border-bottom: 1px solid var(--border);
+  color: var(--text); padding: 2px 4px;
+}
+.group-num-input {
+  width: 38px; flex-shrink: 0; text-align: center;
+  font-family: 'Space Mono', monospace; font-size: 13px; color: var(--text);
+  background: transparent; border: none; border-bottom: 1px solid var(--border);
+  padding: 2px 0;
+}
+.group-type-select {
+  flex: 0 1 auto; padding: 2px 4px;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 600;
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--border); border-radius: 3px; cursor: pointer;
+}
+.group-mvmt-group {
+  display: flex; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; flex-shrink: 0;
+}
+.group-mvmt-btn {
+  padding: 3px 8px; background: transparent; border: none; color: var(--muted);
+  font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.04em; cursor: pointer; transition: all 0.15s;
+}
+.group-mvmt-btn.active { background: var(--accent2); color: var(--bg); }
+.group-field-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted);
+}
+
 /* ── PULL TO REFRESH ── */
 #pull-indicator {
   position: fixed; top: var(--header-h); left: 50%; transform: translateX(-50%) translateY(-100%);

@@ -23,28 +23,31 @@ function saveSettings() {
       if (el && el.value !== '') localStorage.setItem(storageKey(id), el.value);
     });
     localStorage.setItem(storageKey('modes'),      JSON.stringify(state.modes));
-    localStorage.setItem(storageKey('hand'),       state.hand);
+    localStorage.setItem(storageKey('hand'),       state.canopy.hand);
     localStorage.setItem(storageKey('layers'),     JSON.stringify(state.layers));
-    localStorage.setItem(storageKey('leg_modes'),  JSON.stringify(state.legModes));
-    localStorage.setItem(storageKey('leg_custom'), JSON.stringify(state.legCustomPerf));
-    localStorage.setItem(storageKey('z_pattern'),  String(state.zPattern));
+    localStorage.setItem(storageKey('leg_modes'),  JSON.stringify(state.canopy.legModes));
+    localStorage.setItem(storageKey('leg_custom'), JSON.stringify(state.canopy.legCustomPerf));
+    localStorage.setItem(storageKey('z_pattern'),  String(state.canopy.zPattern));
     // Extra legs — save metadata + current altitude values
-    const xlData = state.extraLegs.map(xl => ({
+    const xlData = state.canopy.extraLegs.map(xl => ({
       id:    xl.id,
       color: xl.color,
       alt:   parseFloat(document.getElementById(`alt-${xl.id}`)?.value) || xl.defaultAlt,
       hdg:   parseInt(document.getElementById(`hdg-${xl.id}`)?.value)   ?? xl.nomHdg ?? 0,
     }));
     localStorage.setItem(storageKey('extra_legs'),       JSON.stringify(xlData));
-    localStorage.setItem(storageKey('next_xl_idx'),      String(state.nextExtraLegIdx));
-    localStorage.setItem(storageKey('leg_hdg_override'), JSON.stringify(state.legHdgOverride || {}));
+    localStorage.setItem(storageKey('next_xl_idx'),      String(state.canopy.nextExtraLegIdx));
+    localStorage.setItem(storageKey('leg_hdg_override'), JSON.stringify(state.canopy.legHdgOverride || {}));
     // Per-leg perf inputs (standard + extra legs)
-    [...LEG_DEFS.map(l => l.key), ...state.extraLegs.map(xl => xl.id)].forEach(leg => {
+    [...LEG_DEFS.map(l => l.key), ...state.canopy.extraLegs.map(xl => xl.id)].forEach(leg => {
       ['glide', 'speed', 'sink'].forEach(field => {
         const el = document.getElementById(`${leg}-${field}`);
         if (el && el.value !== '') localStorage.setItem(storageKey(`${leg}_${field}`), el.value);
       });
     });
+    // Freefall groups
+    localStorage.setItem(storageKey('groups'),         JSON.stringify(state.freefall.groups));
+    localStorage.setItem(storageKey('next_group_idx'), String(state.freefall.nextGroupIdx));
   } catch(e) {
     console.warn('saveSettings error:', e);
     if (e.name === 'QuotaExceededError' || e.code === 22) setStatus('Storage full — settings not saved');
@@ -96,8 +99,8 @@ function loadSettings() {
     if (hdgOverrideStr) {
       try {
         const saved = JSON.parse(hdgOverrideStr);
-        if (!state.legHdgOverride) state.legHdgOverride = {};
-        Object.assign(state.legHdgOverride, saved);
+        if (!state.canopy.legHdgOverride) state.canopy.legHdgOverride = {};
+        Object.assign(state.canopy.legHdgOverride, saved);
       } catch(e) {}
     }
 
@@ -136,7 +139,7 @@ function loadSettings() {
     // Z pattern
     const zp = localStorage.getItem(storageKey('z_pattern'));
     if (zp === 'true') {
-      state.zPattern = true;
+      state.canopy.zPattern = true;
       const cb = document.getElementById('dw-z-check');
       if (cb) cb.checked = true;
     }
@@ -149,7 +152,7 @@ function loadSettings() {
         if (saved[leg]) {
           const cb = document.getElementById(`${leg}-custom-perf`);
           if (cb) cb.checked = true;
-          state.legCustomPerf[leg] = true;
+          state.canopy.legCustomPerf[leg] = true;
           const section = document.getElementById(`${leg}-perf`);
           if (section) section.style.display = 'block';
           // Open the details panel so restored perf fields are visible
@@ -172,15 +175,15 @@ function loadSettings() {
         const savedModes = (() => {
           try { return JSON.parse(localStorage.getItem(storageKey('leg_modes')) || '{}'); } catch(e) { return {}; }
         })();
-        state.extraLegs      = [];
-        state.nextExtraLegIdx = parseInt(localStorage.getItem(storageKey('next_xl_idx'))) || (xlData.length + 1);
+        state.canopy.extraLegs      = [];
+        state.canopy.nextExtraLegIdx = parseInt(localStorage.getItem(storageKey('next_xl_idx'))) || (xlData.length + 1);
         const savedCustom = (() => {
           try { return JSON.parse(localStorage.getItem(storageKey('leg_custom')) || '{}'); } catch(e) { return {}; }
         })();
         xlData.forEach(xl => {
-          state.extraLegs.push({ id: xl.id, defaultAlt: xl.alt, color: xl.color, nomHdg: xl.hdg ?? 0 });
-          state.legModes[xl.id]      = savedModes[xl.id] || 'crab';
-          state.legCustomPerf[xl.id] = !!savedCustom[xl.id];
+          state.canopy.extraLegs.push({ id: xl.id, defaultAlt: xl.alt, color: xl.color, nomHdg: xl.hdg ?? 0 });
+          state.canopy.legModes[xl.id]      = savedModes[xl.id] || 'crab';
+          state.canopy.legCustomPerf[xl.id] = !!savedCustom[xl.id];
         });
         renderLegs(); // re-render with extra legs present
         // Restore altitude, heading, and custom perf inputs after renderLegs() created them
@@ -221,6 +224,30 @@ function loadSettings() {
     // Sync state.driftThresh from persisted input value
     const dtEl = document.getElementById('drift-thresh');
     if (dtEl && dtEl.value !== '') state.driftThresh = parseInt(dtEl.value) || 5;
+
+    // Freefall groups — group #1 is mandatory; ensure at least one always exists.
+    const groupsStr = localStorage.getItem(storageKey('groups'));
+    if (groupsStr) {
+      try {
+        const saved = JSON.parse(groupsStr);
+        if (Array.isArray(saved)) {
+          const restored = saved.filter(g => g && g.id && GROUP_TYPES[g.type]).map(g => ({
+            id:   String(g.id),
+            name: String(g.name ?? 'Group'),
+            size: Math.max(1, Math.min(20, parseInt(g.size) || 1)),
+            type: g.type,
+            mvmt: g.mvmt === 'L' ? 'L' : 'R',
+          }));
+          if (restored.length > 0) state.freefall.groups = restored;
+        }
+      } catch(e) {}
+    }
+    if (!state.freefall.groups.length) {
+      state.freefall.groups = [{ id: 'g1', name: 'Group 1', size: 4, type: 'FS', mvmt: 'R' }];
+    }
+    state.freefall.nextGroupIdx = parseInt(localStorage.getItem(storageKey('next_group_idx'))) || 2;
+    if (state.freefall.nextGroupIdx < 2) state.freefall.nextGroupIdx = 2;
+    if (typeof renderGroups === 'function') renderGroups();
 
     // Layer visibility — done last so setHand/setLegMode don't clobber pp_layers
     const layersStr = localStorage.getItem(storageKey('layers'));

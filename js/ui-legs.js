@@ -31,7 +31,7 @@ function _legPerfBlock(key, openCls) {
           </div>`;
 }
 function _legHeader(id, label, color, extraBtns = '') {
-  const mode = state.legModes[id] || 'crab';
+  const mode = state.canopy.legModes[id] || 'crab';
   return `
       <div class="leg-header">
         <div class="leg-color-dot" style="background:${color}"></div>
@@ -60,14 +60,14 @@ function renderLegs() {
   container.innerHTML = '';
 
   // ── Extra legs (highest altitude first = flight order) ──
-  const lifoId       = state.extraLegs[state.extraLegs.length - 1]?.id;
-  const hasExtras    = state.extraLegs.length > 0;
-  const extrasSorted = [...state.extraLegs].sort((a, b) => b.defaultAlt - a.defaultAlt);
+  const lifoId       = state.canopy.extraLegs[state.canopy.extraLegs.length - 1]?.id;
+  const hasExtras    = state.canopy.extraLegs.length > 0;
+  const extrasSorted = [...state.canopy.extraLegs].sort((a, b) => b.defaultAlt - a.defaultAlt);
   extrasSorted.forEach(xl => {
     const removeBtn = xl.id === lifoId
       ? `<button class="leg-remove-btn" onclick="removeExtraLeg('${xl.id}')" title="Remove leg">×</button>`
       : '';
-    const cp       = !!state.legCustomPerf[xl.id];
+    const cp       = !!state.canopy.legCustomPerf[xl.id];
     const detOpen  = cp ? 'open' : '';
     const legNum   = parseInt(xl.id.replace('xl', '')) + 3;
     const nomHdg   = xl.nomHdg ?? 0;
@@ -94,10 +94,10 @@ function renderLegs() {
   // ── Standard legs (Downwind, Base, Final) ──
   // Z-pattern option only shown on downwind, and only when no extra legs exist
   // Final leg uses the dedicated Final Hdg slider — clear any legacy override
-  if (state.legHdgOverride?.f != null) { state.legHdgOverride.f = null; }
+  if (state.canopy.legHdgOverride?.f != null) { state.canopy.legHdgOverride.f = null; }
   const _barVal = parseFloat(document.getElementById('heading-bar-val')?.value);
   const initialFinalHdg = Math.round(
-    state.finalHeadingDeg ??
+    state.canopy.finalHeadingDeg ??
     (!isNaN(_barVal) ? _barVal : null) ??
     state.surfaceWind?.dirDeg ??
     0
@@ -106,17 +106,17 @@ function renderLegs() {
     const { key, label, color, altId, altLabel, altDefault, altMin, altMax, altStep } = def;
 
     const showZ     = !hasExtras && key === 'dw';
-    const cp        = !!state.legCustomPerf[key];
-    const hdgOverride = state.legHdgOverride?.[key] ?? null;
+    const cp        = !!state.canopy.legCustomPerf[key];
+    const hdgOverride = state.canopy.legHdgOverride?.[key] ?? null;
     const hdgOvrOn  = hdgOverride != null;
     const hdgVal    = hdgOverride ?? 0;
     const zDisabled = showZ && hdgOvrOn;
-    const detOpen   = (cp || (showZ && state.zPattern) || hdgOvrOn) ? 'open' : '';
+    const detOpen   = (cp || (showZ && state.canopy.zPattern) || hdgOvrOn) ? 'open' : '';
 
     const zRow = showZ ? `
           <div id="dw-z-row" class="leg-opt-row${zDisabled ? ' leg-opt-row--disabled' : ''}">
             <label class="leg-opt-label">Z pattern (downwind same direction as final)</label>
-            <input type="checkbox" id="dw-z-check"${state.zPattern ? ' checked' : ''}${zDisabled ? ' disabled' : ''} onchange="toggleZPattern(this.checked)">
+            <input type="checkbox" id="dw-z-check"${state.canopy.zPattern ? ' checked' : ''}${zDisabled ? ' disabled' : ''} onchange="toggleZPattern(this.checked)">
           </div>` : '';
 
     const finalHdgRow = key === 'f' ? `
@@ -198,7 +198,7 @@ function getLegAltConstraints(numId) {
   const topMax   = altOpen - MIN_GAP;
 
   // Extra legs in display order: highest defaultAlt first (same sort as renderLegs)
-  const displayOrder = [...(state.extraLegs || [])].sort((a, b) => b.defaultAlt - a.defaultAlt);
+  const displayOrder = [...(state.canopy.extraLegs || [])].sort((a, b) => b.defaultAlt - a.defaultAlt);
   const getAlt = xl => parseFloat(document.getElementById(`alt-${xl.id}`)?.value) ?? xl.defaultAlt;
 
   if (numId === 'alt-final') return { min: 100, max: Math.max(100, altBase - MIN_GAP) };
@@ -235,7 +235,7 @@ function getLegAltConstraints(numId) {
 function updateAllSliderRanges() {
   const legIds = ['alt-final', 'alt-base', 'alt-enter'];
   legIds.forEach(id => applySliderRange(id));
-  (state.extraLegs || []).forEach(xl => applySliderRange(`alt-${xl.id}`));
+  (state.canopy.extraLegs || []).forEach(xl => applySliderRange(`alt-${xl.id}`));
   // Jump run altitudes participate in the same constraint chain
   applySliderRange('alt-open');
   applySliderRange('alt-exit');
@@ -304,24 +304,24 @@ function onExtraLegHdg(id, src) {
     inp.value = d;
     sl.value  = d;
   }
-  const xl = state.extraLegs.find(x => x.id === id);
+  const xl = state.canopy.extraLegs.find(x => x.id === id);
   if (xl) xl.nomHdg = parseInt(inp.value) || 0;
   saveSettings();
-  if (state.pattern) calculate();
+  if (state.canopy.result) calculate();
 }
 
 // ── Reset pattern legs to defaults ────────────────────────────────────────────
 
 function resetPatternLegs() {
   // Clean up state for all extra legs
-  state.extraLegs.forEach(xl => {
-    delete state.legModes[xl.id];
-    delete state.legCustomPerf[xl.id];
+  state.canopy.extraLegs.forEach(xl => {
+    delete state.canopy.legModes[xl.id];
+    delete state.canopy.legCustomPerf[xl.id];
     delete legLastEdited[xl.id];
-    if (state.legHdgOverride) delete state.legHdgOverride[xl.id];
+    if (state.canopy.legHdgOverride) delete state.canopy.legHdgOverride[xl.id];
   });
-  state.extraLegs       = [];
-  state.nextExtraLegIdx = 1;
+  state.canopy.extraLegs       = [];
+  state.canopy.nextExtraLegIdx = 1;
 
   // Reset standard leg altitudes to defaults
   LEG_DEFS.forEach(def => {
@@ -329,17 +329,17 @@ function resetPatternLegs() {
     const slEl = document.getElementById(def.altId + '-sl');
     if (el)   el.value   = def.altDefault;
     if (slEl) slEl.value = def.altDefault;
-    if (state.legHdgOverride) state.legHdgOverride[def.key] = null;
+    if (state.canopy.legHdgOverride) state.canopy.legHdgOverride[def.key] = null;
   });
 
   // Reset leg modes and pattern options to defaults
-  state.legModes      = Object.fromEntries(LEG_DEFS.map(l => [l.key, l.key === 'b' ? 'drift' : 'crab']));
-  state.zPattern      = false;
-  state.legCustomPerf = Object.fromEntries(LEG_DEFS.map(l => [l.key, false]));
+  state.canopy.legModes      = Object.fromEntries(LEG_DEFS.map(l => [l.key, l.key === 'b' ? 'drift' : 'crab']));
+  state.canopy.zPattern      = false;
+  state.canopy.legCustomPerf = Object.fromEntries(LEG_DEFS.map(l => [l.key, false]));
 
   // Reset heading to auto-compute from wind
-  state.manualHeading   = false;
-  state.finalHeadingDeg = null;
+  state.canopy.manualHeading   = false;
+  state.canopy.finalHeadingDeg = null;
 
   renderLegs();
   // Sync heading bar to current wind direction AFTER renderLegs() rebuilds the DOM,
@@ -368,7 +368,7 @@ function resetPatternLegs() {
 
 function addExtraLeg() {
   // Default altitude: highest existing alt + 300, capped at 5000
-  const existingAlts = state.extraLegs.map(xl => {
+  const existingAlts = state.canopy.extraLegs.map(xl => {
     const el = document.getElementById(`alt-${xl.id}`);
     return el ? (parseFloat(el.value) || xl.defaultAlt) : xl.defaultAlt;
   });
@@ -377,7 +377,7 @@ function addExtraLeg() {
     : (parseFloat(document.getElementById('alt-enter')?.value) || 900);
   const newAlt   = Math.min(baseAlt + 300, 5000);
 
-  const idx   = state.nextExtraLegIdx++;
+  const idx   = state.canopy.nextExtraLegIdx++;
   const id    = `xl${idx}`;
   const color = EXTRA_LEG_COLORS[(idx - 1) % EXTRA_LEG_COLORS.length];
 
@@ -391,21 +391,21 @@ function addExtraLeg() {
     nomHdg = Math.round((Math.atan2(w.e, w.n) * R2D + 360) % 360);
   } else {
     // Calm winds: fall back to 90° rotation from previous leg
-    const sign = state.hand === 'left' ? 1 : -1;
+    const sign = state.canopy.hand === 'left' ? 1 : -1;
     let prevNomHdg;
-    if (state.extraLegs.length > 0) {
-      const lastXl = state.extraLegs[state.extraLegs.length - 1];
+    if (state.canopy.extraLegs.length > 0) {
+      const lastXl = state.canopy.extraLegs[state.canopy.extraLegs.length - 1];
       const hdgInp = document.getElementById(`hdg-${lastXl.id}`);
       prevNomHdg = hdgInp ? (parseInt(hdgInp.value) || lastXl.nomHdg || 0) : (lastXl.nomHdg || 0);
     } else {
-      prevNomHdg = state.pattern?.dwTrackHdg ?? ((state.pattern?.fHdg ?? 0) + 180) % 360;
+      prevNomHdg = state.canopy.result?.dwTrackHdg ?? ((state.canopy.result?.fHdg ?? 0) + 180) % 360;
     }
     nomHdg = Math.round((prevNomHdg + sign * 90 + 3600) % 360);
   }
 
-  state.extraLegs.push({ id, defaultAlt: newAlt, color, nomHdg });
-  state.legModes[id]      = 'crab';
-  state.legCustomPerf[id] = false;
+  state.canopy.extraLegs.push({ id, defaultAlt: newAlt, color, nomHdg });
+  state.canopy.legModes[id]      = 'crab';
+  state.canopy.legCustomPerf[id] = false;
   if (!legLastEdited[id]) legLastEdited[id] = ['glide', 'speed'];
 
   renderLegs();
@@ -434,13 +434,13 @@ function addExtraLeg() {
 }
 
 function removeExtraLeg(id) {
-  const idx = state.extraLegs.findIndex(xl => xl.id === id);
+  const idx = state.canopy.extraLegs.findIndex(xl => xl.id === id);
   if (idx === -1) return;
-  state.extraLegs.splice(idx, 1);
-  delete state.legModes[id];
-  delete state.legCustomPerf[id];
+  state.canopy.extraLegs.splice(idx, 1);
+  delete state.canopy.legModes[id];
+  delete state.canopy.legCustomPerf[id];
   delete legLastEdited[id];
-  state.nextExtraLegIdx = parseInt(id.replace('xl', ''));
+  state.canopy.nextExtraLegIdx = parseInt(id.replace('xl', ''));
   renderLegs();
   saveSettings();
   if (state.target) calculate();
@@ -459,32 +459,32 @@ function onStdLegHdg(key, src) {
     inp.value = d;
     sl.value  = d;
   }
-  if (!state.legHdgOverride) state.legHdgOverride = {};
-  state.legHdgOverride[key] = parseInt(inp.value) || 0;
+  if (!state.canopy.legHdgOverride) state.canopy.legHdgOverride = {};
+  state.canopy.legHdgOverride[key] = parseInt(inp.value) || 0;
   saveSettings();
-  if (state.pattern) calculate();
+  if (state.canopy.result) calculate();
 }
 
 function onLegHdgOverrideToggle(key, checked) {
-  if (!state.legHdgOverride) state.legHdgOverride = {};
+  if (!state.canopy.legHdgOverride) state.canopy.legHdgOverride = {};
   if (checked) {
     // Seed with a value that produces no immediate jump: crab mode consumes the
     // override as TRACK, drift mode consumes it as STEER. Pick accordingly.
     let defaultHdg = 0;
-    if (state.pattern) {
+    if (state.canopy.result) {
       if (key === 'dw') {
-        defaultHdg = state.legModes.dw === 'crab'
-          ? Math.round(state.pattern.dwTrackHdg ?? (state.pattern.fHdg + 180) % 360)
-          : Math.round(state.pattern.dwHdg       ?? (state.pattern.fHdg + 180) % 360);
+        defaultHdg = state.canopy.legModes.dw === 'crab'
+          ? Math.round(state.canopy.result.dwTrackHdg ?? (state.canopy.result.fHdg + 180) % 360)
+          : Math.round(state.canopy.result.dwHdg       ?? (state.canopy.result.fHdg + 180) % 360);
       } else if (key === 'b') {
-        defaultHdg = state.legModes.b === 'crab'
-          ? Math.round(state.pattern.bTrackHdg ?? state.pattern.bHdg ?? 0)
-          : Math.round(state.pattern.bHdg       ?? state.pattern.bTrackHdg ?? 0);
+        defaultHdg = state.canopy.legModes.b === 'crab'
+          ? Math.round(state.canopy.result.bTrackHdg ?? state.canopy.result.bHdg ?? 0)
+          : Math.round(state.canopy.result.bHdg       ?? state.canopy.result.bTrackHdg ?? 0);
       } else if (key === 'f') {
-        defaultHdg = Math.round(state.pattern.fTrackHdg ?? state.pattern.fHdgActual ?? 0);
+        defaultHdg = Math.round(state.canopy.result.fTrackHdg ?? state.canopy.result.fHdgActual ?? 0);
       }
     }
-    state.legHdgOverride[key] = defaultHdg;
+    state.canopy.legHdgOverride[key] = defaultHdg;
     const row = document.getElementById(`${key}-hdg-row`);
     if (row) row.style.display = 'flex';
     const sl  = document.getElementById(`${key}-hdg-sl`);
@@ -492,26 +492,26 @@ function onLegHdgOverrideToggle(key, checked) {
     if (sl)  sl.value  = defaultHdg;
     if (inp) inp.value = defaultHdg;
     // Downwind: if Z pattern is on, turn it off (conflict)
-    if (key === 'dw' && state.zPattern) {
-      state.zPattern = false;
+    if (key === 'dw' && state.canopy.zPattern) {
+      state.canopy.zPattern = false;
       const zCb = document.getElementById('dw-z-check');
       if (zCb) zCb.checked = false;
     }
     updateZRowState();
   } else {
-    state.legHdgOverride[key] = null;
+    state.canopy.legHdgOverride[key] = null;
     const row = document.getElementById(`${key}-hdg-row`);
     if (row) row.style.display = 'none';
     if (key === 'dw') updateZRowState();
   }
   saveSettings();
-  if (state.pattern) calculate();
+  if (state.canopy.result) calculate();
 }
 
 function updateZRowState() {
   const zRow = document.getElementById('dw-z-row');
   if (!zRow) return;
-  const disabled = state.legHdgOverride?.dw != null;
+  const disabled = state.canopy.legHdgOverride?.dw != null;
   zRow.style.opacity       = disabled ? '0.4' : '';
   zRow.style.pointerEvents = disabled ? 'none' : '';
   const zCb = document.getElementById('dw-z-check');

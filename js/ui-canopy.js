@@ -8,40 +8,40 @@ const legLastEdited = Object.fromEntries(LEG_DEFS.map(l => [l.key, ['glide', 'sp
 // ── Leg mode toggles ──────────────────────────────────────────────────────────
 
 function setLegMode(leg, mode) {
-  state.legModes[leg] = mode;
+  state.canopy.legModes[leg] = mode;
   ['crab', 'drift', 'z'].forEach(m => {
     const btn = document.getElementById(`${leg}-${m}`);
     if (btn) btn.classList.toggle('active', m === mode);
   });
   saveSettings();
-  if (state.pattern) calculate();
+  if (state.canopy.result) calculate();
 }
 
 function toggleZPattern(checked) {
-  if (checked && state.legHdgOverride?.dw != null) {
-    state.legHdgOverride.dw = null;
+  if (checked && state.canopy.legHdgOverride?.dw != null) {
+    state.canopy.legHdgOverride.dw = null;
     const cb = document.getElementById('dw-hdg-check');
     if (cb) cb.checked = false;
     const row = document.getElementById('dw-hdg-row');
     if (row) row.style.display = 'none';
   }
-  state.zPattern = checked;
+  state.canopy.zPattern = checked;
   saveSettings();
-  if (state.pattern) calculate();
+  if (state.canopy.result) calculate();
 }
 
 // ── Per-leg custom performance section toggles ────────────────────────────────
 
 function updatePerfSections() {
-  const allLegKeys = [...LEG_DEFS.map(l => l.key), ...state.extraLegs.map(xl => xl.id)];
+  const allLegKeys = [...LEG_DEFS.map(l => l.key), ...state.canopy.extraLegs.map(xl => xl.id)];
   allLegKeys.forEach(leg => {
     const cb      = document.getElementById(`${leg}-custom-perf`);
     const section = document.getElementById(`${leg}-perf`);
     if (!cb || !section) return;
     //const wasOpen = section.style.display !== 'none';
-    const wasOpen = !!state.legCustomPerf[leg];
+    const wasOpen = !!state.canopy.legCustomPerf[leg];
     const isOpen  = cb.checked;
-    state.legCustomPerf[leg]  = isOpen;
+    state.canopy.legCustomPerf[leg]  = isOpen;
     section.style.display     = isOpen ? 'block' : 'none';
     // Only seed from global defaults when newly enabling — not on re-renders
     if (isOpen && !wasOpen) {
@@ -56,7 +56,7 @@ function updatePerfSections() {
     }
   });
   saveSettings();
-  if (state.pattern) calculate();
+  if (state.canopy.result) calculate();
 }
 
 function onLegCanopyInput(leg, field) {
@@ -100,7 +100,7 @@ function updateLegCanopyCalc(leg) {
 function getLegPerf(leg) {
   const defaultGlide = parseFloat(document.getElementById('glide').value) || 2.5;
   const defaultSpd   = parseFloat(document.getElementById('canopy-speed').value) || 28;
-  if (!state.legCustomPerf[leg]) return {glide: defaultGlide, cSpd: defaultSpd};
+  if (!state.canopy.legCustomPerf[leg]) return {glide: defaultGlide, cSpd: defaultSpd};
   const g = parseFloat(document.getElementById(`${leg}-glide`)?.value);
   const s = parseFloat(document.getElementById(`${leg}-speed`)?.value);
   return {

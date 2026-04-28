@@ -51,10 +51,10 @@ map.on('click', e => placeTarget(e.latlng.lat, e.latlng.lng));
 async function placeTarget(lat, lng) {
   // Reset manual settings if moving more than 1 mile from current target
   if (state.target && distMiles(state.target, {lat, lng}) > 1.0) {
-    state.manualHeading  = false;
-    state.manualJumpRun  = false;
-    state.jumpRunHdgDeg  = null;
-    state.manualJrOffset = false;
+    state.canopy.manualHeading  = false;
+    state.jumpRun.manualHeading  = false;
+    state.jumpRun.hdgDeg  = null;
+    state.jumpRun.manualOffset = false;
     state.forecastOffset = 0;
     const fo = document.getElementById('forecast-offset');
     if (fo) fo.value = 0;
@@ -88,7 +88,7 @@ async function placeTarget(lat, lng) {
   if (lngEl) lngEl.value = lng.toFixed(6);
 
   state.target  = {lat, lng};
-  state.pattern = null;
+  state.canopy.result = null;
   state.fitDone = false;
   clearPattern();
   if (targetMarker) map.removeLayer(targetMarker);

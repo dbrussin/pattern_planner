@@ -159,7 +159,6 @@
             class="slider-num-input" oninput="onLegAlt('alt-open','input');onOpenAltChange()" onblur="onLegAlt('alt-open','blur')">
         </div>
       </div>
-      <div class="input-group"><label for="ff-speed">Freefall Speed (mph)</label><input type="number" id="ff-speed" value="120" min="60" max="250" step="5" oninput="calculate()"></div>
       <div class="input-group"><label for="jr-airspeed">Aircraft IAS (kts)</label><input type="number" id="jr-airspeed" value="80" min="40" max="200" step="5" oninput="calculate()"></div>
       <div class="input-group"><label for="safety-margin">Region Buffer (%)</label><input type="number" id="safety-margin" value="10" min="0" max="40" step="1" oninput="calculate()"></div>
       <div class="input-group"><label for="exit-sep">Exit Separation (ft)</label><input type="number" id="exit-sep" value="1500" min="500" max="5000" step="100" oninput="calculate()"></div>
@@ -196,6 +195,13 @@
           onclick="snapJumpRunToWind()" title="Snap to into-wind heading"></div>
       </div>
     </div>
+
+    <div class="section-label section-label--action">
+      <span>Jump Run Groups</span>
+      <button class="add-leg-btn" onclick="addGroup()">+ Add Group</button>
+    </div>
+    <div id="groups-container"></div>
+    <div class="field-note field-note-sm">Group #1 (mandatory) sets exit order and freefall speed for canopy calculations. Movement groups fly perpendicular to jump run; vertical groups (FS/VFS/Student/Tandem) fall straight down. Tracking from breakoff to opening: 1:1 glide ratio.</div>
 
     <div class="section-label">DZ Reference Point</div>
     <div class="input-grid">
@@ -242,10 +248,10 @@
     <button class="overlay-close" onclick="closeOverlay('labels')">✕</button>
   </div>
   <div class="overlay-body">
-    <div class="field-note field-note-mb">Toggle pattern modes and map layers.</div>
+    <div class="field-note field-note-mb">Toggle planner modes and map layers.</div>
     <div class="layers-list">
 
-      <div class="layer-section-header">Pattern Modes</div>
+      <div class="layer-section-header">Planner Modes</div>
       <div class="layer-row">
         <span class="layer-label">Canopy</span>
         <div id="mode-canopy" class="layer-toggle active" onclick="toggleMode('canopy')" role="button" tabindex="0" aria-label="Toggle canopy mode">On</div>
@@ -285,6 +291,16 @@
       <div class="layer-row">
         <span class="layer-label">Leg Arrows</span>
         <div id="layer-legArrows" class="layer-toggle active" onclick="toggleLayer('legArrows')" role="button" tabindex="0" aria-label="Toggle leg arrows layer">On</div>
+      </div>
+
+      <div class="layer-section-header">Freefall</div>
+      <div class="layer-row">
+        <span class="layer-label">Group Paths</span>
+        <div id="layer-freefallPaths" class="layer-toggle active" onclick="toggleLayer('freefallPaths')" role="button" tabindex="0" aria-label="Toggle freefall paths layer">On</div>
+      </div>
+      <div class="layer-row">
+        <span class="layer-label">Group Labels</span>
+        <div id="layer-freefallLabels" class="layer-toggle active" onclick="toggleLayer('freefallLabels')" role="button" tabindex="0" aria-label="Toggle freefall labels layer">On</div>
       </div>
 
       <div class="layer-section-header">Other</div>
@@ -361,7 +377,7 @@
       <div class="help-heading">Jump Run</div>
       <p>A suggested jump run is drawn through the exit region center, into the wind at exit altitude. The <span class="help-accent2-text">▲</span> marks the into-wind heading — tap or click it to snap. The heading field is also directly editable.</p>
       <p class="help-para"><b>Exit Alt / Opening Alt:</b> exit altitude must be above opening altitude — the app shows an error if they conflict. These altitudes drive the freefall drift integration and the exit/opening safety rings.</p>
-      <p class="help-para"><b>Freefall Speed:</b> vertical descent speed during freefall (mph). Horizontal drift from wind is integrated across altitude bands from exit to opening altitude.</p>
+      <p class="help-para"><b>Freefall Speed:</b> vertical descent speed during freefall (mph), derived from Group #1's type (FS/Student/Tandem ≈ 120, VFS ≈ 170, Movement ≈ 140). Horizontal drift from wind is integrated across altitude bands from exit to opening altitude.</p>
       <p class="help-para"><b>Aircraft IAS:</b> indicated airspeed of the jump aircraft (kts), used to compute jump run ground speed and exit separation timing.</p>
       <p class="help-para"><b>Region Buffer (%):</b> shrinks all safety rings by this fraction as a conservative margin.</p>
       <p class="help-para"><b>Offset:</b> perpendicular distance from the landing spot to the jump run line. Auto-calculated when blank (shown in muted color). Enter a value to override — positive is right of flight path looking forward. Delete the value to return to auto.</p>
@@ -530,6 +546,7 @@
 <script src="js/ui-heading.js"></script>
 <script src="js/ui-canopy.js"></script>
 <script src="js/ui-legs.js"></script>
+<script src="js/ui-groups.js"></script>
 <script src="js/search.js"></script>
 <script src="js/app.js"></script>
 <script src="js/ui-forecast.js"></script>

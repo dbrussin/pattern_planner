@@ -6,8 +6,8 @@
 // ── Final approach heading ────────────────────────────────────────────────────
 
 function onHeadingSlider(v) {
-  state.manualHeading    = true;
-  state.finalHeadingDeg  = parseInt(v);
+  state.canopy.manualHeading    = true;
+  state.canopy.finalHeadingDeg  = parseInt(v);
   updateHeadingDisplay(parseInt(v));
   calculate();
 }
@@ -43,8 +43,8 @@ function jumpForecastToNow() {
 function snapToWind() {
   const dir = state.surfaceWind?.dirDeg ?? null;
   if (dir !== null) {
-    state.manualHeading   = false;
-    state.finalHeadingDeg = dir;
+    state.canopy.manualHeading   = false;
+    state.canopy.finalHeadingDeg = dir;
     updateHeadingDisplay(dir);
     calculate();
   }
@@ -69,8 +69,8 @@ function onHeadingInput(v) {
   if (v === '' || v === null) return;
   const d = ((parseInt(v) % 360) + 360) % 360;
   if (isNaN(d)) return;
-  state.manualHeading   = true;
-  state.finalHeadingDeg = d;
+  state.canopy.manualHeading   = true;
+  state.canopy.finalHeadingDeg = d;
   document.getElementById('heading-bar-slider').value = d;
   const settingsSl  = document.getElementById('settings-hdg-final-sl');
   const settingsInp = document.getElementById('settings-hdg-final');
@@ -82,8 +82,8 @@ function onHeadingInput(v) {
 }
 
 function onHeadingBlur() {
-  if (state.finalHeadingDeg !== null)
-    document.getElementById('heading-bar-val').value = Math.round(state.finalHeadingDeg);
+  if (state.canopy.finalHeadingDeg !== null)
+    document.getElementById('heading-bar-val').value = Math.round(state.canopy.finalHeadingDeg);
 }
 
 function updateWindPyramid() {
@@ -135,8 +135,8 @@ function onSettingsFinalHdg(src) {
     sl.value  = d;
   }
   const deg = parseInt(sl.value);
-  state.manualHeading   = true;
-  state.finalHeadingDeg = deg;
+  state.canopy.manualHeading   = true;
+  state.canopy.finalHeadingDeg = deg;
   document.getElementById('heading-bar-val').value    = deg;
   document.getElementById('heading-bar-slider').value = deg;
   updateWindPyramid();
@@ -146,8 +146,8 @@ function onSettingsFinalHdg(src) {
 // ── Jump run heading ──────────────────────────────────────────────────────────
 
 function onJumpRunSlider(v) {
-  state.manualJumpRun = true;
-  state.jumpRunHdgDeg = parseInt(v);
+  state.jumpRun.manualHeading = true;
+  state.jumpRun.hdgDeg = parseInt(v);
   updateJumpRunDisplay(parseInt(v));
   calculate();
 }
@@ -155,18 +155,18 @@ function onJumpRunSlider(v) {
 function onJrOffsetInput() {
   const el = document.getElementById('jr-offset');
   if (el.value === '' || el.value === null) {
-    state.manualJrOffset = false;
+    state.jumpRun.manualOffset = false;
     el.style.color = 'var(--muted)';
   } else {
-    state.manualJrOffset = true;
+    state.jumpRun.manualOffset = true;
     el.style.color = 'var(--text)';
   }
   calculate();
 }
 
 function snapJumpRunToWind() {
-  state.manualJumpRun = false;
-  state.jumpRunHdgDeg = null;
+  state.jumpRun.manualHeading = false;
+  state.jumpRun.hdgDeg = null;
   calculate();
 }
 
@@ -182,8 +182,8 @@ function onJrHdgInput(v) {
   if (v === '' || v === null) return;
   const d = ((parseInt(v) % 360) + 360) % 360;
   if (isNaN(d)) return;
-  state.manualJumpRun = true;
-  state.jumpRunHdgDeg = d;
+  state.jumpRun.manualHeading = true;
+  state.jumpRun.hdgDeg = d;
   document.getElementById('jr-hdg-slider').value = d;
   updateJrPyramid();
   clearTimeout(_jrHdgInputTimer);
@@ -191,8 +191,8 @@ function onJrHdgInput(v) {
 }
 
 function onJrHdgBlur() {
-  if (state.jumpRunHdgDeg !== null)
-    document.getElementById('jr-hdg-display').value = Math.round(state.jumpRunHdgDeg);
+  if (state.jumpRun.hdgDeg !== null)
+    document.getElementById('jr-hdg-display').value = Math.round(state.jumpRun.hdgDeg);
 }
 
 function updateJrPyramid() {
@@ -217,13 +217,13 @@ function updateJrPyramid() {
 }
 
 function autoSetJumpRunHeading() {
-  if (!state.manualJumpRun) {
+  if (!state.jumpRun.manualHeading) {
     const altExit = parseFloat(document.getElementById('alt-exit').value) || 13500;
     const wExit   = getWindAtAGL(altExit);
     if (vecLen(wExit) > 0.1) {
       const windVelDir = (Math.atan2(wExit.e, wExit.n) * R2D + 360) % 360;
       const dir        = Math.round((windVelDir + 180) % 360);
-      state.jumpRunHdgDeg = dir;
+      state.jumpRun.hdgDeg = dir;
       updateJumpRunDisplay(dir);
     }
   }
@@ -231,7 +231,7 @@ function autoSetJumpRunHeading() {
 
 function onDriftThreshChange(v) {
   state.driftThresh = parseInt(v) || 0;
-  if (state.pattern) drawPattern();
+  if (state.canopy.result) drawPattern();
 }
 
 // ── Green / Red light overrides ───────────────────────────────────────────────
@@ -240,26 +240,26 @@ function onGreenLightInput() {
   const el = document.getElementById('green-light-override');
   if (!el) return;
   if (el.value === '') {
-    state.manualGreenLight = false;
+    state.jumpRun.manualGreenLight = false;
     el.style.color = 'var(--muted)';
   } else {
-    state.manualGreenLight = true;
+    state.jumpRun.manualGreenLight = true;
     el.style.color = 'var(--text)';
   }
-  if (state.pattern) calculate();
+  if (state.canopy.result) calculate();
 }
 
 function onRedLightInput() {
   const el = document.getElementById('red-light-override');
   if (!el) return;
   if (el.value === '') {
-    state.manualRedLight = false;
+    state.jumpRun.manualRedLight = false;
     el.style.color = 'var(--muted)';
   } else {
-    state.manualRedLight = true;
+    state.jumpRun.manualRedLight = true;
     el.style.color = 'var(--text)';
   }
-  if (state.pattern) calculate();
+  if (state.canopy.result) calculate();
 }
 
 // ── DZ reference zero point ───────────────────────────────────────────────────
@@ -268,7 +268,7 @@ function onDzZeroInput() {
   state.manualDzZero = true;
   updateMagDeclination();
   saveSettings();
-  if (state.pattern) calculate();
+  if (state.canopy.result) calculate();
 }
 
 function updateMagDeclination() {

@@ -99,16 +99,111 @@ function drawPattern() {
   if (state.modes.freefall) drawFreefallPlan();
 }
 
+// ── Freefall (jump run) renderer ──────────────────────────────────────────────
+
+// Color palette for groups, cycling if more than 8 groups.
+const FREEFALL_GROUP_COLORS = ['#60a5fa', '#f472b6', '#34d399', '#fb923c', '#c084fc', '#facc15', '#22d3ee', '#fb7185'];
+
+function freefallDot(color, size = 9) {
+  return L.divIcon({
+    html: `<div style="width:${size}px;height:${size}px;border:2px solid ${color};background:${color}66;border-radius:50%;"></div>`,
+    iconSize: [size, size], iconAnchor: [size / 2, size / 2], className: '',
+  });
+}
+
 /**
- * Freefall renderer stub — populated by future jump run planner / movement planner.
- * Will read state.freefall (groups, exit timing, drift tracks, breakoff points).
+ * Render the freefall plan from state.freefall.result.
+ * For each group:
+ *  - exit point marker (square-ish dot) + label with name, size, exit time
+ *  - line from exit to group breakoff center (freefall path)
+ *  - line from breakoff center to each member's opening point (tracking path)
+ *  - opening point markers per member
+ * All positions are precomputed by calculateFreefallPlan().
  */
-function drawFreefallPlan() { /* no-op until freefall mode is implemented */ }
+function drawFreefallPlan() {
+  const r = state.freefall.result;
+  if (!r || !r.groups || !r.groups.length) return;
+  const showPaths  = state.layers.freefallPaths !== false;
+  const showLabels = state.layers.freefallLabels !== false;
+
+  r.groups.forEach((g, gi) => {
+    const color = FREEFALL_GROUP_COLORS[gi % FREEFALL_GROUP_COLORS.length];
+
+    if (showPaths) {
+      // Exit → breakoff (group center freefall path).
+      // Movement groups curve as the throw decays and lateral glide grows in;
+      // vertical groups fall nearly straight down (path collapses to ~2 points).
+      const pathLatLngs = (g.ffPath && g.ffPath.length >= 2)
+        ? g.ffPath.map(ll)
+        : [ll(g.exit), ll(g.breakoff)];
+      addL(L.polyline(pathLatLngs, {
+        color, weight: 2.5, opacity: 0.85, dashArray: '6 4',
+      }));
+      // Breakoff → each member's opening point (tracking spread)
+      g.members.forEach(m => {
+        addL(L.polyline([ll(m.breakoff), ll(m.opening)], {
+          color, weight: 1.5, opacity: 0.7,
+        }));
+      });
+    }
+
+    // Markers — exit, breakoff, opening points
+    addL(L.marker(ll(g.exit),     { icon: freefallDot(color, 11), zIndexOffset: 110 }));
+    addL(L.marker(ll(g.breakoff), { icon: freefallDot(color, 7),  zIndexOffset: 95 }));
+    g.members.forEach(m => {
+      addL(L.marker(ll(m.opening), { icon: freefallDot(color, 7), zIndexOffset: 100 }));
+    });
+
+    if (showLabels) {
+      const tExit = g.tExitSec >= 0 ? `+${Math.round(g.tExitSec)}s` : `${Math.round(g.tExitSec)}s`;
+      const sepTxt = g.minSepFt != null ? ` · sep ${g.minSepFt}ft` : '';
+      const exitLbl = `${g.name} (${g.size}× ${g.type})\n${tExit} · throw ${g.throwFt}ft${sepTxt}`;
+      addL(L.marker(ll(g.exit), {
+        icon: L.divIcon({
+          html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;
+            color:${color};text-shadow:0 1px 4px #000,0 0 8px #000;white-space:pre;
+            pointer-events:none;text-align:left;line-height:1.3;padding-left:14px;">${exitLbl}</div>`,
+          iconSize: [200, 32], iconAnchor: [0, 16], className: '',
+        }),
+        interactive: false, zIndexOffset: 50,
+      }));
+    }
+  });
+
+  // Plan summary: total pass time, jump run ground speed
+  if (showLabels && r.groups.length > 1) {
+    const last = r.groups[r.groups.length - 1];
+    const passSec = Math.round(last.tExitSec);
+    const summary = `Pass ${passSec}s · GS ${r.jrGndSpdKts}kt`;
+    addL(L.marker(ll(r.openTarget), {
+      icon: L.divIcon({
+        html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:600;
+          color:rgba(160,220,255,0.9);text-shadow:0 1px 4px #000,0 0 8px #000;white-space:nowrap;
+          pointer-events:none;text-align:center;padding-top:24px;">${summary}</div>`,
+        iconSize: [200, 16], iconAnchor: [100, 0], className: '',
+      }),
+      interactive: false, zIndexOffset: 40,
+    }));
+  }
+
+  // fitBounds when canopy mode is off (otherwise canopy handles fit)
+  if (!state.modes.canopy && !state.fitDone) {
+    const pts = [];
+    r.groups.forEach(g => {
+      pts.push(ll(g.exit));
+      g.members.forEach(m => pts.push(ll(m.opening)));
+    });
+    if (pts.length) {
+      map.fitBounds(L.latLngBounds(pts), { padding: [80, 80] });
+      state.fitDone = true;
+    }
+  }
+}
 
 // ── Canopy pattern renderer ───────────────────────────────────────────────────
 
 /**
- * Render the canopy landing pattern from state.pattern. Caller (drawPattern)
+ * Render the canopy landing pattern from state.canopy.result. Caller (drawPattern)
  * has already cleared previous layers. Conditional on state.layers flags:
  * - Ground track polylines (solid, leg colors) and steered heading lines (dashed)
  * - Turn point markers and extra leg markers
@@ -119,7 +214,7 @@ function drawFreefallPlan() { /* no-op until freefall mode is implemented */ }
  * Fits map bounds on first draw per target (state.fitDone = false).
  */
 function drawCanopyPattern() {
-  const p = state.pattern; if (!p) return;
+  const p = state.canopy.result; if (!p) return;
   const {entry, tBase, tFinal, landing, tBaseTurnStart, tFinalTurnStart,
          bSteered, fSteered, dwSteered, bDrift, fDrift, dwDrift} = p;
   const DRIFT_THRESH = state.driftThresh ?? 5;
@@ -306,7 +401,7 @@ function drawCanopyPattern() {
     // ── Jump run line ──
     if (state.layers.jumpRun) {
       const jrVec      = hdgVec(p.jrHdg);
-      const jrRightVec = {n: jrVec.e, e: -jrVec.n}; // 90° right of heading
+      const jrRightVec = {n: -jrVec.e, e: jrVec.n}; // 90° right of heading (compass right)
 
       // Use DZ reference zero point (if set) instead of landing target for offset/green/red calcs
       const dzZeroLatEl = document.getElementById('dz-zero-lat');
@@ -324,12 +419,12 @@ function drawCanopyPattern() {
       const calcOffsetNm = calcOffsetFt / 6076;
 
       const jrOffsetEl = document.getElementById('jr-offset');
-      if (!state.manualJrOffset) {
+      if (!state.jumpRun.manualOffset) {
         jrOffsetEl.value       = calcOffsetNm.toFixed(2);
         jrOffsetEl.style.color = 'var(--muted)';
       }
 
-      const jrBase = state.manualJrOffset
+      const jrBase = state.jumpRun.manualOffset
         ? offsetLL(exitCenter.lat, exitCenter.lng,
             jrRightVec.n * ((parseFloat(jrOffsetEl.value) || 0) - calcOffsetNm) * 6076,
             jrRightVec.e * ((parseFloat(jrOffsetEl.value) || 0) - calcOffsetNm) * 6076)
@@ -387,19 +482,19 @@ function drawCanopyPattern() {
         const calcRedNm   = (t2 - tRef) / FT_PER_NM;
 
         // Update input fields if not manually set
-        if (greenEl && !state.manualGreenLight) {
+        if (greenEl && !state.jumpRun.manualGreenLight) {
           greenEl.value       = calcGreenNm.toFixed(2);
           greenEl.style.color = 'var(--muted)';
         }
-        if (redEl && !state.manualRedLight) {
+        if (redEl && !state.jumpRun.manualRedLight) {
           redEl.value       = calcRedNm.toFixed(2);
           redEl.style.color = 'var(--muted)';
         }
 
         // Use manual override or calculated value for label
-        const activeGreenNm = state.manualGreenLight && greenEl && greenEl.value !== ''
+        const activeGreenNm = state.jumpRun.manualGreenLight && greenEl && greenEl.value !== ''
           ? parseFloat(greenEl.value) : calcGreenNm;
-        const activeRedNm   = state.manualRedLight   && redEl   && redEl.value   !== ''
+        const activeRedNm   = state.jumpRun.manualRedLight   && redEl   && redEl.value   !== ''
           ? parseFloat(redEl.value)   : calcRedNm;
 
         const fmtNm = nm => {
@@ -410,12 +505,12 @@ function drawCanopyPattern() {
         redTxt   = ` · 🔴 ${fmtNm(activeRedNm)}`;
       } else {
         // No intersection — clear fields if not manually set
-        if (greenEl && !state.manualGreenLight) { greenEl.value = ''; greenEl.style.color = 'var(--muted)'; }
-        if (redEl   && !state.manualRedLight)   { redEl.value   = ''; redEl.style.color   = 'var(--muted)'; }
+        if (greenEl && !state.jumpRun.manualGreenLight) { greenEl.value = ''; greenEl.style.color = 'var(--muted)'; }
+        if (redEl   && !state.jumpRun.manualRedLight)   { redEl.value   = ''; redEl.style.color   = 'var(--muted)'; }
       }
 
       const sepTxt          = sepSec ? ` · ${sepSec}s sep` : '';
-      const displayOffsetNm = state.manualJrOffset ? parseFloat(jrOffsetEl.value) || 0 : calcOffsetNm;
+      const displayOffsetNm = state.jumpRun.manualOffset ? parseFloat(jrOffsetEl.value) || 0 : calcOffsetNm;
       const offsetTxt       = `${displayOffsetNm >= 0 ? '+' : ''}${displayOffsetNm.toFixed(1)}nm`;
       const jrLabelPt       = offsetLL(jrDownwind.lat, jrDownwind.lng, -jrVec.n * 250, -jrVec.e * 250);
 
@@ -443,7 +538,7 @@ function drawCanopyPattern() {
     return offsetLL(mid.lat, mid.lng, pN, pE);
   }
   const perpFt = 130;
-  const side   = state.hand === 'left' ? 1 : -1;
+  const side   = state.canopy.hand === 'left' ? 1 : -1;
 
   // ── Turn altitude labels ──
   if (state.layers.turnAltLabels) {

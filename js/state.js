@@ -1,7 +1,7 @@
 // ─── STATE ─────────────────────────────────────────────────────────────────────
 // Central application state. All modules read/write this object directly.
 
-const STORAGE_VERSION = '2';
+const STORAGE_VERSION = '3';
 const WAIVER_VERSION  = '1.0';
 
 const state = {
@@ -17,43 +17,45 @@ const state = {
   forecastOffset: 0,
   fitDone: false,
   driftThresh: 5,  // degrees — show steered heading line when crab/drift exceeds this
-  layers: { jumpRun: true, exitRegion: true, canopyRegions: true, turnAltLabels: true, legDistances: true, legHeadings: true, legArrows: true, legend: true },
-
-  // ── Canopy result + canopy-mode state ──
-  // pattern: result of calculateCanopyPattern() — read by drawCanopyPattern()
-  pattern: null,
-  hand: 'left',
-  finalHeadingDeg: null,
-  manualHeading: false,
-  // Per-leg modes: 'crab' | 'drift' — keyed by LEG_DEFS[].key; extra legs add entries dynamically
-  legModes:     Object.fromEntries(LEG_DEFS.map(l => [l.key, l.key === 'b' ? 'drift' : 'crab'])),
-  zPattern: false,  // Z pattern is independent of crab/drift
-  // Per-leg custom canopy performance — keyed by LEG_DEFS[].key; extra legs add entries dynamically
-  legCustomPerf: Object.fromEntries(LEG_DEFS.map(l => [l.key, false])),
-  // Dynamically added extra legs above downwind: [{id, defaultAlt, color}]
-  extraLegs: [],
-  nextExtraLegIdx: 1,
-  // Per-leg approach heading overrides: null = use computed heading
-  legHdgOverride: {dw: null, b: null, f: null},
-
-  // ── Jump run state (currently emitted by canopy calc; freefall jump-run planner
-  //    will write to the same fields) ──
-  jumpRunHdgDeg: null,
-  manualJumpRun: false,
-  manualJrOffset: false,
-  manualGreenLight: false,
-  manualRedLight: false,
   manualDzZero: false,
+  layers: { jumpRun: true, exitRegion: true, canopyRegions: true, turnAltLabels: true, legDistances: true, legHeadings: true, legArrows: true, freefallPaths: true, freefallLabels: true, legend: true },
 
-  // ── Freefall result + freefall-mode state (placeholder; populated by future
-  //    calculateFreefallPlan() — jump run planner, movement planner, etc.) ──
-  freefall: null,
+  // ── Canopy mode state (canopy-specific inputs and result) ──
+  canopy: {
+    result: null,                                                       // populated by calculateCanopyPattern()
+    hand: 'left',
+    finalHeadingDeg: null,
+    manualHeading: false,
+    legModes:     Object.fromEntries(LEG_DEFS.map(l => [l.key, l.key === 'b' ? 'drift' : 'crab'])),
+    zPattern: false,
+    legCustomPerf: Object.fromEntries(LEG_DEFS.map(l => [l.key, false])),
+    extraLegs: [],
+    nextExtraLegIdx: 1,
+    legHdgOverride: {dw: null, b: null, f: null},
+  },
+
+  // ── Jump run state (shared between canopy spot calc and freefall planner) ──
+  jumpRun: {
+    hdgDeg: null,
+    manualHeading: false,
+    manualOffset: false,
+    manualGreenLight: false,
+    manualRedLight: false,
+  },
+
+  // ── Freefall mode state (jump run planner / movement planner) ──
+  // Group #1 is mandatory: cannot be removed, sets freefall speed for canopy calc.
+  freefall: {
+    result: null,                                                       // populated by calculateFreefallPlan()
+    groups: [{ id: 'g1', name: 'Group 1', size: 4, type: 'FS', mvmt: 'R' }],
+    nextGroupIdx: 2,
+  },
 };
 
 // Input IDs that are persisted to localStorage on every change
 const PERSIST_INPUTS = [
   'alt-enter', 'alt-base', 'alt-final',
-  'alt-exit', 'alt-open', 'ff-speed',
+  'alt-exit', 'alt-open',
   'jr-airspeed', 'exit-sep', 'safety-margin',
   'glide', 'canopy-speed', 'drift-thresh',
   'turn-bank',

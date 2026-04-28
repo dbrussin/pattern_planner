@@ -302,7 +302,7 @@ function processWindData(d, fieldElevFt) {
   invalidateWindCaches();
 
   buildWindTable();
-  if (!state.manualHeading && state.surfaceWind.dirDeg != null) { state.finalHeadingDeg = state.surfaceWind.dirDeg; updateHeadingDisplay(state.surfaceWind.dirDeg); }
+  if (!state.canopy.manualHeading && state.surfaceWind.dirDeg != null) { state.canopy.finalHeadingDeg = state.surfaceWind.dirDeg; updateHeadingDisplay(state.surfaceWind.dirDeg); }
   autoSetJumpRunHeading();
   updateWindPyramid();
   updateJrPyramid();

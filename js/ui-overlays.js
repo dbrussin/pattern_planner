@@ -54,7 +54,7 @@ function toggleLayer(name) {
     return;
   }
   saveSettings();
-  if (state.pattern) drawPattern();
+  if (state.canopy.result) drawPattern();
 }
 
 // ── Mode toggles (canopy / freefall — independent on/off) ────────────────────
@@ -76,9 +76,9 @@ function toggleMode(name) {
 // ── Hand (L/R) toggle ─────────────────────────────────────────────────────────
 
 function setHand(h) {
-  state.hand = h;
+  state.canopy.hand = h;
   document.getElementById('btn-left').classList.toggle('active',  h === 'left');
   document.getElementById('btn-right').classList.toggle('active', h === 'right');
   saveSettings();
-  if (state.pattern) calculate();
+  if (state.canopy.result) calculate();
 }
