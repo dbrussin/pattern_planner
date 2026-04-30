@@ -180,9 +180,9 @@ function drawFreefallPlan() {
   });
 
   // ── Jump run, exit circle, opening circle ──
-  // Canopy mode owns these elements when active — skip here to avoid duplicates.
-  // In freefall-only mode, draw the JR line plus simplified zone circles derived
-  // from the middle group's physics and the canopy DOM inputs for radius/margin.
+  // Canopy mode draws these when its display is on — skip here to avoid duplicates.
+  // When canopy display is off, draw the JR line and zone circles using the canopy
+  // result (always computed when freefall is active) or DOM fallback if unavailable.
   if (!state.modes.canopy) {
     const jrVec    = hdgVec(r.jrHdg);
     const midGroup = r.groups.find(g => g.isMiddle) || r.groups[Math.floor(r.groups.length / 2)];
@@ -222,16 +222,19 @@ function drawFreefallPlan() {
       }));
     }
 
-    // Exit and opening circles — use canopy DOM inputs for radius, freefall physics for centers.
+    // Exit and opening circles — use canopy result when available (always when freefall mode
+    // is active, since canopy calc runs unconditionally); fall back to DOM approximation.
     if (state.layers.exitRegion || state.layers.canopyRegions) {
-      const glide        = parseFloat(document.getElementById('glide').value) || 2.5;
-      const altE         = parseFloat(document.getElementById('alt-enter').value) || 1000;
+      const cr           = state.canopy.result;
       const altOpen      = midGroup.openAlt;
-      const openRadiusFt = Math.max(0, altOpen - altE) * glide;
-      const exitCenter   = r.jrBasePt;
-      const ffRate       = (GROUP_TYPES[midGroup.type]?.fallMph ?? 120) * 88;
-      const ffDrift      = integratedDrift(r.altExit, altOpen, ffRate);
-      const openCtr      = offsetLL(exitCenter.lat, exitCenter.lng, ffDrift.dN, ffDrift.dE);
+      const exitCenter   = cr ? cr.exitCenter : r.jrBasePt;
+      const openCtr      = cr ? cr.openCtr : (() => {
+        const ffDrift = integratedDrift(r.altExit, altOpen, (GROUP_TYPES[midGroup.type]?.fallMph ?? 120) * 88);
+        return offsetLL(r.jrBasePt.lat, r.jrBasePt.lng, ffDrift.dN, ffDrift.dE);
+      })();
+      const openRadiusFt = cr ? cr.openRadiusFt
+        : Math.max(0, altOpen - (parseFloat(document.getElementById('alt-enter').value) || 1000))
+          * (parseFloat(document.getElementById('glide').value) || 2.5);
 
       function ffZoneLabel(ctr, radiusFt, txt, color, windVelDir) {
         const upwindHdg = (windVelDir + 180) % 360;
@@ -254,7 +257,8 @@ function drawFreefallPlan() {
       }
 
       if (state.layers.canopyRegions && openRadiusFt > 0) {
-        const openAvg = avgWindInBand(altE, altOpen);
+        const altBot  = cr ? cr.altE : (parseFloat(document.getElementById('alt-enter').value) || 1000);
+        const openAvg = avgWindInBand(altBot, altOpen);
         addL(L.circle([openCtr.lat, openCtr.lng], {
           radius: openRadiusFt * margin * 0.3048,
           color: 'rgba(255,210,80,0.95)', weight: 2.5, fill: false, interactive: false,
@@ -430,7 +434,7 @@ function drawCanopyPattern() {
 
     // ── Shared geometry (used by multiple layers) ──
     const canopyRange  = p.altOpen - topAltAGL;
-    const openRadiusFt = canopyRange * p.glide;
+    const openRadiusFt = p.openRadiusFt;
     const openCtr      = p.openCtr;
     const exitCenter   = p.exitCenter;
 

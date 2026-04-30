@@ -96,8 +96,8 @@ function firstGroupOpenAlt() {
  */
 function calculate() {
   if (!state.target) return;
-  if (state.modes.canopy)   calculateCanopyPattern();
-  else                      state.canopy.result = null;
+  if (state.modes.canopy || state.modes.freefall) calculateCanopyPattern();
+  else                                            state.canopy.result = null;
   if (state.modes.freefall) calculateFreefallPlan();
   else                      state.freefall.result = null;
   drawPattern();
@@ -939,6 +939,7 @@ function calculateCanopyPattern() {
   const ffRateFtMin = ffSpeedMph * 88;
   const ffDrift     = integratedDrift(altExit, altOpen, ffRateFtMin);
   const exitCenter  = offsetLL(openCtr.lat, openCtr.lng, -ffDrift.dN, -ffDrift.dE);
+  const openRadiusFt = (altOpen - topAltEntry) * perfF.glide;
 
   state.canopy.result = {
     entry, tBase, tFinal, landing: state.target,
@@ -963,6 +964,6 @@ function calculateCanopyPattern() {
     isZPattern,
     fieldElevFt: state.fieldElevFt,
     extraLegs: extraLegResults,
-    openCtr, exitCenter,
+    openCtr, exitCenter, openRadiusFt,
   };
 }
