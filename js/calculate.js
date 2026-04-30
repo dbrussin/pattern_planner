@@ -416,6 +416,7 @@ function calculateFreefallPlan() {
       const cur   = memberOpenPositions(gThis, exitN, exitE);
       let minDist = Infinity;
       for (let j = 0; j < i; j++) {
+        if (!plan[j].openMemberPos) continue; // pre-middle groups not yet positioned
         plan[j].openMemberPos.forEach(prev => {
           cur.forEach(c => {
             const d = Math.hypot(c.dN - prev.dN, c.dE - prev.dE);

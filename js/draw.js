@@ -179,47 +179,102 @@ function drawFreefallPlan() {
     }
   });
 
-  // ── Jump run line through exit points ──
-  if (showLabels && r.groups.length) {
-    const jrVec   = hdgVec(r.jrHdg);
-    const first   = r.groups[0];
-    const last    = r.groups[r.groups.length - 1];
+  // ── Jump run, exit circle, opening circle ──
+  // Canopy mode owns these elements when active — skip here to avoid duplicates.
+  // In freefall-only mode, draw the JR line plus simplified zone circles derived
+  // from the middle group's physics and the canopy DOM inputs for radius/margin.
+  if (!state.modes.canopy) {
+    const jrVec    = hdgVec(r.jrHdg);
+    const midGroup = r.groups.find(g => g.isMiddle) || r.groups[Math.floor(r.groups.length / 2)];
+    const margin   = 1 - (parseFloat(document.getElementById('safety-margin').value) || 0) / 100;
 
-    // Extend 15% beyond first and last group exit positions along JR
-    const extFt   = 1500;
-    const jrStart = offsetLL(first.exit.lat, first.exit.lng, -jrVec.n * extFt, -jrVec.e * extFt);
-    const jrEnd   = offsetLL(last.exit.lat,  last.exit.lng,   jrVec.n * extFt,  jrVec.e * extFt);
-    addL(L.polyline([ll(jrStart), ll(jrEnd)], {
-      color: 'rgba(160,220,255,0.7)', weight: 2, dashArray: '8 5', interactive: false,
-    }));
+    if (state.layers.jumpRun && showLabels && r.groups.length) {
+      const first    = r.groups[0];
+      const last     = r.groups[r.groups.length - 1];
+      const extFt    = 1500;
+      const jrStart  = offsetLL(first.exit.lat, first.exit.lng, -jrVec.n * extFt, -jrVec.e * extFt);
+      const jrEnd    = offsetLL(last.exit.lat,  last.exit.lng,   jrVec.n * extFt,  jrVec.e * extFt);
+      addL(L.polyline([ll(jrStart), ll(jrEnd)], {
+        color: 'rgba(160,220,255,0.7)', weight: 2, dashArray: '8 5', interactive: false,
+      }));
+      const chevronSvg = `<svg width="14" height="14" viewBox="0 0 12 12" style="display:block;">
+        <polyline points="3,10 6,2 9,10" fill="none" stroke="rgba(160,220,255,0.95)"
+          stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+          transform="rotate(${r.jrHdg},6,6)"/>
+      </svg>`;
+      addL(L.marker(ll(midGroup.exit), {
+        icon: L.divIcon({ html: chevronSvg, iconSize: [14, 14], iconAnchor: [7, 7], className: '' }),
+        interactive: false, zIndexOffset: 43,
+      }));
+      const passSec = Math.round(last.tExitSec);
+      const maxGap  = r.maxTDelta ? `· ${Math.round(r.maxTDelta)}s max gap` : '';
+      const jrLblPt = offsetLL(jrEnd.lat, jrEnd.lng, jrVec.n * 300, jrVec.e * 300);
+      addL(L.marker(ll(jrLblPt), {
+        icon: L.divIcon({
+          html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;
+            color:rgba(160,220,255,1);text-shadow:${shadow};
+            white-space:nowrap;pointer-events:none;text-align:center;line-height:1.5;">
+            Jump run ${Math.round(r.jrHdg)}° · ${r.jrGndSpdKts}kt GS · ${passSec}s pass ${maxGap}
+          </div>`,
+          iconSize: [420, 22], iconAnchor: [210, 11], className: '',
+        }),
+        interactive: false, zIndexOffset: 45,
+      }));
+    }
 
-    // Direction chevron at middle exit point (center of exit circle)
-    const midGroup   = r.groups.find(g => g.isMiddle) || r.groups[Math.floor(r.groups.length / 2)];
-    const chevronSvg = `<svg width="14" height="14" viewBox="0 0 12 12" style="display:block;">
-      <polyline points="3,10 6,2 9,10" fill="none" stroke="rgba(160,220,255,0.95)"
-        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
-        transform="rotate(${r.jrHdg},6,6)"/>
-    </svg>`;
-    addL(L.marker(ll(midGroup.exit), {
-      icon: L.divIcon({ html: chevronSvg, iconSize: [14, 14], iconAnchor: [7, 7], className: '' }),
-      interactive: false, zIndexOffset: 43,
-    }));
+    // Exit and opening circles — use canopy DOM inputs for radius, freefall physics for centers.
+    if (state.layers.exitRegion || state.layers.canopyRegions) {
+      const glide        = parseFloat(document.getElementById('glide').value) || 2.5;
+      const altE         = parseFloat(document.getElementById('alt-enter').value) || 1000;
+      const altOpen      = midGroup.openAlt;
+      const openRadiusFt = Math.max(0, altOpen - altE) * glide;
+      const exitCenter   = r.jrBasePt;
+      const ffRate       = (GROUP_TYPES[midGroup.type]?.fallMph ?? 120) * 88;
+      const ffDrift      = integratedDrift(r.altExit, altOpen, ffRate);
+      const openCtr      = offsetLL(exitCenter.lat, exitCenter.lng, ffDrift.dN, ffDrift.dE);
 
-    // Jump run label: heading, ground speed, max gap between groups
-    const passSec  = Math.round(last.tExitSec);
-    const maxGap   = r.maxTDelta ? `· ${Math.round(r.maxTDelta)}s max gap` : '';
-    const jrLblPt  = offsetLL(jrEnd.lat, jrEnd.lng, jrVec.n * 300, jrVec.e * 300);
-    addL(L.marker(ll(jrLblPt), {
-      icon: L.divIcon({
-        html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;
-          color:rgba(160,220,255,1);text-shadow:${shadow};
-          white-space:nowrap;pointer-events:none;text-align:center;line-height:1.5;">
-          Jump run ${Math.round(r.jrHdg)}° · ${r.jrGndSpdKts}kt GS · ${passSec}s pass ${maxGap}
-        </div>`,
-        iconSize: [420, 22], iconAnchor: [210, 11], className: '',
-      }),
-      interactive: false, zIndexOffset: 45,
-    }));
+      function ffZoneLabel(ctr, radiusFt, txt, color, windVelDir) {
+        const upwindHdg = (windVelDir + 180) % 360;
+        const upwindVec = hdgVec(upwindHdg);
+        const labelPt   = offsetLL(ctr.lat, ctr.lng,
+          upwindVec.n * (radiusFt * margin + 100), upwindVec.e * (radiusFt * margin + 100));
+        const arrowSvg  = `<svg width="12" height="12" viewBox="0 0 14 14" style="display:inline-block;vertical-align:middle;margin-right:3px;flex-shrink:0;">
+          <polygon points="7,1 12,13 7,10 2,13" fill="${color}" transform="rotate(${windVelDir},7,7)"/>
+        </svg>`;
+        addL(L.marker(ll(labelPt), {
+          icon: L.divIcon({
+            html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;
+              color:${color};text-shadow:0 1px 4px #000,0 0 8px #000;white-space:nowrap;
+              text-align:center;pointer-events:none;line-height:1.4;display:flex;align-items:center;justify-content:center;">
+              ${arrowSvg}${txt}</div>`,
+            iconSize: [160, 20], iconAnchor: [80, 10], className: '',
+          }),
+          interactive: false, zIndexOffset: 40,
+        }));
+      }
+
+      if (state.layers.canopyRegions && openRadiusFt > 0) {
+        const openAvg = avgWindInBand(altE, altOpen);
+        addL(L.circle([openCtr.lat, openCtr.lng], {
+          radius: openRadiusFt * margin * 0.3048,
+          color: 'rgba(255,210,80,0.95)', weight: 2.5, fill: false, interactive: false,
+        }));
+        ffZoneLabel(openCtr, openRadiusFt,
+          `Open ${altOpen.toLocaleString()}ft · ${openAvg.spd}kt`,
+          'rgba(255,220,100,1)', openAvg.dir);
+      }
+
+      if (state.layers.exitRegion && openRadiusFt > 0) {
+        const ffAvg = avgWindInBand(altOpen, r.altExit);
+        addL(L.circle([exitCenter.lat, exitCenter.lng], {
+          radius: openRadiusFt * margin * 0.3048,
+          color: 'rgba(160,220,255,0.95)', weight: 2.5, fill: false, interactive: false, dashArray: '8 5',
+        }));
+        ffZoneLabel(exitCenter, openRadiusFt,
+          `Exit ${r.altExit.toLocaleString()}ft · ${ffAvg.spd}kt`,
+          'rgba(180,230,255,1)', ffAvg.dir);
+      }
+    }
   }
 
   // fitBounds when canopy mode is off
