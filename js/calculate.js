@@ -260,7 +260,7 @@ function calculateFreefallPlan() {
     } else {
       jrHdg = 0;
     }
-    if (!state.modes.canopy) {
+    if (!state.canopy.result) {
       const dEl = document.getElementById('jr-hdg-display');
       const sEl = document.getElementById('jr-hdg-slider');
       if (dEl) dEl.value = Math.round(jrHdg);
@@ -287,10 +287,11 @@ function calculateFreefallPlan() {
   const midVSpeedMph   = midGroup.vSpeedMph   ?? GROUP_TYPES[midGroup.type]?.fallMph ?? 120;
   const midFfRateFtMin = midVSpeedMph * 88;
   const midDriftAnchor = integratedDrift(altExit, midOpenAlt, midFfRateFtMin);
-  // When canopy mode is on, open the middle group at the canopy's opening circle center
-  // so both modes share the same opening circle. Freefall-only: open at the target.
+  // Open the middle group at the canopy's opening circle center so both modes share the
+  // same opening circle. Canopy calc always runs before this (see calculate()), so
+  // state.canopy.result is populated whenever the anchor is needed.
   let anchorN = 0, anchorE = 0;
-  if (state.modes.canopy && state.canopy.result?.openCtr) {
+  if (state.canopy.result?.openCtr) {
     const oc = state.canopy.result.openCtr;
     anchorN = (oc.lat - openTarget.lat) * R_FT * D2R;
     anchorE = (oc.lng - openTarget.lng) * R_FT * Math.cos(openTarget.lat * D2R) * D2R;
@@ -412,7 +413,7 @@ function calculateFreefallPlan() {
   plan[middleIdx].openMemberPos = memberOpenPositions(plan[middleIdx], jrBaseN, jrBaseE);
   plan[middleIdx].minSepFt      = null; // resolved below
 
-  // ── Solve spacing for groups AFTER middle (forward in time = downwind) ──
+  // ── Solve spacing for groups AFTER middle (later in time = further upwind along JR) ──
   for (let i = middleIdx + 1; i < plan.length; i++) {
     const gPrev = plan[i - 1];
     const gThis = plan[i];
@@ -444,14 +445,14 @@ function calculateFreefallPlan() {
     gThis.minSepFt       = lastMin;
   }
 
-  // ── Solve spacing for groups BEFORE middle (backward in time = upwind) ──
+  // ── Solve spacing for groups BEFORE middle (earlier in time = further downwind along JR) ──
   for (let i = middleIdx - 1; i >= 0; i--) {
     const gNext = plan[i + 1];
     const gThis = plan[i];
     let tDelta  = openSepFt / jrGndSpdFps;
     let lastMin = 0;
     for (let iter = 0; iter < 50; iter++) {
-      // This group exits tDelta seconds BEFORE the next group along JR
+      // This group exits tDelta seconds BEFORE gNext, placing it further downwind
       const exitN = gNext.exitN - jrVec.n * jrGndSpdFps * tDelta;
       const exitE = gNext.exitE - jrVec.e * jrGndSpdFps * tDelta;
       const cur   = memberOpenPositions(gThis, exitN, exitE);
