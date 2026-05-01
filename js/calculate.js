@@ -403,87 +403,70 @@ function calculateFreefallPlan() {
     }));
   }
 
-  // ── Position middle group at jrBase ──
-  // Middle group's exit is at jrBaseN/jrBaseE (the natural center of the exit circle).
-  // tExitSec = 0 for middle group (reference). Groups before it have negative times
-  // (exit earlier), groups after have positive times (exit later).
-  plan[middleIdx].tExitSec      = 0;
-  plan[middleIdx].exitN         = jrBaseN;
-  plan[middleIdx].exitE         = jrBaseE;
-  plan[middleIdx].openMemberPos = memberOpenPositions(plan[middleIdx], jrBaseN, jrBaseE);
-  plan[middleIdx].minSepFt      = null; // resolved below
+  // ── Solve equal gap for all groups ──
+  // Place all groups symmetrically at equal time gaps around the middle group
+  // (middle at jrBase; earlier groups downwind, later groups upwind). Iterate the
+  // gap until every inter-group member pair is >= openSepFt apart at opening.
+  // Using a symmetric equal gap ensures both sides of the middle are treated
+  // consistently — a greedy one-sided pass can leave one side too close.
+  let gapSec  = openSepFt / jrGndSpdFps;
+  let lastMin = 0;
 
-  // ── Solve spacing for groups AFTER middle (later in time = further upwind along JR) ──
-  for (let i = middleIdx + 1; i < plan.length; i++) {
-    const gPrev = plan[i - 1];
-    const gThis = plan[i];
-    let tDelta  = openSepFt / jrGndSpdFps;
-    let lastMin = 0;
-    for (let iter = 0; iter < 50; iter++) {
-      const exitN = gPrev.exitN + jrVec.n * jrGndSpdFps * tDelta;
-      const exitE = gPrev.exitE + jrVec.e * jrGndSpdFps * tDelta;
-      const cur   = memberOpenPositions(gThis, exitN, exitE);
-      let minDist = Infinity;
-      for (let j = 0; j < i; j++) {
-        if (!plan[j].openMemberPos) continue; // pre-middle groups not yet positioned
-        plan[j].openMemberPos.forEach(prev => {
-          cur.forEach(c => {
-            const d = Math.hypot(c.dN - prev.dN, c.dE - prev.dE);
+  function placeAllGroups(gap) {
+    plan.forEach((p, i) => {
+      const offsetFt = (i - middleIdx) * gap * jrGndSpdFps;
+      p.exitN = jrBaseN + jrVec.n * offsetFt;
+      p.exitE = jrBaseE + jrVec.e * offsetFt;
+      p.openMemberPos = memberOpenPositions(p, p.exitN, p.exitE);
+    });
+  }
+
+  for (let iter = 0; iter < 100; iter++) {
+    placeAllGroups(gapSec);
+    let minDist = Infinity;
+    for (let a = 0; a < plan.length - 1; a++) {
+      for (let b = a + 1; b < plan.length; b++) {
+        plan[a].openMemberPos.forEach(pa => {
+          plan[b].openMemberPos.forEach(pb => {
+            const d = Math.hypot(pa.dN - pb.dN, pa.dE - pb.dE);
             if (d < minDist) minDist = d;
           });
         });
       }
-      lastMin = minDist;
-      if (minDist >= openSepFt) break;
-      tDelta += (openSepFt - minDist) / jrGndSpdFps + 0.1;
     }
-    gThis.tDeltaSec      = tDelta;
-    gThis.tExitSec       = gPrev.tExitSec + tDelta;
-    gThis.exitN          = gPrev.exitN + jrVec.n * jrGndSpdFps * tDelta;
-    gThis.exitE          = gPrev.exitE + jrVec.e * jrGndSpdFps * tDelta;
-    gThis.openMemberPos  = memberOpenPositions(gThis, gThis.exitN, gThis.exitE);
-    gThis.minSepFt       = lastMin;
+    lastMin = minDist;
+    if (minDist >= openSepFt) break;
+    gapSec += (openSepFt - minDist) / jrGndSpdFps + 0.1;
   }
 
-  // ── Solve spacing for groups BEFORE middle (earlier in time = further downwind along JR) ──
-  for (let i = middleIdx - 1; i >= 0; i--) {
-    const gNext = plan[i + 1];
-    const gThis = plan[i];
-    let tDelta  = openSepFt / jrGndSpdFps;
-    let lastMin = 0;
-    for (let iter = 0; iter < 50; iter++) {
-      // This group exits tDelta seconds BEFORE gNext, placing it further downwind
-      const exitN = gNext.exitN - jrVec.n * jrGndSpdFps * tDelta;
-      const exitE = gNext.exitE - jrVec.e * jrGndSpdFps * tDelta;
-      const cur   = memberOpenPositions(gThis, exitN, exitE);
-      // Check against ALL groups with higher index (they all exit after this one)
-      let minDist = Infinity;
-      for (let j = i + 1; j < plan.length; j++) {
-        plan[j].openMemberPos.forEach(prev => {
-          cur.forEach(c => {
-            const d = Math.hypot(c.dN - prev.dN, c.dE - prev.dE);
-            if (d < minDist) minDist = d;
-          });
+  // Assign tExitSec and tDeltaSec from final gap
+  plan.forEach((p, i) => {
+    p.tExitSec  = (i - middleIdx) * gapSec;
+    p.tDeltaSec = i > 0 ? gapSec : 0;
+  });
+
+  // Per-group minSepFt: minimum distance to any member of any other group
+  plan.forEach((p, i) => {
+    let ms = Infinity;
+    plan.forEach((q, j) => {
+      if (j === i) return;
+      q.openMemberPos.forEach(qm => {
+        p.openMemberPos.forEach(pm => {
+          const d = Math.hypot(pm.dN - qm.dN, pm.dE - qm.dE);
+          if (d < ms) ms = d;
         });
-      }
-      lastMin = minDist;
-      if (minDist >= openSepFt) break;
-      tDelta += (openSepFt - minDist) / jrGndSpdFps + 0.1;
-    }
-    gThis.tDeltaSec     = tDelta;    // gap to the next group in exit order
-    gThis.tExitSec      = gNext.tExitSec - tDelta;
-    gThis.exitN         = gNext.exitN - jrVec.n * jrGndSpdFps * tDelta;
-    gThis.exitE         = gNext.exitE - jrVec.e * jrGndSpdFps * tDelta;
-    gThis.openMemberPos = memberOpenPositions(gThis, gThis.exitN, gThis.exitE);
-    gThis.minSepFt      = lastMin;
-  }
+      });
+    });
+    p.minSepFt = isFinite(ms) ? ms : null;
+  });
+  plan[middleIdx].minSepFt = null;
 
-  // Normalize tExitSec so first exit (minimum) = 0.
+  // Normalize tExitSec so first exit = 0.
   const minT = Math.min(...plan.map(p => p.tExitSec));
   plan.forEach(p => { p.tExitSec -= minT; });
 
-  // Max tDeltaSec between consecutive groups (for display as "sep Xs")
-  const maxTDelta = plan.reduce((mx, p) => Math.max(mx, p.tDeltaSec ?? 0), 0);
+  // Equal gap between consecutive groups
+  const maxTDelta = gapSec;
 
   // Build renderer-ready result.
   const renderedGroups = plan.map(p => {
