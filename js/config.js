@@ -28,6 +28,8 @@ const FPS_PER_KT         = FT_PER_NM / 3600; // ≈1.6878; convert kt → ft/s
 const FPS_PER_MPH        = 5280 / 3600;      // ≈1.4667; convert mph → ft/s
 const FF_DT_SEC          = 0.1;     // freefall ODE integration step (s)
 const TRACK_GR           = 1.0;     // breakoff-to-open tracking glide ratio (1:1)
+const MVMT_STRAIGHT_SEC  = 3;       // movement groups fly JR heading this many seconds before turning lateral
+const MIN_EXIT_GAP_SEC   = 4;       // minimum exit time gap enforced between consecutive groups (s)
 
 // Wind cache TTL — 20 minutes
 const CACHE_MS = 20 * 60 * 1000;

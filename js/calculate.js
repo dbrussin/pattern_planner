@@ -148,7 +148,7 @@ function integrateFreefallExitToBreakoff(altTopAGL, altBotAGL, vTermSL_fps,
       const remaining = z - altBotAGL;
       if (v * dt > remaining) stepSec = remaining / v;
     }
-    const lat   = lateralGlide ? v * lateralGlide * lateralSign : 0;
+    const lat   = (lateralGlide && t >= MVMT_STRAIGHT_SEC) ? v * lateralGlide * lateralSign : 0;
     const w     = getWindAtAGL(z);
     const fwdN  = jrVec.n * u + jrPerp.n * lat;
     const fwdE  = jrVec.e * u + jrPerp.e * lat;
@@ -275,8 +275,9 @@ function calculateFreefallPlan() {
   const wJr         = getWindAtAGL(altExit);
   const jrTAS       = jrAirspeedKts * tasFactor(altExit);
   const jrAlongWC   = wJr.n * jrVec.n + wJr.e * jrVec.e;
-  const jrGndSpdKts = Math.max(1, jrTAS + jrAlongWC);
-  const jrGndSpdFps = jrGndSpdKts * FPS_PER_KT;
+  const jrGndSpdKts  = Math.max(1, jrTAS + jrAlongWC);
+  const jrGndSpdFps  = jrGndSpdKts * FPS_PER_KT;
+  const minExitGapFt = jrGndSpdFps * MIN_EXIT_GAP_SEC;
 
   const openTarget  = state.target;
 
@@ -315,9 +316,11 @@ function calculateFreefallPlan() {
     const t = GROUP_TYPES[g.type];
     if (t.isMovement) {
       const groupHdgDeg = ((jrHdg + (g.mvmt === 'L' ? -90 : 90)) + 360) % 360;
-      const hdgs = [];
-      for (let i = 0; i < g.size; i++) {
-        const frac   = g.size === 1 ? 0.5 : i / (g.size - 1);
+      // Leader (index 0) continues on movement heading; others spread ±45° around leader
+      const hdgs   = [groupHdgDeg];
+      const others = g.size - 1;
+      for (let i = 0; i < others; i++) {
+        const frac   = others === 1 ? 0.5 : i / (others - 1);
         const offDeg = -45 + frac * 90;
         hdgs.push((groupHdgDeg + offDeg + 360) % 360);
       }
@@ -355,9 +358,18 @@ function calculateFreefallPlan() {
       const trackBand = (breakoffAlt - openAlt) * TRACK_GR;
       let halfAngle;
       if (t.isMovement) {
-        // members span ±45° (total 90°) evenly; adjacent angular gap = 90/(N-1)°
-        const angGapDeg = g.size === 2 ? 90 : 90 / (g.size - 1);
-        halfAngle = (angGapDeg / 2) * D2R;
+        // New layout: leader at 0°, (N-1) others spanning ±45°.
+        // When N is odd, others count is even → no other lands at 0°; nearest other to
+        // leader is at 45/(others-1)°, giving min gap = 45/(others-1)° and
+        // halfAngle = 45/(2*(others-1))°.
+        // When N is even, others count is odd → middle other lands at 0° (overlaps
+        // leader); min gap = 0° → sin_h = 0 → check skipped by guard below.
+        const others = g.size - 1;
+        if (others >= 2 && others % 2 === 0) {
+          halfAngle = (45 / (2 * (others - 1))) * D2R;
+        } else {
+          halfAngle = 0;
+        }
       } else {
         // members spread 360°/N apart
         halfAngle = Math.PI / g.size;
@@ -455,9 +467,10 @@ function calculateFreefallPlan() {
       if (minSepFromPlaced(plan[i], mid) >= openSepFt) hi = mid;
       else lo = mid;
     }
-    exitOffsets[i]   = hi;
+    // Enforce minimum exit time gap (4 s) in addition to opening separation
+    exitOffsets[i]   = Math.max(hi, prevOff + minExitGapFt);
     plan[i]._placed  = true;
-    plan[i]._openPos = memberOpenPosAtOffset(plan[i], hi);
+    plan[i]._openPos = memberOpenPosAtOffset(plan[i], exitOffsets[i]);
   }
 
   // Left wing: exit earlier, more downwind → decreasing (more negative) offset
@@ -469,10 +482,16 @@ function calculateFreefallPlan() {
       if (minSepFromPlaced(plan[i], mid) >= openSepFt) lo = mid;
       else hi = mid;
     }
-    exitOffsets[i]   = lo;
+    // Enforce minimum exit time gap (4 s) in addition to opening separation
+    exitOffsets[i]   = Math.min(lo, nextOff - minExitGapFt);
     plan[i]._placed  = true;
-    plan[i]._openPos = memberOpenPosAtOffset(plan[i], lo);
+    plan[i]._openPos = memberOpenPosAtOffset(plan[i], exitOffsets[i]);
   }
+
+  // Center the full first→last exit span in the exit circle (jrBase becomes the midpoint
+  // of the span rather than the anchor for the middle group alone).
+  const spanCenter = (exitOffsets[0] + exitOffsets[plan.length - 1]) / 2;
+  for (let i = 0; i < exitOffsets.length; i++) exitOffsets[i] -= spanCenter;
 
   // Apply solved offsets → exit positions, member opening positions, timing
   plan.forEach((p, i) => {
