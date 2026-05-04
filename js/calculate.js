@@ -316,15 +316,17 @@ function calculateFreefallPlan() {
     const t = GROUP_TYPES[g.type];
     if (t.isMovement) {
       const groupHdgDeg = ((jrHdg + (g.mvmt === 'L' ? -90 : 90)) + 360) % 360;
-      // Leader (index 0) continues on movement heading; others spread ±45° around leader
-      const hdgs   = [groupHdgDeg];
-      const others = g.size - 1;
-      for (let i = 0; i < others; i++) {
-        const frac   = others === 1 ? 0.5 : i / (others - 1);
-        const offDeg = -45 + frac * 90;
-        hdgs.push((groupHdgDeg + offDeg + 360) % 360);
+      // All N members spread evenly over ±45° from movement heading (step = 90/(N-1)).
+      // Leader (index 0) is the member at the floor-middle index — exactly at 0° for odd N,
+      // one step left of center for even N ("ok that more on one side" per spec).
+      const step = 90 / (g.size - 1);
+      const leaderIdx = Math.floor((g.size - 1) / 2);
+      const raw = [];
+      for (let i = 0; i < g.size; i++) {
+        raw.push((groupHdgDeg + (-45 + i * step) + 360) % 360);
       }
-      return hdgs;
+      if (leaderIdx !== 0) { raw.unshift(raw.splice(leaderIdx, 1)[0]); }
+      return raw;
     }
     const hdgs = [];
     for (let i = 0; i < g.size; i++) hdgs.push((i * 360) / g.size);
@@ -358,18 +360,8 @@ function calculateFreefallPlan() {
       const trackBand = (breakoffAlt - openAlt) * TRACK_GR;
       let halfAngle;
       if (t.isMovement) {
-        // New layout: leader at 0°, (N-1) others spanning ±45°.
-        // When N is odd, others count is even → no other lands at 0°; nearest other to
-        // leader is at 45/(others-1)°, giving min gap = 45/(others-1)° and
-        // halfAngle = 45/(2*(others-1))°.
-        // When N is even, others count is odd → middle other lands at 0° (overlaps
-        // leader); min gap = 0° → sin_h = 0 → check skipped by guard below.
-        const others = g.size - 1;
-        if (others >= 2 && others % 2 === 0) {
-          halfAngle = (45 / (2 * (others - 1))) * D2R;
-        } else {
-          halfAngle = 0;
-        }
+        // All N members evenly spaced with step = 90/(N-1)°; adjacent gap = step.
+        halfAngle = (45 / (g.size - 1)) * D2R;
       } else {
         // members spread 360°/N apart
         halfAngle = Math.PI / g.size;
