@@ -316,17 +316,17 @@ function calculateFreefallPlan() {
     const t = GROUP_TYPES[g.type];
     if (t.isMovement) {
       const groupHdgDeg = ((jrHdg + (g.mvmt === 'L' ? -90 : 90)) + 360) % 360;
-      // All N members spread evenly over ±45° from movement heading (step = 90/(N-1)).
-      // Leader (index 0) is the member at the floor-middle index — exactly at 0° for odd N,
-      // one step left of center for even N ("ok that more on one side" per spec).
-      const step = 90 / (g.size - 1);
-      const leaderIdx = Math.floor((g.size - 1) / 2);
-      const raw = [];
-      for (let i = 0; i < g.size; i++) {
-        raw.push((groupHdgDeg + (-45 + i * step) + 360) % 360);
-      }
-      if (leaderIdx !== 0) { raw.unshift(raw.splice(leaderIdx, 1)[0]); }
-      return raw;
+      // Leader (index 0) always at movement heading (0° offset).
+      // nRight = ceil((N-1)/2) others go to the positive side, nLeft to the negative.
+      // Step = 45°/nRight → furthest positive member is exactly +45°, all gaps uniform.
+      // For even N nRight > nLeft so more members are on the positive side.
+      const nRight = Math.ceil((g.size - 1) / 2);
+      const nLeft  = g.size - 1 - nRight;
+      const step   = nRight > 0 ? 45 / nRight : 45;
+      const hdgs   = [groupHdgDeg];
+      for (let i = nLeft; i >= 1; i--) hdgs.push((groupHdgDeg - i * step + 360) % 360);
+      for (let i = 1; i <= nRight; i++) hdgs.push((groupHdgDeg + i * step + 360) % 360);
+      return hdgs;
     }
     const hdgs = [];
     for (let i = 0; i < g.size; i++) hdgs.push((i * 360) / g.size);
@@ -360,8 +360,9 @@ function calculateFreefallPlan() {
       const trackBand = (breakoffAlt - openAlt) * TRACK_GR;
       let halfAngle;
       if (t.isMovement) {
-        // All N members evenly spaced with step = 90/(N-1)°; adjacent gap = step.
-        halfAngle = (45 / (g.size - 1)) * D2R;
+        // step = 45/nRight (matches memberTrackHeadings); halfAngle = step/2.
+        const nRight = Math.ceil((g.size - 1) / 2);
+        halfAngle = nRight > 0 ? (22.5 / nRight) * D2R : 0;
       } else {
         // members spread 360°/N apart
         halfAngle = Math.PI / g.size;
