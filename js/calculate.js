@@ -133,10 +133,14 @@ function integrateFreefallExitToBreakoff(altTopAGL, altBotAGL, vTermSL_fps,
   const dt = FF_DT_SEC;
   // Sample positions every ~500 ft of descent so movement-group paths can be
   // rendered as a curve (forward throw decays while lateral glide grows in).
-  const SAMPLE_FT      = 500;
-  const pathPoints     = [{ dN: 0, dE: 0, alt: altTopAGL }];
-  let   nextSampleAlt  = altTopAGL - SAMPLE_FT;
-  let   safety         = 0;
+  // For movement groups an extra sample is injected at the straight→lateral
+  // transition (MVMT_STRAIGHT_SEC) so the first rendered segment is a clean
+  // along-JR line rather than a blend of straight + early lateral glide.
+  const SAMPLE_FT          = 500;
+  const pathPoints         = [{ dN: 0, dE: 0, alt: altTopAGL }];
+  let   nextSampleAlt      = altTopAGL - SAMPLE_FT;
+  let   straightSampled    = !lateralGlide;  // non-movement groups skip this
+  let   safety             = 0;
   while (z > altBotAGL && safety++ < 20000) {
     const vTermAlt = vTermSL_fps * tasFactor(z);
     const kOverM   = G_FT_S2 / (vTermAlt * vTermAlt);
@@ -161,6 +165,11 @@ function integrateFreefallExitToBreakoff(altTopAGL, altBotAGL, vTermSL_fps,
     if (u < 0) u = 0;
     z -= v * stepSec;
     t += stepSec;
+    // Inject transition sample at the straight→lateral boundary
+    if (!straightSampled && t >= MVMT_STRAIGHT_SEC) {
+      pathPoints.push({ dN, dE, alt: z });
+      straightSampled = true;
+    }
     if (z <= nextSampleAlt && z > altBotAGL) {
       pathPoints.push({ dN, dE, alt: z });
       nextSampleAlt -= SAMPLE_FT;
