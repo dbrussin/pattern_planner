@@ -269,12 +269,10 @@ function calculateFreefallPlan() {
     } else {
       jrHdg = 0;
     }
-    if (!state.canopy.result) {
-      const dEl = document.getElementById('jr-hdg-display');
-      const sEl = document.getElementById('jr-hdg-slider');
-      if (dEl) dEl.value = Math.round(jrHdg);
-      if (sEl) sEl.value = Math.round(jrHdg);
-    }
+    const dEl = document.getElementById('jr-hdg-display');
+    const sEl = document.getElementById('jr-hdg-slider');
+    if (dEl) dEl.value = Math.round(jrHdg);
+    if (sEl) sEl.value = Math.round(jrHdg);
   }
 
   const jrVec  = hdgVec(jrHdg);

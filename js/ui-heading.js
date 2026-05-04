@@ -196,7 +196,8 @@ function onJrHdgBlur() {
 }
 
 function updateJrPyramid() {
-  const wExit  = getWindAtAGL(parseFloat(document.getElementById('alt-exit').value) || 13500);
+  const altExit = parseFloat(document.getElementById('alt-exit').value) || 13500;
+  const wExit   = avgWindVec(firstGroupOpenAlt(), altExit);
   const pyr    = document.getElementById('jr-wind-pyramid');
   const pyrHit = document.getElementById('jr-wind-pyramid-hit');
   if (!pyr || vecLen(wExit) < 0.1) {
@@ -220,7 +221,7 @@ function updateJrPyramid() {
 function autoSetJumpRunHeading() {
   if (!state.jumpRun.manualHeading) {
     const altExit = parseFloat(document.getElementById('alt-exit').value) || 13500;
-    const wExit   = getWindAtAGL(altExit);
+    const wExit   = avgWindVec(firstGroupOpenAlt(), altExit);
     if (vecLen(wExit) > 0.1) {
       const windVelDir = (Math.atan2(wExit.e, wExit.n) * R2D + 360) % 360;
       const dir        = Math.round((windVelDir + 180) % 360);
