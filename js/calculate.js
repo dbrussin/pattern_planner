@@ -335,8 +335,11 @@ function calculateFreefallPlan() {
       for (let i = 1; i <= nRight; i++) hdgs.push((groupHdgDeg + i * step + 360) % 360);
       return hdgs;
     }
+    // Track perpendicular to JR (jrHdg+90° = right of JR) and spread evenly from there.
+    // JR-relative so geometry rotates with JR heading; starting at the perpendicular
+    // maximizes each member's cross-track distance from the jump run.
     const hdgs = [];
-    for (let i = 0; i < g.size; i++) hdgs.push((i * 360) / g.size);
+    for (let i = 0; i < g.size; i++) hdgs.push((jrHdg + 90 + i * 360 / g.size + 360) % 360);
     return hdgs;
   }
 
@@ -431,18 +434,10 @@ function calculateFreefallPlan() {
   // conservative (never unsafe) even when the separation function has a local dip.
   const SEARCH_RANGE = Math.max(openSepFt * 60, 60000);  // ft — generous upper bound
 
-  // Returns the centroid (average) opening position for the group at a given exit offset.
-  // Using centroid rather than per-member positions makes the inter-group separation check
-  // heading-independent: for regular groups the symmetric tracking fan cancels to the
-  // breakoff point; for movement groups the centroid stays in the ±jrPerp direction.
-  // Per-member intra-group separation is handled separately by reqBreakoffAlt.
   function memberOpenPosAtOffset(p, offsetFt) {
     const brN = jrBaseN + jrVec.n * offsetFt + p.breakoffDispN;
     const brE = jrBaseE + jrVec.e * offsetFt + p.breakoffDispE;
-    const n = p.memberLegs.length;
-    let sumN = 0, sumE = 0;
-    p.memberLegs.forEach(m => { sumN += m.dN; sumE += m.dE; });
-    return [{ dN: brN + sumN / n, dE: brE + sumE / n }];
+    return p.memberLegs.map(m => ({ dN: brN + m.dN, dE: brE + m.dE }));
   }
 
   function minSepFromPlaced(p, offsetFt) {
