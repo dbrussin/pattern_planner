@@ -403,70 +403,110 @@ function calculateFreefallPlan() {
     }));
   }
 
-  // ── Solve equal gap for all groups ──
-  // Place all groups symmetrically at equal time gaps around the middle group
-  // (middle at jrBase; earlier groups downwind, later groups upwind). Iterate the
-  // gap until every inter-group member pair is >= openSepFt apart at opening.
-  // Using a symmetric equal gap ensures both sides of the middle are treated
-  // consistently — a greedy one-sided pass can leave one side too close.
-  let gapSec  = openSepFt / jrGndSpdFps;
-  let lastMin = 0;
+  // ── Per-group binary-search solver ──────────────────────────────────────────
+  // Greedy forward pass outward from the middle group. For each new group,
+  // binary-search for the minimum exit offset (ft along jrVec) such that every
+  // member of that group is >= openSepFt from every member of all already-placed
+  // groups. Non-adjacent pairs are checked automatically because each new group
+  // is tested against ALL placed groups, not just the nearest neighbour.
+  // Per-pair gaps emerge naturally from each group's individual physics (different
+  // fall rates, breakoff alts, tracking patterns) rather than a shared equal gap.
+  //
+  // Binary search direction for each wing:
+  //   Right wing: offset increases (upwind) → separation from placed groups increases.
+  //   Left wing:  offset decreases (downwind) → separation from placed groups increases.
+  // The search converges to the minimum offset that satisfies the constraint; it is
+  // conservative (never unsafe) even when the separation function has a local dip.
+  const SEARCH_RANGE = Math.max(openSepFt * 60, 60000);  // ft — generous upper bound
 
-  function placeAllGroups(gap) {
-    plan.forEach((p, i) => {
-      const offsetFt = (i - middleIdx) * gap * jrGndSpdFps;
-      p.exitN = jrBaseN + jrVec.n * offsetFt;
-      p.exitE = jrBaseE + jrVec.e * offsetFt;
-      p.openMemberPos = memberOpenPositions(p, p.exitN, p.exitE);
-    });
+  function memberOpenPosAtOffset(p, offsetFt) {
+    const brN = jrBaseN + jrVec.n * offsetFt + p.breakoffDispN;
+    const brE = jrBaseE + jrVec.e * offsetFt + p.breakoffDispE;
+    return p.memberLegs.map(m => ({ dN: brN + m.dN, dE: brE + m.dE }));
   }
 
-  for (let iter = 0; iter < 100; iter++) {
-    placeAllGroups(gapSec);
+  function minSepFromPlaced(p, offsetFt) {
+    const pos = memberOpenPosAtOffset(p, offsetFt);
     let minDist = Infinity;
-    for (let a = 0; a < plan.length - 1; a++) {
-      for (let b = a + 1; b < plan.length; b++) {
-        plan[a].openMemberPos.forEach(pa => {
-          plan[b].openMemberPos.forEach(pb => {
-            const d = Math.hypot(pa.dN - pb.dN, pa.dE - pb.dE);
-            if (d < minDist) minDist = d;
-          });
-        });
+    for (const fp of plan) {
+      if (!fp._placed) continue;
+      for (const a of pos) {
+        for (const b of fp._openPos) {
+          const d = Math.hypot(a.dN - b.dN, a.dE - b.dE);
+          if (d < minDist) minDist = d;
+        }
       }
     }
-    lastMin = minDist;
-    if (minDist >= openSepFt) break;
-    gapSec += (openSepFt - minDist) / jrGndSpdFps + 0.1;
+    return minDist;
   }
 
-  // Assign tExitSec and tDeltaSec from final gap
+  const exitOffsets = new Array(plan.length).fill(0);
+
+  // Middle group anchored at jrBase (offset = 0 ft)
+  plan[middleIdx]._placed  = true;
+  plan[middleIdx]._openPos = memberOpenPosAtOffset(plan[middleIdx], 0);
+
+  // Right wing: exit later, more upwind → increasing positive offset
+  for (let i = middleIdx + 1; i < plan.length; i++) {
+    const prevOff = exitOffsets[i - 1];
+    let lo = prevOff, hi = prevOff + SEARCH_RANGE;
+    for (let it = 0; it < 60; it++) {
+      const mid = (lo + hi) / 2;
+      if (minSepFromPlaced(plan[i], mid) >= openSepFt) hi = mid;
+      else lo = mid;
+    }
+    exitOffsets[i]   = hi;
+    plan[i]._placed  = true;
+    plan[i]._openPos = memberOpenPosAtOffset(plan[i], hi);
+  }
+
+  // Left wing: exit earlier, more downwind → decreasing (more negative) offset
+  for (let i = middleIdx - 1; i >= 0; i--) {
+    const nextOff = exitOffsets[i + 1];
+    let lo = nextOff - SEARCH_RANGE, hi = nextOff;
+    for (let it = 0; it < 60; it++) {
+      const mid = (lo + hi) / 2;
+      if (minSepFromPlaced(plan[i], mid) >= openSepFt) lo = mid;
+      else hi = mid;
+    }
+    exitOffsets[i]   = lo;
+    plan[i]._placed  = true;
+    plan[i]._openPos = memberOpenPosAtOffset(plan[i], lo);
+  }
+
+  // Apply solved offsets → exit positions, member opening positions, timing
   plan.forEach((p, i) => {
-    p.tExitSec  = (i - middleIdx) * gapSec;
-    p.tDeltaSec = i > 0 ? gapSec : 0;
+    p.exitN         = jrBaseN + jrVec.n * exitOffsets[i];
+    p.exitE         = jrBaseE + jrVec.e * exitOffsets[i];
+    p.openMemberPos = memberOpenPositions(p, p.exitN, p.exitE);
+    p.tExitSec      = exitOffsets[i] / jrGndSpdFps;
+    p.tDeltaSec     = i > 0 ? (exitOffsets[i] - exitOffsets[i - 1]) / jrGndSpdFps : 0;
   });
 
-  // Per-group minSepFt: minimum distance to any member of any other group
+  // Normalize so first exit = 0 s
+  const minT = Math.min(...plan.map(p => p.tExitSec));
+  plan.forEach(p => { p.tExitSec -= minT; });
+
+  // Per-group minSepFt: minimum separation from any member of any other group
   plan.forEach((p, i) => {
     let ms = Infinity;
     plan.forEach((q, j) => {
       if (j === i) return;
-      q.openMemberPos.forEach(qm => {
-        p.openMemberPos.forEach(pm => {
+      for (const pm of p.openMemberPos) {
+        for (const qm of q.openMemberPos) {
           const d = Math.hypot(pm.dN - qm.dN, pm.dE - qm.dE);
           if (d < ms) ms = d;
-        });
-      });
+        }
+      }
     });
     p.minSepFt = isFinite(ms) ? ms : null;
   });
   plan[middleIdx].minSepFt = null;
 
-  // Normalize tExitSec so first exit = 0.
-  const minT = Math.min(...plan.map(p => p.tExitSec));
-  plan.forEach(p => { p.tExitSec -= minT; });
-
-  // Equal gap between consecutive groups
-  const maxTDelta = gapSec;
+  // Max per-pair gap for the jump run label in draw.js
+  const maxTDelta = plan.length > 1
+    ? Math.max(...plan.filter((_, i) => i > 0).map(p => p.tDeltaSec))
+    : 0;
 
   // Build renderer-ready result.
   const renderedGroups = plan.map(p => {
