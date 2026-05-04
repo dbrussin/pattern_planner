@@ -335,11 +335,10 @@ function calculateFreefallPlan() {
       for (let i = 1; i <= nRight; i++) hdgs.push((groupHdgDeg + i * step + 360) % 360);
       return hdgs;
     }
-    // Track perpendicular to JR (jrHdg+90° = right of JR) and spread evenly from there.
-    // JR-relative so geometry rotates with JR heading; starting at the perpendicular
-    // maximizes each member's cross-track distance from the jump run.
+    // Track relative to JR, offset by a half-step (180°/N) so no member tracks
+    // along JR (0°/180° relative). Results: N=2 → ±90°, N=4 → 45/135/225/315°, etc.
     const hdgs = [];
-    for (let i = 0; i < g.size; i++) hdgs.push((jrHdg + 90 + i * 360 / g.size + 360) % 360);
+    for (let i = 0; i < g.size; i++) hdgs.push((jrHdg + (2 * i + 1) * 180 / g.size + 360) % 360);
     return hdgs;
   }
 
