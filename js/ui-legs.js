@@ -192,7 +192,7 @@ function getLegAltConstraints(numId) {
   const altEnter = parseFloat(document.getElementById('alt-enter')?.value) || 900;
   const altBase  = parseFloat(document.getElementById('alt-base')?.value)  || 600;
   const altFinal = parseFloat(document.getElementById('alt-final')?.value) || 300;
-  const altOpen  = parseFloat(document.getElementById('alt-open')?.value)  || 3000;
+  const altOpen  = state.freefall.groups[0]?.openAlt ?? 3000;  // opening alt from group #1
   const altExit  = parseFloat(document.getElementById('alt-exit')?.value)  || 13500;
   // Ceiling for the highest canopy leg: must stay below opening altitude
   const topMax   = altOpen - MIN_GAP;
@@ -208,12 +208,6 @@ function getLegAltConstraints(numId) {
     const lowestXL = displayOrder.length > 0 ? getAlt(displayOrder[displayOrder.length - 1]) : Infinity;
     const maxVal   = isFinite(lowestXL) ? lowestXL - MIN_GAP : topMax;
     return { min: altBase + MIN_GAP, max: Math.max(altBase + MIN_GAP, maxVal) };
-  }
-  if (numId === 'alt-open') {
-    // Highest canopy alt: max of alt-enter and any extra leg
-    const highestXL = displayOrder.length > 0 ? getAlt(displayOrder[0]) : -Infinity;
-    const highestLeg = isFinite(highestXL) ? Math.max(altEnter, highestXL) : altEnter;
-    return { min: highestLeg + MIN_GAP, max: Math.max(highestLeg + MIN_GAP, altExit - MIN_GAP) };
   }
   if (numId === 'alt-exit') {
     return { min: altOpen + MIN_GAP, max: 25000 };
@@ -236,8 +230,6 @@ function updateAllSliderRanges() {
   const legIds = ['alt-final', 'alt-base', 'alt-enter'];
   legIds.forEach(id => applySliderRange(id));
   (state.canopy.extraLegs || []).forEach(xl => applySliderRange(`alt-${xl.id}`));
-  // Jump run altitudes participate in the same constraint chain
-  applySliderRange('alt-open');
   applySliderRange('alt-exit');
 }
 
@@ -281,12 +273,6 @@ function onLegAlt(numId, src) {
 
 function onExitAltChange() {
   applySliderRange('alt-exit');
-  updateAllSliderRanges();
-  calculate();
-}
-
-function onOpenAltChange() {
-  applySliderRange('alt-open');
   updateAllSliderRanges();
   calculate();
 }

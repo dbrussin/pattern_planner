@@ -113,80 +113,175 @@ function freefallDot(color, size = 9) {
 
 /**
  * Render the freefall plan from state.freefall.result.
- * For each group:
- *  - exit point marker (square-ish dot) + label with name, size, exit time
- *  - line from exit to group breakoff center (freefall path)
- *  - line from breakoff center to each member's opening point (tracking path)
- *  - opening point markers per member
- * All positions are precomputed by calculateFreefallPlan().
+ * For each group: exit marker + label, freefall path, tracking spread, opening markers.
+ * Also draws a jump run line through all exit points with timing/speed label,
+ * and highlights the middle group's exit (center of exit circle).
+ * Groups with insufficient breakoff altitude for intra-group separation get a warning.
  */
 function drawFreefallPlan() {
   const r = state.freefall.result;
   if (!r || !r.groups || !r.groups.length) return;
   const showPaths  = state.layers.freefallPaths !== false;
   const showLabels = state.layers.freefallLabels !== false;
+  const shadow     = '0 1px 4px #000,0 0 8px #000';
 
   r.groups.forEach((g, gi) => {
     const color = FREEFALL_GROUP_COLORS[gi % FREEFALL_GROUP_COLORS.length];
 
     if (showPaths) {
-      // Exit → breakoff (group center freefall path).
-      // Movement groups curve as the throw decays and lateral glide grows in;
-      // vertical groups fall nearly straight down (path collapses to ~2 points).
       const pathLatLngs = (g.ffPath && g.ffPath.length >= 2)
         ? g.ffPath.map(ll)
         : [ll(g.exit), ll(g.breakoff)];
-      addL(L.polyline(pathLatLngs, {
-        color, weight: 2.5, opacity: 0.85, dashArray: '6 4',
-      }));
-      // Breakoff → each member's opening point (tracking spread)
+      addL(L.polyline(pathLatLngs, { color, weight: 2.5, opacity: 0.85, dashArray: '6 4' }));
       g.members.forEach(m => {
-        addL(L.polyline([ll(m.breakoff), ll(m.opening)], {
-          color, weight: 1.5, opacity: 0.7,
-        }));
+        addL(L.polyline([ll(m.breakoff), ll(m.opening)], { color, weight: 1.5, opacity: 0.7 }));
       });
     }
 
-    // Markers — exit, breakoff, opening points
-    addL(L.marker(ll(g.exit),     { icon: freefallDot(color, 11), zIndexOffset: 110 }));
-    addL(L.marker(ll(g.breakoff), { icon: freefallDot(color, 7),  zIndexOffset: 95 }));
+    // Exit marker: larger for middle group (center of exit circle)
+    const exitSize = g.isMiddle ? 14 : 11;
+    addL(L.marker(ll(g.exit),     { icon: freefallDot(color, exitSize), zIndexOffset: 110 }));
+    addL(L.marker(ll(g.breakoff), { icon: freefallDot(color, 7),        zIndexOffset: 95  }));
     g.members.forEach(m => {
       addL(L.marker(ll(m.opening), { icon: freefallDot(color, 7), zIndexOffset: 100 }));
     });
 
     if (showLabels) {
-      const tExit = g.tExitSec >= 0 ? `+${Math.round(g.tExitSec)}s` : `${Math.round(g.tExitSec)}s`;
+      const tSec  = Math.round(g.tExitSec);
+      const tTxt  = `+${tSec}s`;
       const sepTxt = g.minSepFt != null ? ` · sep ${g.minSepFt}ft` : '';
-      const exitLbl = `${g.name} (${g.size}× ${g.type})\n${tExit} · throw ${g.throwFt}ft${sepTxt}`;
+      const midTxt = g.isMiddle ? ' ●' : '';
+      const line1  = `${g.name} (${g.size}× ${g.type})${midTxt}`;
+      const line2  = `${tTxt} · open ${g.openAlt}ft · brk ${g.breakoffAlt}ft · throw ${g.throwFt}ft${sepTxt}`;
       addL(L.marker(ll(g.exit), {
         icon: L.divIcon({
           html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;
-            color:${color};text-shadow:0 1px 4px #000,0 0 8px #000;white-space:pre;
-            pointer-events:none;text-align:left;line-height:1.3;padding-left:14px;">${exitLbl}</div>`,
-          iconSize: [200, 32], iconAnchor: [0, 16], className: '',
+            color:${color};text-shadow:${shadow};white-space:pre;
+            pointer-events:none;text-align:left;line-height:1.3;padding-left:14px;">${line1}\n${line2}</div>`,
+          iconSize: [320, 38], iconAnchor: [0, 19], className: '',
         }),
         interactive: false, zIndexOffset: 50,
       }));
+
+      // Breakoff-altitude warning: insufficient intra-group tracking spread
+      if (g.reqBreakoffAlt != null) {
+        const warnTxt = `⚠ ${g.name}: breakoff needs ${g.reqBreakoffAlt.toLocaleString()}ft for ${r.openSepFt}ft sep`;
+        addL(L.marker(ll(g.breakoff), {
+          icon: L.divIcon({
+            html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;
+              color:#f87171;text-shadow:${shadow};white-space:nowrap;pointer-events:none;
+              padding-left:10px;">${warnTxt}</div>`,
+            iconSize: [340, 16], iconAnchor: [0, 8], className: '',
+          }),
+          interactive: false, zIndexOffset: 60,
+        }));
+      }
     }
   });
 
-  // Plan summary: total pass time, jump run ground speed
-  if (showLabels && r.groups.length > 1) {
-    const last = r.groups[r.groups.length - 1];
-    const passSec = Math.round(last.tExitSec);
-    const summary = `Pass ${passSec}s · GS ${r.jrGndSpdKts}kt`;
-    addL(L.marker(ll(r.openTarget), {
-      icon: L.divIcon({
-        html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:600;
-          color:rgba(160,220,255,0.9);text-shadow:0 1px 4px #000,0 0 8px #000;white-space:nowrap;
-          pointer-events:none;text-align:center;padding-top:24px;">${summary}</div>`,
-        iconSize: [200, 16], iconAnchor: [100, 0], className: '',
-      }),
-      interactive: false, zIndexOffset: 40,
-    }));
+  // ── Jump run, exit circle, opening circle ──
+  // Canopy mode draws these when its display is on — skip here to avoid duplicates.
+  // When canopy display is off, draw the JR line and zone circles using the canopy
+  // result (always computed when freefall is active) or DOM fallback if unavailable.
+  if (!state.modes.canopy) {
+    const jrVec    = hdgVec(r.jrHdg);
+    const midGroup = r.groups.find(g => g.isMiddle) || r.groups[Math.floor(r.groups.length / 2)];
+    const margin   = 1 - (parseFloat(document.getElementById('safety-margin').value) || 0) / 100;
+
+    if (state.layers.jumpRun && showLabels && r.groups.length) {
+      const first    = r.groups[0];
+      const last     = r.groups[r.groups.length - 1];
+      const extFt    = 1500;
+      const jrStart  = offsetLL(first.exit.lat, first.exit.lng, -jrVec.n * extFt, -jrVec.e * extFt);
+      const jrEnd    = offsetLL(last.exit.lat,  last.exit.lng,   jrVec.n * extFt,  jrVec.e * extFt);
+      addL(L.polyline([ll(jrStart), ll(jrEnd)], {
+        color: 'rgba(160,220,255,0.7)', weight: 2, dashArray: '8 5', interactive: false,
+      }));
+      const chevronSvg = `<svg width="14" height="14" viewBox="0 0 12 12" style="display:block;">
+        <polyline points="3,10 6,2 9,10" fill="none" stroke="rgba(160,220,255,0.95)"
+          stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+          transform="rotate(${r.jrHdg},6,6)"/>
+      </svg>`;
+      addL(L.marker(ll(midGroup.exit), {
+        icon: L.divIcon({ html: chevronSvg, iconSize: [14, 14], iconAnchor: [7, 7], className: '' }),
+        interactive: false, zIndexOffset: 43,
+      }));
+      const passSec = Math.round(last.tExitSec);
+      const maxGap  = r.maxTDelta ? `· ${Math.round(r.maxTDelta)}s max gap` : '';
+      const jrLblPt = offsetLL(jrEnd.lat, jrEnd.lng, jrVec.n * 300, jrVec.e * 300);
+      addL(L.marker(ll(jrLblPt), {
+        icon: L.divIcon({
+          html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;
+            color:rgba(160,220,255,1);text-shadow:${shadow};
+            white-space:nowrap;pointer-events:none;text-align:center;line-height:1.5;">
+            Jump run ${Math.round(r.jrHdg)}° · ${r.jrGndSpdKts}kt GS · ${passSec}s pass ${maxGap}
+          </div>`,
+          iconSize: [420, 22], iconAnchor: [210, 11], className: '',
+        }),
+        interactive: false, zIndexOffset: 45,
+      }));
+    }
+
+    // Exit and opening circles — use canopy result when available (always when freefall mode
+    // is active, since canopy calc runs unconditionally); fall back to DOM approximation.
+    if (state.layers.exitRegion || state.layers.canopyRegions) {
+      const cr           = state.canopy.result;
+      const altOpen      = midGroup.openAlt;
+      const exitCenter   = cr ? cr.exitCenter : r.jrBasePt;
+      const openCtr      = cr ? cr.openCtr : (() => {
+        const ffDrift = integratedDrift(r.altExit, altOpen, (GROUP_TYPES[midGroup.type]?.fallMph ?? 120) * 88);
+        return offsetLL(r.jrBasePt.lat, r.jrBasePt.lng, ffDrift.dN, ffDrift.dE);
+      })();
+      const openRadiusFt = cr ? cr.openRadiusFt
+        : Math.max(0, altOpen - (parseFloat(document.getElementById('alt-enter').value) || 1000))
+          * (parseFloat(document.getElementById('glide').value) || 2.5);
+
+      function ffZoneLabel(ctr, radiusFt, txt, color, windVelDir) {
+        const upwindHdg = (windVelDir + 180) % 360;
+        const upwindVec = hdgVec(upwindHdg);
+        const labelPt   = offsetLL(ctr.lat, ctr.lng,
+          upwindVec.n * (radiusFt * margin + 100), upwindVec.e * (radiusFt * margin + 100));
+        const arrowSvg  = `<svg width="12" height="12" viewBox="0 0 14 14" style="display:inline-block;vertical-align:middle;margin-right:3px;flex-shrink:0;">
+          <polygon points="7,1 12,13 7,10 2,13" fill="${color}" transform="rotate(${windVelDir},7,7)"/>
+        </svg>`;
+        addL(L.marker(ll(labelPt), {
+          icon: L.divIcon({
+            html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;
+              color:${color};text-shadow:0 1px 4px #000,0 0 8px #000;white-space:nowrap;
+              text-align:center;pointer-events:none;line-height:1.4;display:flex;align-items:center;justify-content:center;">
+              ${arrowSvg}${txt}</div>`,
+            iconSize: [160, 20], iconAnchor: [80, 10], className: '',
+          }),
+          interactive: false, zIndexOffset: 40,
+        }));
+      }
+
+      if (state.layers.canopyRegions && openRadiusFt > 0) {
+        const altBot  = cr ? cr.altE : (parseFloat(document.getElementById('alt-enter').value) || 1000);
+        const openAvg = avgWindInBand(altBot, altOpen);
+        addL(L.circle([openCtr.lat, openCtr.lng], {
+          radius: openRadiusFt * margin * 0.3048,
+          color: 'rgba(255,210,80,0.95)', weight: 2.5, fill: false, interactive: false,
+        }));
+        ffZoneLabel(openCtr, openRadiusFt,
+          `Open ${altOpen.toLocaleString()}ft · ${openAvg.spd}kt`,
+          'rgba(255,220,100,1)', openAvg.dir);
+      }
+
+      if (state.layers.exitRegion && openRadiusFt > 0) {
+        const ffAvg = avgWindInBand(altOpen, r.altExit);
+        addL(L.circle([exitCenter.lat, exitCenter.lng], {
+          radius: openRadiusFt * margin * 0.3048,
+          color: 'rgba(160,220,255,0.95)', weight: 2.5, fill: false, interactive: false, dashArray: '8 5',
+        }));
+        ffZoneLabel(exitCenter, openRadiusFt,
+          `Exit ${r.altExit.toLocaleString()}ft · ${ffAvg.spd}kt`,
+          'rgba(180,230,255,1)', ffAvg.dir);
+      }
+    }
   }
 
-  // fitBounds when canopy mode is off (otherwise canopy handles fit)
+  // fitBounds when canopy mode is off
   if (!state.modes.canopy && !state.fitDone) {
     const pts = [];
     r.groups.forEach(g => {
@@ -339,12 +434,9 @@ function drawCanopyPattern() {
 
     // ── Shared geometry (used by multiple layers) ──
     const canopyRange  = p.altOpen - topAltAGL;
-    const openDrift    = integratedDrift(p.altOpen, topAltAGL, dRate);
-    const openRadiusFt = canopyRange * p.glide;
-    const openCtr      = offsetLL(topEntry.lat, topEntry.lng, -openDrift.dN, -openDrift.dE);
-    const ffRateFtMin2 = p.ffSpeedMph * 88;
-    const ffDrift2     = integratedDrift(p.altExit, p.altOpen, ffRateFtMin2);
-    const exitCenter   = offsetLL(openCtr.lat, openCtr.lng, -ffDrift2.dN, -ffDrift2.dE);
+    const openRadiusFt = p.openRadiusFt;
+    const openCtr      = p.openCtr;
+    const exitCenter   = p.exitCenter;
 
     // ── Canopy entry rings + opening ring ──
     if (state.layers.canopyRegions) {

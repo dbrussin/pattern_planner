@@ -215,7 +215,7 @@ function loadSettings() {
     }
 
     // Sync alt sliders after restoring values
-    ['alt-enter', 'alt-base', 'alt-final', 'alt-exit', 'alt-open'].forEach(id => {
+    ['alt-enter', 'alt-base', 'alt-final', 'alt-exit'].forEach(id => {
       const num = document.getElementById(id);
       const sl  = document.getElementById(id + '-sl');
       if (num && sl && num.value) sl.value = num.value;
@@ -231,19 +231,29 @@ function loadSettings() {
       try {
         const saved = JSON.parse(groupsStr);
         if (Array.isArray(saved)) {
-          const restored = saved.filter(g => g && g.id && GROUP_TYPES[g.type]).map(g => ({
-            id:   String(g.id),
-            name: String(g.name ?? 'Group'),
-            size: Math.max(1, Math.min(20, parseInt(g.size) || 1)),
-            type: g.type,
-            mvmt: g.mvmt === 'L' ? 'L' : 'R',
-          }));
+          const restored = saved.filter(g => g && g.id && GROUP_TYPES[g.type]).map(g => {
+            const openAlt = parseInt(g.openAlt) || (DEFAULT_OPEN_ALT[g.type] ?? 3000);
+            return {
+              id:             String(g.id),
+              name:           String(g.name ?? 'Group'),
+              size:           Math.max(1, Math.min(20, parseInt(g.size) || 1)),
+              type:           g.type,
+              mvmt:           g.mvmt === 'L' ? 'L' : 'R',
+              openAlt,
+              breakoffAlt:    parseInt(g.breakoffAlt) || (openAlt + 1500),
+              vSpeedMph:      parseFloat(g.vSpeedMph) || GROUP_TYPES[g.type].fallMph,
+              _breakoffManual: !!g._breakoffManual,
+            };
+          });
           if (restored.length > 0) state.freefall.groups = restored;
         }
       } catch(e) {}
     }
     if (!state.freefall.groups.length) {
-      state.freefall.groups = [{ id: 'g1', name: 'Group 1', size: 4, type: 'FS', mvmt: 'R' }];
+      state.freefall.groups = [{
+        id: 'g1', name: 'Group 1', size: 4, type: 'FS', mvmt: 'R',
+        openAlt: 3000, breakoffAlt: 4500, vSpeedMph: 120,
+      }];
     }
     state.freefall.nextGroupIdx = parseInt(localStorage.getItem(storageKey('next_group_idx'))) || 2;
     if (state.freefall.nextGroupIdx < 2) state.freefall.nextGroupIdx = 2;
@@ -267,7 +277,7 @@ function loadSettings() {
   } catch(e) { console.warn('loadSettings error:', e); }
   // Re-render legs to ensure standard leg override UI is visible, then sync sliders
   renderLegs();
-  ['alt-enter', 'alt-base', 'alt-final', 'alt-exit', 'alt-open'].forEach(id => {
+  ['alt-enter', 'alt-base', 'alt-final', 'alt-exit'].forEach(id => {
     const num = document.getElementById(id);
     const sl  = document.getElementById(id + '-sl');
     if (num && sl && num.value) sl.value = num.value;

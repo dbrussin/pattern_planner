@@ -150,18 +150,9 @@
             class="slider-num-input" oninput="onLegAlt('alt-exit','input');onExitAltChange()" onblur="onLegAlt('alt-exit','blur')">
         </div>
       </div>
-      <div class="input-group input-group--full">
-        <label for="alt-open">Opening Alt (ft AGL)</label>
-        <div class="slider-num-row">
-          <input type="range" id="alt-open-sl" min="500" max="8000" step="100" value="3000"
-            class="alt-slider" oninput="onLegAlt('alt-open','slider')">
-          <input type="number" id="alt-open" value="3000" min="500" max="8000" step="100"
-            class="slider-num-input" oninput="onLegAlt('alt-open','input');onOpenAltChange()" onblur="onLegAlt('alt-open','blur')">
-        </div>
-      </div>
       <div class="input-group"><label for="jr-airspeed">Aircraft IAS (kts)</label><input type="number" id="jr-airspeed" value="80" min="40" max="200" step="5" oninput="calculate()"></div>
       <div class="input-group"><label for="safety-margin">Region Buffer (%)</label><input type="number" id="safety-margin" value="10" min="0" max="40" step="1" oninput="calculate()"></div>
-      <div class="input-group"><label for="exit-sep">Exit Separation (ft)</label><input type="number" id="exit-sep" value="1500" min="500" max="5000" step="100" oninput="calculate()"></div>
+      <div class="input-group"><label for="exit-sep">Opening Separation (ft)</label><input type="number" id="exit-sep" value="1500" min="500" max="5000" step="100" oninput="calculate()"></div>
       <div class="input-group"><label for="drift-thresh">Steered Hdg Threshold (°)</label><input type="number" id="drift-thresh" value="5" min="0" max="45" step="1" oninput="onDriftThreshChange(this.value)"></div>
       <div class="input-group">
         <label for="jr-offset">Jump Run Offset (nm)</label>
@@ -179,7 +170,6 @@
           placeholder="calc" oninput="onRedLightInput()" data-allow-empty="true">
       </div>
     </div>
-    <div class="field-note">Freefall assumes vertical descent — horizontal drift from wind only.</div>
     <div class="field-note">Green/red light: negative = prior to DZ ref, positive = past. Clear to recalculate.</div>
     <div id="jr-heading-row" class="jr-row">
       <span class="jr-row-label">Jump Run</span>
@@ -201,7 +191,7 @@
       <button class="add-leg-btn" onclick="addGroup()">+ Add Group</button>
     </div>
     <div id="groups-container"></div>
-    <div class="field-note field-note-sm">Group #1 (mandatory) sets exit order and freefall speed for canopy calculations. Movement groups fly perpendicular to jump run; vertical groups (FS/VFS/Student/Tandem) fall straight down. Tracking from breakoff to opening: 1:1 glide ratio.</div>
+    <div class="field-note field-note-sm">Group #1 (mandatory) sets freefall speed for canopy exit-ring calculations. Middle group exits at the center of the exit circle. Movement groups fly perpendicular to jump run; vertical groups fall straight down. Tracking glide ratio: 1:1.</div>
 
     <div class="section-label">DZ Reference Point</div>
     <div class="input-grid">
@@ -376,13 +366,13 @@
     <div class="help-section">
       <div class="help-heading">Jump Run</div>
       <p>A suggested jump run is drawn through the exit region center, into the wind at exit altitude. The <span class="help-accent2-text">▲</span> marks the into-wind heading — tap or click it to snap. The heading field is also directly editable.</p>
-      <p class="help-para"><b>Exit Alt / Opening Alt:</b> exit altitude must be above opening altitude — the app shows an error if they conflict. These altitudes drive the freefall drift integration and the exit/opening safety rings.</p>
+      <p class="help-para"><b>Exit Alt:</b> exit altitude must be above each group's opening altitude. Opening altitude is set per-group in the Jump Run Groups section. These altitudes drive the freefall drift integration and the exit/opening safety rings.</p>
       <p class="help-para"><b>Freefall Speed:</b> vertical descent speed during freefall (mph), derived from Group #1's type (FS/Student/Tandem ≈ 120, VFS ≈ 170, Movement ≈ 140). Horizontal drift from wind is integrated across altitude bands from exit to opening altitude.</p>
       <p class="help-para"><b>Aircraft IAS:</b> indicated airspeed of the jump aircraft (kts), used to compute jump run ground speed and exit separation timing.</p>
       <p class="help-para"><b>Region Buffer (%):</b> shrinks all safety rings by this fraction as a conservative margin.</p>
       <p class="help-para"><b>Offset:</b> perpendicular distance from the landing spot to the jump run line. Auto-calculated when blank (shown in muted color). Enter a value to override — positive is right of flight path looking forward. Delete the value to return to auto.</p>
       <p class="help-para"><b>🟢/🔴 green/red light distances:</b> how far before (🟢) and after (🔴) the aircraft is directly over the landing area when it crosses the exit circle boundary. Measured along the jump run.</p>
-      <p class="help-para"><b>Exit separation:</b> suggested time between groups based on the exit separation distance setting and jump run ground speed.</p>
+      <p class="help-para"><b>Opening separation:</b> minimum distance (ft) required between any two jumpers from different groups at their opening altitudes. The solver finds exit timing such that every pair of jumpers satisfies this separation.</p>
     </div>
 
     <div class="help-section">

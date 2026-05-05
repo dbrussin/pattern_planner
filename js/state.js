@@ -1,7 +1,7 @@
 // ─── STATE ─────────────────────────────────────────────────────────────────────
 // Central application state. All modules read/write this object directly.
 
-const STORAGE_VERSION = '3';
+const STORAGE_VERSION = '4';
 const WAIVER_VERSION  = '1.0';
 
 const state = {
@@ -47,7 +47,7 @@ const state = {
   // Group #1 is mandatory: cannot be removed, sets freefall speed for canopy calc.
   freefall: {
     result: null,                                                       // populated by calculateFreefallPlan()
-    groups: [{ id: 'g1', name: 'Group 1', size: 4, type: 'FS', mvmt: 'R' }],
+    groups: [{ id: 'g1', name: 'Group 1', size: 4, type: 'FS', mvmt: 'R', openAlt: 3000, breakoffAlt: 4500, vSpeedMph: 120 }],
     nextGroupIdx: 2,
   },
 };
@@ -55,7 +55,7 @@ const state = {
 // Input IDs that are persisted to localStorage on every change
 const PERSIST_INPUTS = [
   'alt-enter', 'alt-base', 'alt-final',
-  'alt-exit', 'alt-open',
+  'alt-exit',
   'jr-airspeed', 'exit-sep', 'safety-margin',
   'glide', 'canopy-speed', 'drift-thresh',
   'turn-bank',
