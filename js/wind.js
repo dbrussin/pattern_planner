@@ -53,8 +53,9 @@ async function fetchWinds(forceRefresh = false) {
 
   const btn = document.getElementById('fetch-btn');
   _fetchInProgress      = true;
-  _fetchAbortController = new AbortController();
-  const signal          = _fetchAbortController.signal;
+  const myController    = new AbortController();
+  _fetchAbortController = myController;
+  const signal          = myController.signal;
   btn.disabled = true; btn.textContent = '⏳ Fetching…';
 
   try {
@@ -90,9 +91,13 @@ async function fetchWinds(forceRefresh = false) {
     setStatus('Wind fetch failed');
     console.error(e);
   } finally {
-    _fetchInProgress = false;
-    btn.disabled     = false;
-    btn.textContent  = '⬇ Refresh Winds';
+    // Only clear shared state if this call is still the current one — an aborted,
+    // superseded fetch's finally must not clobber a newer in-flight fetch's state.
+    if (_fetchAbortController === myController) {
+      _fetchInProgress = false;
+      btn.disabled     = false;
+      btn.textContent  = '⬇ Refresh Winds';
+    }
   }
 }
 
@@ -469,8 +474,10 @@ function _renderNWSObs(p, stId, stName, distMi) {
     ['Temp / Dew', tempStr],
     ['Altimeter',  altimStr],
   ];
+  // Escape free-text fields (station name, weather text, raw METAR) before
+  // interpolating into innerHTML — this is third-party API text, not our own.
   const gridHTML = rows.map(([l, v]) =>
-    `<div class="metar-lbl">${l}</div><div class="metar-val">${v}</div>`
+    `<div class="metar-lbl">${l}</div><div class="metar-val">${escapeHtml(v)}</div>`
   ).join('');
 
   return `
@@ -479,12 +486,12 @@ function _renderNWSObs(p, stId, stName, distMi) {
       <span class="metar-dist-tag">${distStr}</span>
     </div>
     <div class="metar-id-row">
-      <span class="metar-station-id">${stId}</span>
+      <span class="metar-station-id">${escapeHtml(stId)}</span>
       <span class="metar-age">${zuluStr} · ${ageStr}</span>
     </div>
-    ${stName ? `<div class="metar-station-name">${stName}</div>` : ''}
+    ${stName ? `<div class="metar-station-name">${escapeHtml(stName)}</div>` : ''}
     <div class="metar-grid">${gridHTML}</div>
-    ${p.rawMessage ? `<div class="metar-raw-obs">${p.rawMessage}</div>` : ''}
+    ${p.rawMessage ? `<div class="metar-raw-obs">${escapeHtml(p.rawMessage)}</div>` : ''}
   `;
 }
 
@@ -513,7 +520,7 @@ async function fetchMetar(lat, lng) {
 
     const stId   = nearest.f.properties.stationIdentifier;
     const stName = nearest.f.properties.name;
-    const obs    = await (await fetch(`https://api.weather.gov/stations/${stId}/observations/latest`)).json();
+    const obs    = await (await fetch(`https://api.weather.gov/stations/${encodeURIComponent(stId)}/observations/latest`)).json();
     if (!obs?.properties?.timestamp) { box.style.display = 'none'; return; }
 
     box.innerHTML = _renderNWSObs(obs.properties, stId, stName, nearest.dist);

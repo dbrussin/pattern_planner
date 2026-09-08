@@ -2,7 +2,7 @@
 // Network-first for app shell (so deploys take effect on next load); cache only
 // rescues offline. Pass-through for weather APIs and map tiles.
 
-const CACHE_NAME = 'pp-shell-v2';
+const CACHE_NAME = 'pp-shell-v3';
 
 // App shell — everything needed to render offline (APIs still need network)
 const SHELL = [
@@ -19,6 +19,7 @@ const SHELL = [
   './js/ui-heading.js',
   './js/ui-canopy.js',
   './js/ui-legs.js',
+  './js/ui-groups.js',
   './js/ui-forecast.js',
   './js/search.js',
   './js/app.js',
