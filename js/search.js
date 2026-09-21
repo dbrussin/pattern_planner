@@ -3,6 +3,10 @@
 // Depends on: storage (storageKey), ui (setStatus), app (map)
 
 const DZ_CACHE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+// Bump when the upstream DZ source URL or schema changes, so cached entries
+// from the old source (which are self-consistent, just stale) get refreshed
+// immediately instead of surviving up to DZ_CACHE_MS on their old snapshot.
+const DZ_CACHE_VERSION = 2;
 
 let dzList = null, dzIdx = -1, dzListFailed = false; // dzList=null means still loading
 
@@ -13,26 +17,32 @@ let dzList = null, dzIdx = -1, dzListFailed = false; // dzList=null means still 
     const raw = localStorage.getItem(storageKey('dz_list'));
     if (raw) {
       const stored = JSON.parse(raw);
-      if (Date.now() - stored.ts < DZ_CACHE_MS && Array.isArray(stored.list) && stored.list.length > 0) {
+      if (stored.v === DZ_CACHE_VERSION && Date.now() - stored.ts < DZ_CACHE_MS && Array.isArray(stored.list) && stored.list.length > 0) {
         dzList = stored.list;
         return;
       }
     }
   } catch(e) {}
   try {
-    const d = await (await fetch('https://raw.githubusercontent.com/OTGApps/USPADropzones/master/dropzones.geojson')).json();
+    // OTGApps/USPADropzones was retired; the maintainer moved this dataset to
+    // OTGApps/Dropzones (different schema — see the `location` mapping below).
+    const d = await (await fetch('https://raw.githubusercontent.com/OTGApps/Dropzones/master/assets/dropzones.geojson')).json();
     dzList = d.features
       .filter(f => f.geometry?.coordinates)
       .map(f => ({
         name:  f.properties.name  || '',
-        city:  f.properties.city  || '',
+        // No flat `city` field in this schema — `location` is an array of
+        // free-text parts, e.g. ["Orange, MA"] or ["Klatovy", "Czech Republic"].
+        city:  Array.isArray(f.properties.location)
+          ? f.properties.location.map(s => String(s).trim()).filter(Boolean).join(', ')
+          : '',
         state: f.properties.state || '',
         lat:   f.geometry.coordinates[1],
         lng:   f.geometry.coordinates[0],
       }))
       .filter(d => d.name && d.lat && d.lng);
     try {
-      localStorage.setItem(storageKey('dz_list'), JSON.stringify({list: dzList, ts: Date.now()}));
+      localStorage.setItem(storageKey('dz_list'), JSON.stringify({list: dzList, ts: Date.now(), v: DZ_CACHE_VERSION}));
     } catch(e) {}
   } catch(e) { dzList = []; dzListFailed = true; console.warn('DZ data failed', e); }
 })();
@@ -106,7 +116,10 @@ function showDd(results) {
   results.forEach(dz => {
     const el    = document.createElement('div'); el.className = 'dz-item';
     const nameEl = document.createElement('div'); nameEl.className = 'dz-name'; nameEl.textContent = dz.name;
-    const locEl  = document.createElement('div'); locEl.className  = 'dz-loc';  locEl.textContent  = [dz.city, dz.state].filter(Boolean).join(', ');
+    // dz.city already includes state/country (see the DZ-list `location` mapping above);
+    // only append dz.state separately when it isn't already part of that string (e.g. geocode results).
+    const locEl  = document.createElement('div'); locEl.className  = 'dz-loc';
+    locEl.textContent = (dz.state && !dz.city.includes(dz.state)) ? [dz.city, dz.state].filter(Boolean).join(', ') : dz.city;
     el.appendChild(nameEl); el.appendChild(locEl);
     el.addEventListener('click', () => pickDZ(dz));
     dzDd.appendChild(el);

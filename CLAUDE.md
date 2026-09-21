@@ -8,38 +8,42 @@ Open `dz-pattern.html` in any modern browser. No build step, no server — works
 
 ## Architecture
 
-Single-page app: one HTML shell, one CSS file, 12 JS files loaded as classic `<script>` tags (no ES modules — blocked by CORS on `file://`). All functions live in `window` scope; cross-file calls are safe because they happen at runtime after all scripts load.
+Single-page app: one HTML shell, one CSS file, 14 JS files loaded as classic `<script>` tags (no ES modules — blocked by CORS on `file://`). All functions live in `window` scope; cross-file calls are safe because they happen at runtime after all scripts load.
 
 ### File Map
 
 ```
-dz-pattern.html      — HTML shell (~485 lines); no inline style attributes
+dz-pattern.html      — HTML shell (~545 lines); no inline style attributes
 css/app.css          — all styles; CSS custom properties for theming
-js/config.js         — constants (R_FT, FT_PER_NM, etc.), LEG_DEFS, EXTRA_LEG_COLORS, debounce(), @typedef annotations
+js/config.js         — constants (R_FT, FT_PER_NM, etc.), LEG_DEFS, EXTRA_LEG_COLORS, debounce(), escapeHtml(), @typedef annotations
 js/state.js          — global `state` object, PERSIST_INPUTS list, STORAGE_VERSION, WAIVER_VERSION
 js/storage.js        — localStorage persistence (save/load/reset), wind cache, storageKey() helper
 js/geometry.js       — spherical math (offsetLL, hdgVec, windVec), wind/temp interpolation, magDeclination(), tasFactor()
-js/wind.js           — fetchElevation(), fetchWinds(), processWindData(), buildWindTable(), auto-refresh
-js/calculate.js      — integratedDrift(), avgWindInBand(), calculate() (mode dispatcher), calculateCanopyPattern(), calculateFreefallPlan() (stub)
-js/draw.js           — drawPattern() (mode dispatcher), drawCanopyPattern(), drawFreefallPlan() (stub), clearPattern(), Leaflet polyline/marker/label/zone helpers
+js/wind.js           — fetchElevation(), fetchWinds(), processWindData(), buildWindTable(), METAR fetch/render, auto-refresh
+js/calculate.js      — integratedDrift(), avgWindInBand(), calculate() (mode dispatcher), calculateCanopyPattern(), calculateFreefallPlan() (freefall/jump-run solver)
+js/draw.js           — drawPattern() (mode dispatcher), drawCanopyPattern(), drawFreefallPlan(), clearPattern(), Leaflet polyline/marker/label/zone helpers
 js/ui-overlays.js    — setStatus(), toggleOverlay(), closeOverlay(), toggleLayer(), toggleMode(), setHand(), showLegend()
 js/ui-heading.js     — heading bar, forecast offset, jump run heading, green/red light, DZ zero, landing lat/lng, mag declination
 js/ui-canopy.js      — canopyThird(), updateCanopyCalc(), updateLegCanopyCalc(), getLegPerf(), setLegMode(), toggleZPattern()
 js/ui-legs.js        — renderLegs() (uses shared _legHeader/_legAltField/_legPerfBlock helpers + .leg-* CSS classes), addExtraLeg(), removeExtraLeg(), leg alt/hdg handlers, heading overrides, altitude constraints
+js/ui-groups.js      — jump-run group cards: GROUP_TYPES/DEFAULT_OPEN_ALT, renderGroups(), addGroup()/removeGroup(), drag-drop reorder, setGroupField()
 js/search.js         — DZ search (USPA GeoJSON + Nominatim geocoding), goToMyLocation()
 js/app.js            — map init, placeTarget(), tile failover, invite code gate, waiver, pull-to-refresh, init sequence
+js/ui-forecast.js    — lazy-loaded 96-hour forecast modal (fetch + table render)
 ```
 
 ### Script Load Order (must be preserved)
 
-1. Leaflet CDN → 2. config → 3. state → 4. storage → 5. geometry → 6. wind → 7. calculate → 8. draw → 9. ui-overlays → 10. ui-heading → 11. ui-canopy → 12. ui-legs (calls `renderLegs()` at load) → 13. search (IIFE fetches DZ list) → 14. app (runs `initStorage()`, `loadSettings()`, attaches listeners)
+1. Leaflet CDN → 2. config → 3. state → 4. storage → 5. geometry → 6. wind → 7. calculate → 8. draw → 9. ui-overlays → 10. ui-heading → 11. ui-canopy → 12. ui-legs (calls `renderLegs()` at load) → 13. ui-groups (calls `renderGroups()` at load) → 14. search (IIFE fetches DZ list) → 15. app (runs `initStorage()`, `loadSettings()`, attaches listeners) → 16. ui-forecast (lazy — no work at load)
+
+`sw.js`'s `SHELL` precache list must be kept in sync with this load order — a script missing from `SHELL` still loads fine online (the network-first fetch handler opportunistically caches it after first success), but a fresh offline install performed before that first successful load will be missing the file and can throw `ReferenceError`s for globals it defines (e.g. `GROUP_TYPES`).
 
 ### Mode System
 
 The app supports multiple **independent** pattern modes — both can be on simultaneously, or either off. Sub-mode distinctions (e.g. movement planner) live as options nested inside their parent mode.
 
 - **`state.modes.canopy`** (default on) — single-canopy landing pattern. Future: flocking / HAHO multi-canopy.
-- **`state.modes.freefall`** (default off) — jump run planner, group spacing, movement planner. Currently a stub.
+- **`state.modes.freefall`** (default off) — jump run planner: per-group exit/breakoff/opening physics (quadratic-drag freefall integration + tracking), binary-search exit-spacing solver for opening separation, movement-group lateral glide. See `calculateFreefallPlan()` in `js/calculate.js`.
 
 UX toggles live in the **Layers overlay** (`#overlay-labels`) under "Pattern Modes" — `mode-canopy`, `mode-freefall` buttons wired to `toggleMode(name)` in `js/ui-overlays.js`.
 
@@ -47,8 +51,10 @@ UX toggles live in the **Layers overlay** (`#overlay-labels`) under "Pattern Mod
 
 | Mode     | Solver                       | Renderer                | State slot       |
 |----------|------------------------------|-------------------------|------------------|
-| canopy   | `calculateCanopyPattern()`   | `drawCanopyPattern()`   | `state.pattern`  |
-| freefall | `calculateFreefallPlan()`    | `drawFreefallPlan()`    | `state.freefall` |
+| canopy   | `calculateCanopyPattern()`   | `drawCanopyPattern()`   | `state.canopy.result` |
+| freefall | `calculateFreefallPlan()`    | `drawFreefallPlan()`    | `state.freefall.result` |
+
+`calculateCanopyPattern()` runs whenever **either** mode is on (freefall's exit/opening rings are anchored to the canopy solver's opening-circle center), but `drawCanopyPattern()` only renders when canopy mode itself is on — `drawFreefallPlan()` draws the jump-run line and safety rings itself (from the canopy result) when canopy mode is off, to avoid duplicate rendering when both are on.
 
 To add a new mode: register a key in `state.modes`, add a row in the Layers overlay HTML, implement the solver and renderer, and dispatch to them from `calculate()` and `drawPattern()`.
 
@@ -58,9 +64,9 @@ A single `state` object in `js/state.js` holds all app state, grouped into:
 
 - **Mode toggles**: `modes.canopy`, `modes.freefall` (persisted)
 - **Shared / mode-agnostic**: `target`, `winds`, `surfaceWind`, `forecastOffset`, `fieldElevFt`, `fitDone`, `driftThresh`, `layers`
-- **Canopy result + canopy-mode state**: `pattern` (result), `hand`, `finalHeadingDeg`, `manualHeading`, `legModes`, `zPattern`, `legCustomPerf`, `extraLegs`, `nextExtraLegIdx`, `legHdgOverride`
-- **Jump run** (currently emitted by canopy calc; freefall jump-run planner will write to the same fields): `jumpRunHdgDeg`, `manualJumpRun`, `manualJrOffset`, `manualGreenLight`, `manualRedLight`, `manualDzZero`
-- **Freefall result** (placeholder): `freefall`
+- **Canopy result + canopy-mode state** (`state.canopy`): `result`, `hand`, `finalHeadingDeg`, `manualHeading`, `legModes`, `zPattern`, `legCustomPerf`, `extraLegs`, `nextExtraLegIdx`, `legHdgOverride`
+- **Jump run** (`state.jumpRun`, shared between canopy spot calc and freefall planner): `hdgDeg`, `manualHeading`, `manualOffset`, `manualGreenLight`, `manualRedLight`
+- **Freefall** (`state.freefall`): `result` (populated by `calculateFreefallPlan()`), `groups` (jump-run group definitions — group #1 is mandatory and sets freefall speed for the canopy exit ring), `nextGroupIdx`
 
 Settings persist to `localStorage` with `pp_` prefix via `storageKey()`. Wind data cached with 20-min TTL keyed by `lat.toFixed(2),lng.toFixed(2)`. `initStorage()` wipes all `pp_*` keys on `STORAGE_VERSION` mismatch (preserving `pp_waiver_version` and `pp_invite_verified`).
 
@@ -131,14 +137,20 @@ Claude Code has a 10,000-token per-Read limit. Keep each source file comfortably
 - **renderLegs() rebuilds all DOM**: Clears `innerHTML` each time instead of updating individual cards
 - **Memory leaks**: Event listeners orphaned when `renderLegs()` clears `innerHTML`
 - **Keyboard navigation**: After geocoding repopulates dropdown, `dzIdx` resets
+- **Auto-refresh can clobber manual wind-table test edits**: The wind table supports editing values to test scenarios (see Winds Aloft help text), but `checkWindRefresh()` (60s interval + visibility/focus listeners) calls `processWindData()` whenever the nearest forecast slot advances, which rebuilds `state.winds` from the raw API response and silently discards any manual edits with no warning. There's no "dirty" flag to suppress the rebuild or prompt the user.
+- **Three-way canopy calc "last edited" tracking resets on reload**: `legLastEdited`/`canopyLastEdited` (`ui-canopy.js`) always initialize to `['glide','speed']` on page load regardless of which two fields the user last edited in a previous session, since only the field values (not the edit-order) are persisted. Only affects which field gets recomputed on the *next* edit after reload — self-corrects immediately, but can feel surprising for one edit.
+- **`legHdgOverride.f` is dead state**: the final leg has its own dedicated heading slider (`settings-hdg-final`); `legHdgOverride.f` predates that and is only read back to force-clear itself every `renderLegs()` call. Safe to remove along with its now-unreachable read in `calculateCanopyPattern()`.
 
 ### Resolved (do not re-report)
-- ~~Magic numbers~~: All in `config.js`
+- ~~Magic numbers~~: All in `config.js` (previously not fully true — `draw.js` had three literal `6076` conversions instead of `FT_PER_NM`; fixed)
 - ~~Duplicated canopy calc~~: Shared `canopyThird()` in `ui-canopy.js`
 - ~~NaN propagation~~: `updateWindByIdx()` rejects non-numeric input
 - ~~Inline styles in `renderLegs()`~~: Replaced with `.leg-*` classes in `css/app.css`
 - ~~Duplicate pyramid CSS~~: Consolidated into shared `.pyramid` / `.pyramid-hit` classes
 - ~~Orphan `js/ui.js`~~: Deleted (functionality lives in `ui-overlays.js` / `ui-heading.js` / `ui-canopy.js` / `ui-legs.js`)
+- ~~Service worker precache missing `js/ui-groups.js`~~: `sw.js`'s `SHELL` array was missing this file, so a fresh offline PWA install (before the network-first handler had a chance to opportunistically cache it) would throw `ReferenceError: GROUP_TYPES is not defined` and break both canopy and freefall calculation entirely. Fixed; `CACHE_NAME` bumped to `pp-shell-v3` so existing installs pick up the corrected shell.
+- ~~`fetchWinds()` abort race~~: when a newer wind fetch superseded an older in-flight one, the older request's `finally` block unconditionally cleared `_fetchInProgress` and re-enabled the fetch button — even while the newer request was still in flight — which could let a third overlapping fetch start without aborting the second. Fixed by having each call's `finally` check that it still owns `_fetchAbortController` before touching shared state.
+- ~~XSS via unescaped user/third-party text in `innerHTML`~~: jump-run group names (`ui-groups.js`, user-typed and persisted to localStorage) and METAR station name/raw text/weather description (`wind.js`, from api.weather.gov) were interpolated into `innerHTML` template literals unescaped. Added `escapeHtml()` in `config.js`; applied at both sites.
 
 ## CSS Notes
 

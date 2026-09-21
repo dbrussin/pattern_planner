@@ -508,7 +508,7 @@ function drawCanopyPattern() {
       const landToExitN  = (exitCenter.lat - dzRef.lat) * R_FT * D2R;
       const landToExitE  = (exitCenter.lng - dzRef.lng) * R_FT * Math.cos(dzRef.lat * D2R) * D2R;
       const calcOffsetFt = landToExitN * jrRightVec.n + landToExitE * jrRightVec.e;
-      const calcOffsetNm = calcOffsetFt / 6076;
+      const calcOffsetNm = calcOffsetFt / FT_PER_NM;
 
       const jrOffsetEl = document.getElementById('jr-offset');
       if (!state.jumpRun.manualOffset) {
@@ -518,8 +518,8 @@ function drawCanopyPattern() {
 
       const jrBase = state.jumpRun.manualOffset
         ? offsetLL(exitCenter.lat, exitCenter.lng,
-            jrRightVec.n * ((parseFloat(jrOffsetEl.value) || 0) - calcOffsetNm) * 6076,
-            jrRightVec.e * ((parseFloat(jrOffsetEl.value) || 0) - calcOffsetNm) * 6076)
+            jrRightVec.n * ((parseFloat(jrOffsetEl.value) || 0) - calcOffsetNm) * FT_PER_NM,
+            jrRightVec.e * ((parseFloat(jrOffsetEl.value) || 0) - calcOffsetNm) * FT_PER_NM)
         : {lat: exitCenter.lat, lng: exitCenter.lng};
 
       const exitR      = openRadiusFt * margin * 0.3048;
@@ -547,7 +547,7 @@ function drawCanopyPattern() {
       const jrWC     = wJr.n * jrVec.n + wJr.e * jrVec.e;
       const jrTAS    = p.jrAirspeedKts * tasFactor(p.altExit);
       const jrGndSpd = Math.round(jrTAS + jrWC);
-      const gsFps    = jrGndSpd * 6076 / 3600;
+      const gsFps    = jrGndSpd * FT_PER_NM / 3600;
       const sepSec   = gsFps > 0 ? Math.ceil(p.exitSepFt / gsFps) : null;
 
       // Intersect jump run line with exit circle for green/red light distances

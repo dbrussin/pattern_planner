@@ -111,7 +111,7 @@ function renderGroups() {
       <div class="group-row">
         <span class="group-handle" title="Drag to reorder">⠿</span>
         ${mandatoryBadge}
-        <input class="group-name-input" type="text" value="${g.name}" placeholder="Group name"
+        <input class="group-name-input" type="text" value="${escapeHtml(g.name)}" placeholder="Group name"
           oninput="setGroupField('${g.id}','name',this.value)">
         ${removeBtn}
       </div>

@@ -52,6 +52,13 @@ function debounce(fn, wait) {
   };
 }
 
+// Escapes HTML metacharacters so untrusted strings (user text, third-party API
+// text) can be safely interpolated into innerHTML template literals.
+const _ESCAPE_HTML_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => _ESCAPE_HTML_MAP[c]);
+}
+
 // GFS API: pressure levels (hPa) to query for winds + temperature.
 // All levels from 1000–500 hPa (~surface to ~18k ft MSL); covers 14k ft AGL
 // at even high-elevation DZs. 400/300 hPa (~23k/30k ft) are above any exit altitude.
