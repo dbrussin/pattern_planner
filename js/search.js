@@ -3,6 +3,10 @@
 // Depends on: storage (storageKey), ui (setStatus), app (map)
 
 const DZ_CACHE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+// Bump when the upstream DZ source URL or schema changes, so cached entries
+// from the old source (which are self-consistent, just stale) get refreshed
+// immediately instead of surviving up to DZ_CACHE_MS on their old snapshot.
+const DZ_CACHE_VERSION = 2;
 
 let dzList = null, dzIdx = -1, dzListFailed = false; // dzList=null means still loading
 
@@ -13,7 +17,7 @@ let dzList = null, dzIdx = -1, dzListFailed = false; // dzList=null means still 
     const raw = localStorage.getItem(storageKey('dz_list'));
     if (raw) {
       const stored = JSON.parse(raw);
-      if (Date.now() - stored.ts < DZ_CACHE_MS && Array.isArray(stored.list) && stored.list.length > 0) {
+      if (stored.v === DZ_CACHE_VERSION && Date.now() - stored.ts < DZ_CACHE_MS && Array.isArray(stored.list) && stored.list.length > 0) {
         dzList = stored.list;
         return;
       }
@@ -38,7 +42,7 @@ let dzList = null, dzIdx = -1, dzListFailed = false; // dzList=null means still 
       }))
       .filter(d => d.name && d.lat && d.lng);
     try {
-      localStorage.setItem(storageKey('dz_list'), JSON.stringify({list: dzList, ts: Date.now()}));
+      localStorage.setItem(storageKey('dz_list'), JSON.stringify({list: dzList, ts: Date.now(), v: DZ_CACHE_VERSION}));
     } catch(e) {}
   } catch(e) { dzList = []; dzListFailed = true; console.warn('DZ data failed', e); }
 })();
