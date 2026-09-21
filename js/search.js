@@ -20,12 +20,18 @@ let dzList = null, dzIdx = -1, dzListFailed = false; // dzList=null means still 
     }
   } catch(e) {}
   try {
-    const d = await (await fetch('https://raw.githubusercontent.com/OTGApps/USPADropzones/master/dropzones.geojson')).json();
+    // OTGApps/USPADropzones was retired; the maintainer moved this dataset to
+    // OTGApps/Dropzones (different schema — see the `location` mapping below).
+    const d = await (await fetch('https://raw.githubusercontent.com/OTGApps/Dropzones/master/assets/dropzones.geojson')).json();
     dzList = d.features
       .filter(f => f.geometry?.coordinates)
       .map(f => ({
         name:  f.properties.name  || '',
-        city:  f.properties.city  || '',
+        // No flat `city` field in this schema — `location` is an array of
+        // free-text parts, e.g. ["Orange, MA"] or ["Klatovy", "Czech Republic"].
+        city:  Array.isArray(f.properties.location)
+          ? f.properties.location.map(s => String(s).trim()).filter(Boolean).join(', ')
+          : '',
         state: f.properties.state || '',
         lat:   f.geometry.coordinates[1],
         lng:   f.geometry.coordinates[0],
@@ -106,7 +112,10 @@ function showDd(results) {
   results.forEach(dz => {
     const el    = document.createElement('div'); el.className = 'dz-item';
     const nameEl = document.createElement('div'); nameEl.className = 'dz-name'; nameEl.textContent = dz.name;
-    const locEl  = document.createElement('div'); locEl.className  = 'dz-loc';  locEl.textContent  = [dz.city, dz.state].filter(Boolean).join(', ');
+    // dz.city already includes state/country (see the DZ-list `location` mapping above);
+    // only append dz.state separately when it isn't already part of that string (e.g. geocode results).
+    const locEl  = document.createElement('div'); locEl.className  = 'dz-loc';
+    locEl.textContent = (dz.state && !dz.city.includes(dz.state)) ? [dz.city, dz.state].filter(Boolean).join(', ') : dz.city;
     el.appendChild(nameEl); el.appendChild(locEl);
     el.addEventListener('click', () => pickDZ(dz));
     dzDd.appendChild(el);
