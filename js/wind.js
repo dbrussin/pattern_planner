@@ -30,7 +30,7 @@ async function fetchElevation(lat, lng) {
 
 // ── Wind fetch ────────────────────────────────────────────────────────────────
 
-async function fetchWinds(forceRefresh = false) {
+async function fetchWinds(forceRefresh = false, elevationPromise = null) {
   if (!state.target) return;
   if (_fetchInProgress) {
     // Cancel the previous request and allow the new one to proceed
@@ -76,6 +76,10 @@ async function fetchWinds(forceRefresh = false) {
       setStatus('Wind data unavailable');
       return;
     }
+    // Elevation is fetched in parallel with winds (see placeTarget()) — wait for
+    // it to settle before reading state.fieldElevFt, since it usually resolves
+    // first (much smaller response) but isn't guaranteed to.
+    if (elevationPromise) await elevationPromise;
     const fieldElevFt = state.fieldElevFt || 0;
     const ts          = Date.now();
     saveWindCache(lat, lng, {rawData, fieldElevFt, ts});
@@ -558,7 +562,14 @@ function updateWindStatusAge(ts) {
 function checkWindRefresh() {
   if (!state.target || document.hidden) return;
   const cached = findCachedWinds(state.target.lat, state.target.lng);
-  if (!cached) { fetchWinds().then(calculate).catch(e => console.error('Wind auto-refresh failed:', e)); return; }
+  if (!cached) {
+    // Don't abort-and-restart a fetch that's already in flight — on a slow
+    // connection a fetch can take longer than the 60s tick, and repeatedly
+    // cancelling it right before it would finish keeps the button stuck on
+    // "Fetching…" forever instead of ever letting one complete.
+    if (!_fetchInProgress) fetchWinds().then(calculate).catch(e => console.error('Wind auto-refresh failed:', e));
+    return;
+  }
   updateWindStatusAge(cached.ts);
   fetchMetar(state.target.lat, state.target.lng);
 

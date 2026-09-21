@@ -103,8 +103,10 @@ async function placeTarget(lat, lng) {
   showLegend();
   collapseSearch();
   setStatus('Fetching elevation & winds…', true);
-  await fetchElevation(lat, lng);
-  await fetchWinds();
+  // Run elevation and wind fetches concurrently instead of serially — the wind
+  // fetch waits internally for elevation to settle before it needs fieldElevFt.
+  const elevationPromise = fetchElevation(lat, lng);
+  await fetchWinds(false, elevationPromise);
   calculate();
 }
 
