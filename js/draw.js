@@ -95,8 +95,122 @@ function legChevron(from, to, trackHdg, color) {
  */
 function drawPattern() {
   clearPattern();
-  if (state.modes.canopy)   drawCanopyPattern();
-  if (state.modes.freefall) drawFreefallPlan();
+  if (state.modes.canopy)                         drawCanopyPattern();
+  if (state.modes.canopy || state.modes.freefall) drawJumpRun();
+  if (state.modes.freefall)                       drawFreefallPlan();
+}
+
+// ── Zone label (shared) ───────────────────────────────────────────────────────
+
+// Label on the upwind edge of a ring; radiusFt is the ring's drawn radius.
+function zoneLabel(ctr, radiusFt, txt, color, windVelDir) {
+  const upwindVec = hdgVec((windVelDir + 180) % 360);
+  const labelPt   = offsetLL(ctr.lat, ctr.lng, upwindVec.n * (radiusFt + 100), upwindVec.e * (radiusFt + 100));
+  const arrowSvg  = `<svg width="12" height="12" viewBox="0 0 14 14" style="display:inline-block;vertical-align:middle;margin-right:3px;flex-shrink:0;">
+    <polygon points="7,1 12,13 7,10 2,13" fill="${color}" transform="rotate(${windVelDir},7,7)"/>
+  </svg>`;
+  addL(L.marker(ll(labelPt), {
+    icon: L.divIcon({
+      html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;
+        color:${color};text-shadow:0 1px 4px #000,0 0 8px #000;white-space:nowrap;
+        text-align:center;pointer-events:none;line-height:1.4;display:flex;align-items:center;justify-content:center;">
+        ${arrowSvg}${txt}</div>`,
+      iconSize: [160, 20], iconAnchor: [80, 10], className: '',
+    }),
+    interactive: false, zIndexOffset: 40,
+  }));
+}
+
+// ── Jump run, exit ring, opening rings (shared by both modes) ─────────────────
+
+/**
+ * Render state.jumpRun.result: one opening ring per distinct group opening altitude
+ * (canopyRegions layer), the load's exit ring (exitRegion), and the jump run line with
+ * heading / ground speed / offset / green-red label (jumpRun). Warns when the solver
+ * could not fit every jumper's opening within canopy reach of the pattern.
+ */
+function drawJumpRun() {
+  const r = state.jumpRun.result;
+  if (!r) return;
+  const shadow = '0 1px 5px #000,0 0 10px #000';
+
+  if (state.layers.canopyRegions) {
+    r.openRings.forEach(ring => {
+      if (ring.radiusFt <= 0) return;
+      addL(L.circle(ll(ring.center), {
+        radius: ring.radiusFt * 0.3048, color: 'rgba(255,210,80,0.95)', weight: 2.5, fill: false, interactive: false,
+      }));
+      const w = avgWindInBand(r.topAlt, ring.alt);
+      zoneLabel(ring.center, ring.radiusFt, `Open ${ring.alt.toLocaleString()}ft · ${w.spd}kt`, 'rgba(255,220,100,1)', w.dir);
+    });
+  }
+
+  if (state.layers.exitRegion && r.exitRing.radiusFt > 0) {
+    addL(L.circle(ll(r.exitRing.center), {
+      radius: r.exitRing.radiusFt * 0.3048, color: 'rgba(160,220,255,0.95)', weight: 2.5,
+      fill: false, interactive: false, dashArray: '8 5',
+    }));
+    const w = avgWindInBand(r.openRings[0].alt, r.altExit);
+    zoneLabel(r.exitRing.center, r.exitRing.radiusFt, `Exit ${r.altExit.toLocaleString()}ft · ${w.spd}kt`, 'rgba(180,230,255,1)', w.dir);
+  }
+
+  if (state.layers.jumpRun) {
+    addL(L.polyline([ll(r.lineStart), ll(r.lineEnd)], {
+      color: 'rgba(160,220,255,0.85)', weight: 2, dashArray: '8 5', interactive: false,
+    }));
+    const chevronSvg = `<svg width="14" height="14" viewBox="0 0 12 12" style="display:block;">
+      <polyline points="3,10 6,2 9,10" fill="none" stroke="rgba(160,220,255,0.95)"
+        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+        transform="rotate(${r.jrHdg},6,6)"/>
+    </svg>`;
+    addL(L.marker(ll(r.lineMid), {
+      icon: L.divIcon({html: chevronSvg, iconSize: [14, 14], iconAnchor: [7, 7], className: ''}),
+      interactive: false, zIndexOffset: 43,
+    }));
+
+    // Green/red light ticks on the line (solver values; manual overrides only relabel)
+    [[r.greenPt, '#4ade80'], [r.redPt, '#f87171']].forEach(([pt, c]) => {
+      if (pt) addL(L.circleMarker(ll(pt), { radius: 5, color: c, weight: 2, fillColor: c, fillOpacity: 0.9, interactive: false }));
+    });
+
+    // Manual overrides (if set) win over the solver's values in the label
+    const manualNm = (flag, id) => {
+      const el = document.getElementById(id);
+      return flag && el && el.value !== '' ? parseFloat(el.value) : null;
+    };
+    const offsetNm = manualNm(state.jumpRun.manualOffset,     'jr-offset')            ?? r.calcOffsetNm;
+    const greenNm  = manualNm(state.jumpRun.manualGreenLight, 'green-light-override') ?? r.greenNm;
+    const redNm    = manualNm(state.jumpRun.manualRedLight,   'red-light-override')   ?? r.redNm;
+    const fmtNm    = nm => `${Math.abs(nm).toFixed(1)}nm ${nm >= 0 ? 'past' : 'prior'}`;
+    const lights   = (greenNm != null && redNm != null) ? ` · 🟢 ${fmtNm(greenNm)} · 🔴 ${fmtNm(redNm)}` : '';
+    const timing   = r.groups.length > 1
+      ? ` · ${Math.round(r.passSec)}s pass · ${Math.round(r.maxTDelta)}s max gap` : '';
+    const jrVec    = hdgVec(r.jrHdg);
+    const labelPt  = offsetLL(r.lineStart.lat, r.lineStart.lng, -jrVec.n * 250, -jrVec.e * 250);
+    addL(L.marker(ll(labelPt), {
+      icon: L.divIcon({
+        html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;
+          color:rgba(160,220,255,1);text-shadow:${shadow};
+          white-space:nowrap;pointer-events:none;text-align:center;line-height:1.5;">
+          Jump run ${Math.round(r.jrHdg)}° · ${r.jrGndSpdKts}kt GS · ${offsetNm >= 0 ? '+' : ''}${offsetNm.toFixed(1)}nm${lights}${timing}
+        </div>`,
+        iconSize: [520, 34], iconAnchor: [260, 0], className: '',
+      }),
+      interactive: false, zIndexOffset: 45,
+    }));
+  }
+
+  if (r.openMarginFt < 0) {
+    addL(L.marker(ll(r.exitRing.center), {
+      icon: L.divIcon({
+        html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;
+          color:#f87171;text-shadow:${shadow};white-space:nowrap;pointer-events:none;text-align:center;">
+          ⚠ Some jumpers open up to ${(-r.openMarginFt).toLocaleString()}ft beyond canopy reach of the pattern</div>`,
+        iconSize: [440, 18], iconAnchor: [220, -14], className: '',
+      }),
+      interactive: false, zIndexOffset: 120,
+    }));
+  }
 }
 
 // ── Freefall (jump run) renderer ──────────────────────────────────────────────
@@ -112,14 +226,13 @@ function freefallDot(color, size = 9) {
 }
 
 /**
- * Render the freefall plan from state.freefall.result.
- * For each group: exit marker + label, freefall path, tracking spread, opening markers.
- * Also draws a jump run line through all exit points with timing/speed label,
- * and highlights the middle group's exit (center of exit circle).
- * Groups with insufficient breakoff altitude for intra-group separation get a warning.
+ * Render the per-group freefall plan from state.jumpRun.result: exit marker + label,
+ * freefall path, tracking spread, opening markers. The jump run line and rings are
+ * drawn by drawJumpRun(). Groups with insufficient breakoff altitude for intra-group
+ * separation get a warning.
  */
 function drawFreefallPlan() {
-  const r = state.freefall.result;
+  const r = state.jumpRun.result;
   if (!r || !r.groups || !r.groups.length) return;
   const showPaths  = state.layers.freefallPaths !== false;
   const showLabels = state.layers.freefallLabels !== false;
@@ -138,9 +251,7 @@ function drawFreefallPlan() {
       });
     }
 
-    // Exit marker: larger for middle group (center of exit circle)
-    const exitSize = g.isMiddle ? 14 : 11;
-    addL(L.marker(ll(g.exit),     { icon: freefallDot(color, exitSize), zIndexOffset: 110 }));
+    addL(L.marker(ll(g.exit),     { icon: freefallDot(color, 11), zIndexOffset: 110 }));
     addL(L.marker(ll(g.breakoff), { icon: freefallDot(color, 7),        zIndexOffset: 95  }));
     g.members.forEach(m => {
       addL(L.marker(ll(m.opening), { icon: freefallDot(color, 7), zIndexOffset: 100 }));
@@ -150,8 +261,7 @@ function drawFreefallPlan() {
       const tSec  = Math.round(g.tExitSec);
       const tTxt  = `+${tSec}s`;
       const sepTxt = g.minSepFt != null ? ` · sep ${g.minSepFt}ft` : '';
-      const midTxt = g.isMiddle ? ' ●' : '';
-      const line1  = `${g.name} (${g.size}× ${g.type})${midTxt}`;
+      const line1  = `${escapeHtml(g.name)} (${g.size}× ${g.type})`;
       const line2  = `${tTxt} · open ${g.openAlt}ft · brk ${g.breakoffAlt}ft · throw ${g.throwFt}ft${sepTxt}`;
       addL(L.marker(ll(g.exit), {
         icon: L.divIcon({
@@ -165,7 +275,7 @@ function drawFreefallPlan() {
 
       // Breakoff-altitude warning: insufficient intra-group tracking spread
       if (g.reqBreakoffAlt != null) {
-        const warnTxt = `⚠ ${g.name}: breakoff needs ${g.reqBreakoffAlt.toLocaleString()}ft for ${r.openSepFt}ft sep`;
+        const warnTxt = `⚠ ${escapeHtml(g.name)}: breakoff needs ${g.reqBreakoffAlt.toLocaleString()}ft for ${r.openSepFt}ft sep`;
         addL(L.marker(ll(g.breakoff), {
           icon: L.divIcon({
             html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;
@@ -178,108 +288,6 @@ function drawFreefallPlan() {
       }
     }
   });
-
-  // ── Jump run, exit circle, opening circle ──
-  // Canopy mode draws these when its display is on — skip here to avoid duplicates.
-  // When canopy display is off, draw the JR line and zone circles using the canopy
-  // result (always computed when freefall is active) or DOM fallback if unavailable.
-  if (!state.modes.canopy) {
-    const jrVec    = hdgVec(r.jrHdg);
-    const midGroup = r.groups.find(g => g.isMiddle) || r.groups[Math.floor(r.groups.length / 2)];
-    const margin   = 1 - (parseFloat(document.getElementById('safety-margin').value) || 0) / 100;
-
-    if (state.layers.jumpRun && showLabels && r.groups.length) {
-      const first    = r.groups[0];
-      const last     = r.groups[r.groups.length - 1];
-      const extFt    = 1500;
-      const jrStart  = offsetLL(first.exit.lat, first.exit.lng, -jrVec.n * extFt, -jrVec.e * extFt);
-      const jrEnd    = offsetLL(last.exit.lat,  last.exit.lng,   jrVec.n * extFt,  jrVec.e * extFt);
-      addL(L.polyline([ll(jrStart), ll(jrEnd)], {
-        color: 'rgba(160,220,255,0.7)', weight: 2, dashArray: '8 5', interactive: false,
-      }));
-      const chevronSvg = `<svg width="14" height="14" viewBox="0 0 12 12" style="display:block;">
-        <polyline points="3,10 6,2 9,10" fill="none" stroke="rgba(160,220,255,0.95)"
-          stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
-          transform="rotate(${r.jrHdg},6,6)"/>
-      </svg>`;
-      addL(L.marker(ll(midGroup.exit), {
-        icon: L.divIcon({ html: chevronSvg, iconSize: [14, 14], iconAnchor: [7, 7], className: '' }),
-        interactive: false, zIndexOffset: 43,
-      }));
-      const passSec = Math.round(last.tExitSec);
-      const maxGap  = r.maxTDelta ? `· ${Math.round(r.maxTDelta)}s max gap` : '';
-      const jrLblPt = offsetLL(jrEnd.lat, jrEnd.lng, jrVec.n * 300, jrVec.e * 300);
-      addL(L.marker(ll(jrLblPt), {
-        icon: L.divIcon({
-          html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;
-            color:rgba(160,220,255,1);text-shadow:${shadow};
-            white-space:nowrap;pointer-events:none;text-align:center;line-height:1.5;">
-            Jump run ${Math.round(r.jrHdg)}° · ${r.jrGndSpdKts}kt GS · ${passSec}s pass ${maxGap}
-          </div>`,
-          iconSize: [420, 22], iconAnchor: [210, 11], className: '',
-        }),
-        interactive: false, zIndexOffset: 45,
-      }));
-    }
-
-    // Exit and opening circles — use canopy result when available (always when freefall mode
-    // is active, since canopy calc runs unconditionally); fall back to DOM approximation.
-    if (state.layers.exitRegion || state.layers.canopyRegions) {
-      const cr           = state.canopy.result;
-      const altOpen      = midGroup.openAlt;
-      const exitCenter   = cr ? cr.exitCenter : r.jrBasePt;
-      const openCtr      = cr ? cr.openCtr : (() => {
-        const ffDrift = integratedDrift(r.altExit, altOpen, (GROUP_TYPES[midGroup.type]?.fallMph ?? 120) * 88);
-        return offsetLL(r.jrBasePt.lat, r.jrBasePt.lng, ffDrift.dN, ffDrift.dE);
-      })();
-      const openRadiusFt = cr ? cr.openRadiusFt
-        : Math.max(0, altOpen - (parseFloat(document.getElementById('alt-enter').value) || 1000))
-          * (parseFloat(document.getElementById('glide').value) || 2.5);
-
-      function ffZoneLabel(ctr, radiusFt, txt, color, windVelDir) {
-        const upwindHdg = (windVelDir + 180) % 360;
-        const upwindVec = hdgVec(upwindHdg);
-        const labelPt   = offsetLL(ctr.lat, ctr.lng,
-          upwindVec.n * (radiusFt * margin + 100), upwindVec.e * (radiusFt * margin + 100));
-        const arrowSvg  = `<svg width="12" height="12" viewBox="0 0 14 14" style="display:inline-block;vertical-align:middle;margin-right:3px;flex-shrink:0;">
-          <polygon points="7,1 12,13 7,10 2,13" fill="${color}" transform="rotate(${windVelDir},7,7)"/>
-        </svg>`;
-        addL(L.marker(ll(labelPt), {
-          icon: L.divIcon({
-            html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;
-              color:${color};text-shadow:0 1px 4px #000,0 0 8px #000;white-space:nowrap;
-              text-align:center;pointer-events:none;line-height:1.4;display:flex;align-items:center;justify-content:center;">
-              ${arrowSvg}${txt}</div>`,
-            iconSize: [160, 20], iconAnchor: [80, 10], className: '',
-          }),
-          interactive: false, zIndexOffset: 40,
-        }));
-      }
-
-      if (state.layers.canopyRegions && openRadiusFt > 0) {
-        const altBot  = cr ? cr.altE : (parseFloat(document.getElementById('alt-enter').value) || 1000);
-        const openAvg = avgWindInBand(altBot, altOpen);
-        addL(L.circle([openCtr.lat, openCtr.lng], {
-          radius: openRadiusFt * margin * 0.3048,
-          color: 'rgba(255,210,80,0.95)', weight: 2.5, fill: false, interactive: false,
-        }));
-        ffZoneLabel(openCtr, openRadiusFt,
-          `Open ${altOpen.toLocaleString()}ft · ${openAvg.spd}kt`,
-          'rgba(255,220,100,1)', openAvg.dir);
-      }
-
-      if (state.layers.exitRegion && openRadiusFt > 0) {
-        const ffAvg = avgWindInBand(altOpen, r.altExit);
-        addL(L.circle([exitCenter.lat, exitCenter.lng], {
-          radius: openRadiusFt * margin * 0.3048,
-          color: 'rgba(160,220,255,0.95)', weight: 2.5, fill: false, interactive: false, dashArray: '8 5',
-        }));
-        ffZoneLabel(exitCenter, openRadiusFt,
-          `Exit ${r.altExit.toLocaleString()}ft · ${ffAvg.spd}kt`,
-          'rgba(180,230,255,1)', ffAvg.dir);
-      }
-    }
-  }
 
   // fitBounds when canopy mode is off
   if (!state.modes.canopy && !state.fitDone) {
@@ -385,7 +393,7 @@ function drawCanopyPattern() {
     });
   }
 
-  // ── Zones, jump run, labels ──
+  // ── Canopy entry rings ──
   {
     const dRate  = (p.cSpd / p.glide) * FT_MIN_PER_KT;
     const margin = 1 - p.safetyPct;
@@ -406,39 +414,9 @@ function drawCanopyPattern() {
       return ctr;
     }
 
-    // Zone label placed on the upwind border of the circle
-    function zoneLabel(ctr, radiusFt, txt, color, windVelDir) {
-      const radiusM        = radiusFt * margin * 0.3048;
-      const radiusFtActual = radiusM / 0.3048;
-      const upwindHdg      = (windVelDir + 180) % 360;
-      const upwindVec      = hdgVec(upwindHdg);
-      const labelPt        = offsetLL(ctr.lat, ctr.lng,
-        upwindVec.n * (radiusFtActual + 100),
-        upwindVec.e * (radiusFtActual + 100));
+    const canopyRange = p.altOpen - topAltAGL;
 
-      const arrowSvg = `<svg width="12" height="12" viewBox="0 0 14 14" style="display:inline-block;vertical-align:middle;margin-right:3px;flex-shrink:0;">
-        <polygon points="7,1 12,13 7,10 2,13" fill="${color}" transform="rotate(${windVelDir},7,7)"/>
-      </svg>`;
-
-      addL(L.marker(ll(labelPt), {
-        icon: L.divIcon({
-          html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;
-            color:${color};text-shadow:0 1px 4px #000,0 0 8px #000;white-space:nowrap;
-            text-align:center;pointer-events:none;line-height:1.4;display:flex;align-items:center;justify-content:center;">
-            ${arrowSvg}${txt}</div>`,
-          iconSize: [160, 20], iconAnchor: [80, 10], className: '',
-        }),
-        interactive: false, zIndexOffset: 40,
-      }));
-    }
-
-    // ── Shared geometry (used by multiple layers) ──
-    const canopyRange  = p.altOpen - topAltAGL;
-    const openRadiusFt = p.openRadiusFt;
-    const openCtr      = p.openCtr;
-    const exitCenter   = p.exitCenter;
-
-    // ── Canopy entry rings + opening ring ──
+    // ── Canopy entry rings (opening rings are drawn by drawJumpRun) ──
     if (state.layers.canopyRegions) {
       const hStep3     = canopyRange / 3;
       const ringColors = [
@@ -459,166 +437,13 @@ function drawCanopyPattern() {
         );
         const avg      = avgWindInBand(botAGL, topAGL);
         const altLabel = Math.round(topAltAGL + h).toLocaleString();
-        zoneLabel(ctr, h * p.glide,
+        zoneLabel(ctr, h * p.glide * margin,
           `${altLabel}ft · ${avg.spd}kt`,
           rc.border.replace(/[\d.]+\)$/, '1)'),
           avg.dir);
       });
 
-      // ── Opening altitude ring ──
-      const openAvg = avgWindInBand(topAltAGL, p.altOpen);
-      addL(L.circle([openCtr.lat, openCtr.lng], {
-        radius: openRadiusFt * margin * 0.3048,
-        color: 'rgba(255,210,80,0.95)', weight: 2.5,
-        fill: false, interactive: false,
-      }));
-      zoneLabel(openCtr, openRadiusFt,
-        `Open ${p.altOpen.toLocaleString()}ft · ${openAvg.spd}kt`,
-        'rgba(255,220,100,1)', openAvg.dir);
     } // end canopyRegions
-
-    // ── Exit ring ──
-    if (state.layers.exitRegion) {
-      const ffAvg = avgWindInBand(p.altOpen, p.altExit);
-      addL(L.circle([exitCenter.lat, exitCenter.lng], {
-        radius: openRadiusFt * margin * 0.3048,
-        color: 'rgba(160,220,255,0.95)', weight: 2.5,
-        fill: false, interactive: false, dashArray: '8 5',
-      }));
-      zoneLabel(exitCenter, openRadiusFt,
-        `Exit ${p.altExit.toLocaleString()}ft · ${ffAvg.spd}kt`,
-        'rgba(180,230,255,1)', ffAvg.dir);
-    }
-
-    // ── Jump run line ──
-    if (state.layers.jumpRun) {
-      const jrVec      = hdgVec(p.jrHdg);
-      const jrRightVec = {n: -jrVec.e, e: jrVec.n}; // 90° right of heading (compass right)
-
-      // Use DZ reference zero point (if set) instead of landing target for offset/green/red calcs
-      const dzZeroLatEl = document.getElementById('dz-zero-lat');
-      const dzZeroLngEl = document.getElementById('dz-zero-lng');
-      const dzZeroLat = dzZeroLatEl && dzZeroLatEl.value !== '' ? parseFloat(dzZeroLatEl.value) : NaN;
-      const dzZeroLng = dzZeroLngEl && dzZeroLngEl.value !== '' ? parseFloat(dzZeroLngEl.value) : NaN;
-      const dzRef = (isFinite(dzZeroLat) && isFinite(dzZeroLng))
-        ? {lat: dzZeroLat, lng: dzZeroLng}
-        : p.landing;
-
-      // Natural offset = perpendicular distance from DZ reference point to the line through exit center
-      const landToExitN  = (exitCenter.lat - dzRef.lat) * R_FT * D2R;
-      const landToExitE  = (exitCenter.lng - dzRef.lng) * R_FT * Math.cos(dzRef.lat * D2R) * D2R;
-      const calcOffsetFt = landToExitN * jrRightVec.n + landToExitE * jrRightVec.e;
-      const calcOffsetNm = calcOffsetFt / FT_PER_NM;
-
-      const jrOffsetEl = document.getElementById('jr-offset');
-      if (!state.jumpRun.manualOffset) {
-        jrOffsetEl.value       = calcOffsetNm.toFixed(2);
-        jrOffsetEl.style.color = 'var(--muted)';
-      }
-
-      const jrBase = state.jumpRun.manualOffset
-        ? offsetLL(exitCenter.lat, exitCenter.lng,
-            jrRightVec.n * ((parseFloat(jrOffsetEl.value) || 0) - calcOffsetNm) * FT_PER_NM,
-            jrRightVec.e * ((parseFloat(jrOffsetEl.value) || 0) - calcOffsetNm) * FT_PER_NM)
-        : {lat: exitCenter.lat, lng: exitCenter.lng};
-
-      const exitR      = openRadiusFt * margin * 0.3048;
-      const extFt      = (exitR / 0.3048) * 1.25;
-      const jrUpwind   = offsetLL(jrBase.lat, jrBase.lng,  jrVec.n * extFt,  jrVec.e * extFt);
-      const jrDownwind = offsetLL(jrBase.lat, jrBase.lng, -jrVec.n * extFt, -jrVec.e * extFt);
-
-      addL(L.polyline([ll(jrDownwind), ll(jrUpwind)], {
-        color: 'rgba(160,220,255,0.85)', weight: 2, dashArray: '8 5', interactive: false,
-      }));
-
-      // Direction chevron at center of jump run line
-      const chevronSvg = `<svg width="14" height="14" viewBox="0 0 12 12" style="display:block;">
-        <polyline points="3,10 6,2 9,10" fill="none" stroke="rgba(160,220,255,0.95)"
-          stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
-          transform="rotate(${p.jrHdg},6,6)"/>
-      </svg>`;
-      addL(L.marker(ll(jrBase), {
-        icon: L.divIcon({html: chevronSvg, iconSize: [14, 14], iconAnchor: [7, 7], className: ''}),
-        interactive: false, zIndexOffset: 43,
-      }));
-
-      // Ground speed + green/red light distances
-      const wJr      = getWindAtAGL(p.altExit);
-      const jrWC     = wJr.n * jrVec.n + wJr.e * jrVec.e;
-      const jrTAS    = p.jrAirspeedKts * tasFactor(p.altExit);
-      const jrGndSpd = Math.round(jrTAS + jrWC);
-      const gsFps    = jrGndSpd * FT_PER_NM / 3600;
-      const sepSec   = gsFps > 0 ? Math.ceil(p.exitSepFt / gsFps) : null;
-
-      // Intersect jump run line with exit circle for green/red light distances
-      const jrBaseToExitN = (exitCenter.lat - jrBase.lat) * R_FT * D2R;
-      const jrBaseToExitE = (exitCenter.lng - jrBase.lng) * R_FT * Math.cos(jrBase.lat * D2R) * D2R;
-      const exitRFt  = openRadiusFt * margin;
-      const proj2    = jrBaseToExitN * jrVec.n + jrBaseToExitE * jrVec.e;
-      const distSq2  = jrBaseToExitN ** 2 + jrBaseToExitE ** 2;
-      const disc2    = proj2 ** 2 - (distSq2 - exitRFt ** 2);
-      // Use DZ reference point for tRef (distance along jump run from DZ ref to base)
-      const dzToBaseN = (dzRef.lat - jrBase.lat) * R_FT * D2R;
-      const dzToBaseE = (dzRef.lng - jrBase.lng) * R_FT * Math.cos(jrBase.lat * D2R) * D2R;
-      const tRef     = dzToBaseN * jrVec.n + dzToBaseE * jrVec.e;
-
-      const greenEl = document.getElementById('green-light-override');
-      const redEl   = document.getElementById('red-light-override');
-      let greenTxt = '', redTxt = '';
-      if (disc2 >= 0) {
-        const t1 = proj2 - Math.sqrt(disc2);
-        const t2 = proj2 + Math.sqrt(disc2);
-
-        // Calculated values as signed nm from DZ ref
-        const calcGreenNm = (t1 - tRef) / FT_PER_NM;
-        const calcRedNm   = (t2 - tRef) / FT_PER_NM;
-
-        // Update input fields if not manually set
-        if (greenEl && !state.jumpRun.manualGreenLight) {
-          greenEl.value       = calcGreenNm.toFixed(2);
-          greenEl.style.color = 'var(--muted)';
-        }
-        if (redEl && !state.jumpRun.manualRedLight) {
-          redEl.value       = calcRedNm.toFixed(2);
-          redEl.style.color = 'var(--muted)';
-        }
-
-        // Use manual override or calculated value for label
-        const activeGreenNm = state.jumpRun.manualGreenLight && greenEl && greenEl.value !== ''
-          ? parseFloat(greenEl.value) : calcGreenNm;
-        const activeRedNm   = state.jumpRun.manualRedLight   && redEl   && redEl.value   !== ''
-          ? parseFloat(redEl.value)   : calcRedNm;
-
-        const fmtNm = nm => {
-          const word = nm >= 0 ? 'past' : 'prior';
-          return `${Math.abs(nm).toFixed(1)}nm ${word}`;
-        };
-        greenTxt = ` · 🟢 ${fmtNm(activeGreenNm)}`;
-        redTxt   = ` · 🔴 ${fmtNm(activeRedNm)}`;
-      } else {
-        // No intersection — clear fields if not manually set
-        if (greenEl && !state.jumpRun.manualGreenLight) { greenEl.value = ''; greenEl.style.color = 'var(--muted)'; }
-        if (redEl   && !state.jumpRun.manualRedLight)   { redEl.value   = ''; redEl.style.color   = 'var(--muted)'; }
-      }
-
-      const sepTxt          = sepSec ? ` · ${sepSec}s sep` : '';
-      const displayOffsetNm = state.jumpRun.manualOffset ? parseFloat(jrOffsetEl.value) || 0 : calcOffsetNm;
-      const offsetTxt       = `${displayOffsetNm >= 0 ? '+' : ''}${displayOffsetNm.toFixed(1)}nm`;
-      const jrLabelPt       = offsetLL(jrDownwind.lat, jrDownwind.lng, -jrVec.n * 250, -jrVec.e * 250);
-
-      addL(L.marker(ll(jrLabelPt), {
-        icon: L.divIcon({
-          html: `<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;
-            color:rgba(160,220,255,1);text-shadow:0 1px 5px #000,0 0 10px #000;
-            white-space:nowrap;pointer-events:none;text-align:center;line-height:1.5;">
-            Jump run ${Math.round(p.jrHdg)}° · ${jrGndSpd}kt GS · ${offsetTxt}${sepTxt}${greenTxt}${redTxt}
-          </div>`,
-          iconSize: [460, 34], iconAnchor: [230, 0], className: '',
-        }),
-        interactive: false, zIndexOffset: 45,
-      }));
-    } // end jumpRun
-
   } // end zones block
 
   // ── Shared leg label geometry ──

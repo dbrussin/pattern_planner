@@ -11,21 +11,29 @@ let _fetchAbortController = null;
 
 // ── Elevation fetch ───────────────────────────────────────────────────────────
 
+// Returns field elevation (ft MSL) for lat/lng, or null if unavailable. Pure — callers
+// decide when to commit it to state, so a superseded request can't clobber a newer one.
 async function fetchElevation(lat, lng) {
-  // Check if wind cache already has elevation for this location
   const cached = findCachedWinds(lat, lng);
-  if (cached?.fieldElevFt != null) {
-    state.fieldElevFt = cached.fieldElevFt;
-    return;
-  }
+  if (cached?.fieldElevFt != null) return cached.fieldElevFt;
   try {
     const d = await (await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lng}`)).json();
-    if (d.elevation?.[0] != null) state.fieldElevFt = Math.round(d.elevation[0] * 3.28084);
-    else setStatus('Elevation unavailable — AGL altitudes may be inaccurate');
+    if (d.elevation?.[0] != null) return Math.round(d.elevation[0] * 3.28084);
   } catch(e) {
     console.warn('Elevation fetch failed', e);
-    setStatus('Elevation unavailable — AGL altitudes may be inaccurate');
   }
+  return null;
+}
+
+// Drop all wind data (used when the target moves, so a failed fetch can never leave
+// the previous location's winds in place).
+function clearWinds() {
+  state.winds       = [];
+  state.surfaceWind = null;
+  invalidateWindCaches();
+  buildWindTable();
+  const box = document.getElementById('metar-box');
+  if (box) box.style.display = 'none';
 }
 
 // ── Wind fetch ────────────────────────────────────────────────────────────────
@@ -76,11 +84,20 @@ async function fetchWinds(forceRefresh = false, elevationPromise = null) {
       setStatus('Wind data unavailable');
       return;
     }
-    // Elevation is fetched in parallel with winds (see placeTarget()) — wait for
-    // it to settle before reading state.fieldElevFt, since it usually resolves
-    // first (much smaller response) but isn't guaranteed to.
+    // Elevation is fetched in parallel with winds (see placeTarget()) — wait for it to
+    // settle, then bail if a newer request superseded this one meanwhile (state now
+    // belongs to the newer target).
     if (elevationPromise) await elevationPromise;
-    const fieldElevFt = state.fieldElevFt || 0;
+    if (signal.aborted) return;
+    // Prefer the dedicated elevation lookup; fall back to the forecast response's own
+    // 90 m DEM elevation. Never guess — a wrong elevation shifts every AGL altitude.
+    const fieldElevFt = state.fieldElevFt ??
+      (rawData.elevation != null ? Math.round(rawData.elevation * 3.28084) : null);
+    if (fieldElevFt == null) {
+      document.getElementById('fetch-status').textContent = 'Field elevation unavailable — winds not loaded';
+      setStatus('Field elevation unavailable');
+      return;
+    }
     const ts          = Date.now();
     saveWindCache(lat, lng, {rawData, fieldElevFt, ts});
     state.fieldElevFt = fieldElevFt;
@@ -312,7 +329,6 @@ function processWindData(d, fieldElevFt) {
 
   buildWindTable();
   if (!state.canopy.manualHeading && state.surfaceWind.dirDeg != null) { state.canopy.finalHeadingDeg = state.surfaceWind.dirDeg; updateHeadingDisplay(state.surfaceWind.dirDeg); }
-  autoSetJumpRunHeading();
   updateWindPyramid();
   updateJrPyramid();
 
@@ -527,6 +543,7 @@ async function fetchMetar(lat, lng) {
     const obs    = await (await fetch(`https://api.weather.gov/stations/${encodeURIComponent(stId)}/observations/latest`)).json();
     if (!obs?.properties?.timestamp) { box.style.display = 'none'; return; }
 
+    if (state.target?.lat !== lat || state.target?.lng !== lng) return; // target moved
     box.innerHTML = _renderNWSObs(obs.properties, stId, stName, nearest.dist);
     box.style.display = 'block';
   } catch(e) {

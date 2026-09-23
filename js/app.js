@@ -38,13 +38,15 @@ L.control.zoom({position: 'bottomright'}).addTo(map);
 navigator.geolocation?.getCurrentPosition(p => map.setView([p.coords.latitude, p.coords.longitude], 14), () => {});
 
 let targetMarker = null, patternLayers = [];
+let _placeSeq = 0;  // increments per placeTarget() so stale async steps can bail out
 map.on('click', e => placeTarget(e.latlng.lat, e.latlng.lng));
 
 // ── Target placement ──────────────────────────────────────────────────────────
 
 /**
  * Set a new landing target, fetch elevation and winds, then calculate the pattern.
- * Resets manual heading, jump run heading, and forecast offset when moved more than 1 mile.
+ * Resets manual heading, jump run heading/offset, green/red light overrides, and forecast
+ * offset when moved more than 1 mile.
  * @param {number} lat - Target latitude (decimal degrees)
  * @param {number} lng - Target longitude (decimal degrees)
  */
@@ -54,7 +56,13 @@ async function placeTarget(lat, lng) {
     state.canopy.manualHeading  = false;
     state.jumpRun.manualHeading  = false;
     state.jumpRun.hdgDeg  = null;
-    state.jumpRun.manualOffset = false;
+    state.jumpRun.manualOffset     = false;
+    state.jumpRun.manualGreenLight = false;
+    state.jumpRun.manualRedLight   = false;
+    ['jr-offset', 'green-light-override', 'red-light-override'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.value = ''; el.style.color = 'var(--muted)'; }
+    });
     state.forecastOffset = 0;
     const fo = document.getElementById('forecast-offset');
     if (fo) fo.value = 0;
@@ -62,9 +70,15 @@ async function placeTarget(lat, lng) {
     if (fl) fl.textContent = 'Now';
   }
 
-  // Unlock DZ zero when moving to a different grid cell (non-nearby target)
-  if (state.target && cacheKey(state.target.lat, state.target.lng) !== cacheKey(lat, lng)) {
-    state.manualDzZero = false;
+  // Release a manual DZ zero point once the target is more than 1 mile from it
+  // (a different DZ). Measured from the point itself, so it also works on the first
+  // tap after a reload, when there is no previous target.
+  if (state.manualDzZero) {
+    const zLat = parseFloat(document.getElementById('dz-zero-lat')?.value);
+    const zLng = parseFloat(document.getElementById('dz-zero-lng')?.value);
+    if (!isFinite(zLat) || !isFinite(zLng) || distMiles({lat: zLat, lng: zLng}, {lat, lng}) > 1.0) {
+      state.manualDzZero = false;
+    }
   }
 
   // Update DZ zero point if not manually set, and new position is in a different grid cell
@@ -103,10 +117,17 @@ async function placeTarget(lat, lng) {
   showLegend();
   collapseSearch();
   setStatus('Fetching elevation & winds…', true);
-  // Run elevation and wind fetches concurrently instead of serially — the wind
-  // fetch waits internally for elevation to settle before it needs fieldElevFt.
-  const elevationPromise = fetchElevation(lat, lng);
+  // Never carry the previous location's winds/elevation over: if a fetch fails the
+  // pattern is withheld rather than drawn with another DZ's data. Elevation and winds
+  // are fetched concurrently; fetchWinds() awaits the elevation step before caching.
+  const seq = ++_placeSeq;
+  clearWinds();
+  state.fieldElevFt = null;
+  const elevationPromise = fetchElevation(lat, lng).then(elevFt => {
+    if (seq === _placeSeq) state.fieldElevFt = elevFt;  // null → forecast's elevation is used
+  });
   await fetchWinds(false, elevationPromise);
+  if (seq !== _placeSeq) return;   // superseded by a newer tap
   calculate();
 }
 

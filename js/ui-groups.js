@@ -137,7 +137,7 @@ function renderGroups() {
       </div>
       <div class="group-row group-row--compact">
         <span class="group-field-label">Breakoff Alt</span>
-        <input class="group-num-input group-alt-input" type="number" min="1000" max="20000" step="100" value="${breakoffAlt}"
+        <input class="group-num-input group-alt-input" type="number" min="1000" max="20000" step="100" value="${breakoffAlt}" data-field="breakoffAlt"
           oninput="setGroupField('${g.id}','breakoffAlt',this.value)">
         <span class="group-field-label">ft AGL</span>
       </div>`;
@@ -217,6 +217,9 @@ function setGroupField(id, field, value) {
     const defaultBreakoff = prev + 1500;
     if (!g._breakoffManual && Math.abs((g.breakoffAlt ?? defaultBreakoff) - defaultBreakoff) < 50) {
       g.breakoffAlt = g.openAlt + 1500;
+      // Reflect the auto-shift in this card's Breakoff input (no full re-render mid-typing)
+      const brEl = document.querySelector(`.group-card[data-id="${g.id}"] [data-field="breakoffAlt"]`);
+      if (brEl) brEl.value = g.breakoffAlt;
     }
   } else if (field === 'breakoffAlt') {
     g.breakoffAlt    = Math.max(1000, Math.min(20000, parseInt(value) || 4500));

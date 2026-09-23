@@ -199,7 +199,10 @@ function getLegAltConstraints(numId) {
 
   // Extra legs in display order: highest defaultAlt first (same sort as renderLegs)
   const displayOrder = [...(state.canopy.extraLegs || [])].sort((a, b) => b.defaultAlt - a.defaultAlt);
-  const getAlt = xl => parseFloat(document.getElementById(`alt-${xl.id}`)?.value) ?? xl.defaultAlt;
+  const getAlt = xl => {
+    const v = parseFloat(document.getElementById(`alt-${xl.id}`)?.value);
+    return isNaN(v) ? xl.defaultAlt : v;
+  };
 
   if (numId === 'alt-final') return { min: 100, max: Math.max(100, altBase - MIN_GAP) };
   if (numId === 'alt-base')  return { min: altFinal + MIN_GAP, max: Math.max(altFinal + MIN_GAP, altEnter - MIN_GAP) };
@@ -293,7 +296,7 @@ function onExtraLegHdg(id, src) {
   const xl = state.canopy.extraLegs.find(x => x.id === id);
   if (xl) xl.nomHdg = parseInt(inp.value) || 0;
   saveSettings();
-  if (state.canopy.result) calculate();
+  if (state.target) calculate();
 }
 
 // ── Reset pattern legs to defaults ────────────────────────────────────────────
@@ -448,7 +451,7 @@ function onStdLegHdg(key, src) {
   if (!state.canopy.legHdgOverride) state.canopy.legHdgOverride = {};
   state.canopy.legHdgOverride[key] = parseInt(inp.value) || 0;
   saveSettings();
-  if (state.canopy.result) calculate();
+  if (state.target) calculate();
 }
 
 function onLegHdgOverrideToggle(key, checked) {
@@ -491,7 +494,7 @@ function onLegHdgOverrideToggle(key, checked) {
     if (key === 'dw') updateZRowState();
   }
   saveSettings();
-  if (state.canopy.result) calculate();
+  if (state.target) calculate();
 }
 
 function updateZRowState() {

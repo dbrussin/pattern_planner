@@ -81,7 +81,6 @@ function _renderForecastTable(rawData, fieldElevFt, ts) {
   _setFcStatus(`Loaded ${ageMin < 1 ? 'just now' : ageMin + 'm ago'}`);
 
   const h      = rawData.hourly;
-  const utcOff = rawData.utc_offset_seconds || 0;
   const times  = h.time;
 
   // Pressure levels ≤ 18,000 ft MSL and above ground, sorted low → high
@@ -97,16 +96,16 @@ function _renderForecastTable(rawData, fieldElevFt, ts) {
   plRows.sort((a, b) => a.altAglFt - b.altAglFt);
 
   const wrap = document.getElementById('forecast-table-wrap');
-  const thead = _buildFcThead(times, utcOff, h.is_day);
+  const thead = _buildFcThead(times, h.is_day);
   const tbody = _buildFcTbody(plRows, times, h);
   wrap.innerHTML = `<table class="forecast-table">${thead}${tbody}</table>`;
 }
 
-function _buildFcThead(times, utcOff, isDay) {
+function _buildFcThead(times, isDay) {
   const days = [];
   let curDay = '', curSpan = 0;
   for (const iso of times) {
-    const d = _localDay(iso, utcOff);
+    const d = _localDay(iso);
     if (d === curDay) { curSpan++; }
     else { if (curDay) days.push({ label: curDay, span: curSpan }); curDay = d; curSpan = 1; }
   }
@@ -119,7 +118,7 @@ function _buildFcThead(times, utcOff, isDay) {
   let hrRow = '<tr><th class="ft-row-hdr">Alt AGL</th>';
   for (let i = 0; i < times.length; i++) {
     const cls = isDay?.[i] === 1 ? 'ft-hr-hdr ft-hdr-day' : 'ft-hr-hdr';
-    hrRow += `<th class="${cls}">${_localHour(times[i], utcOff)}</th>`;
+    hrRow += `<th class="${cls}">${_localHour(times[i])}</th>`;
   }
   hrRow += '</tr>';
 
@@ -186,14 +185,14 @@ function _setFcStatus(msg) {
   if (el) el.textContent = msg;
 }
 
-function _localDay(isoStr, utcOffSec) {
-  const ms  = Date.parse(isoStr) + utcOffSec * 1000;
-  const d   = new Date(ms);
+// API times (timezone=auto) are already DZ-local wall-clock strings with no offset.
+// Parse them as UTC and read UTC fields so the browser's own time zone never applies.
+function _localDay(isoStr) {
+  const d   = new Date(Date.parse(isoStr + 'Z'));
   const dow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()];
   return `${dow} ${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
 }
 
-function _localHour(isoStr, utcOffSec) {
-  const ms = Date.parse(isoStr) + utcOffSec * 1000;
-  return String(new Date(ms).getUTCHours()).padStart(2, '0');
+function _localHour(isoStr) {
+  return String(new Date(Date.parse(isoStr + 'Z')).getUTCHours()).padStart(2, '0');
 }
