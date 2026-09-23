@@ -44,7 +44,8 @@ map.on('click', e => placeTarget(e.latlng.lat, e.latlng.lng));
 
 /**
  * Set a new landing target, fetch elevation and winds, then calculate the pattern.
- * Resets manual heading, jump run heading, and forecast offset when moved more than 1 mile.
+ * Resets manual heading, jump run heading/offset, green/red light overrides, and forecast
+ * offset when moved more than 1 mile.
  * @param {number} lat - Target latitude (decimal degrees)
  * @param {number} lng - Target longitude (decimal degrees)
  */
@@ -54,7 +55,13 @@ async function placeTarget(lat, lng) {
     state.canopy.manualHeading  = false;
     state.jumpRun.manualHeading  = false;
     state.jumpRun.hdgDeg  = null;
-    state.jumpRun.manualOffset = false;
+    state.jumpRun.manualOffset     = false;
+    state.jumpRun.manualGreenLight = false;
+    state.jumpRun.manualRedLight   = false;
+    ['jr-offset', 'green-light-override', 'red-light-override'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.value = ''; el.style.color = 'var(--muted)'; }
+    });
     state.forecastOffset = 0;
     const fo = document.getElementById('forecast-offset');
     if (fo) fo.value = 0;
