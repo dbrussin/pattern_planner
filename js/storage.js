@@ -179,7 +179,7 @@ function loadSettings() {
     const xlStr = localStorage.getItem(storageKey('extra_legs'));
     if (xlStr) {
       try {
-        const xlData   = JSON.parse(xlStr);
+        let   xlData   = JSON.parse(xlStr);
         const savedModes = (() => {
           try { return JSON.parse(localStorage.getItem(storageKey('leg_modes')) || '{}'); } catch(e) { return {}; }
         })();
@@ -188,8 +188,12 @@ function loadSettings() {
         const savedCustom = (() => {
           try { return JSON.parse(localStorage.getItem(storageKey('leg_custom')) || '{}'); } catch(e) { return {}; }
         })();
-        xlData.forEach(xl => {
-          state.canopy.extraLegs.push({ id: xl.id, defaultAlt: xl.alt, color: xl.color, nomHdg: xl.hdg ?? 0 });
+        // ids/colors are interpolated into onclick/style attributes by renderLegs() —
+        // only accept the shapes the app itself generates.
+        xlData = xlData.filter(xl => /^xl\d{1,4}$/.test(String(xl?.id)));
+        xlData.forEach((xl, i) => {
+          const color = /^#[0-9a-f]{6}$/i.test(String(xl.color)) ? xl.color : EXTRA_LEG_COLORS[i % EXTRA_LEG_COLORS.length];
+          state.canopy.extraLegs.push({ id: xl.id, defaultAlt: parseFloat(xl.alt) || 1200, color, nomHdg: _intOr(xl.hdg, 0) });
           state.canopy.legModes[xl.id]      = savedModes[xl.id] || 'crab';
           state.canopy.legCustomPerf[xl.id] = !!savedCustom[xl.id];
         });
@@ -239,10 +243,16 @@ function loadSettings() {
       try {
         const saved = JSON.parse(groupsStr);
         if (Array.isArray(saved)) {
-          const restored = saved.filter(g => g && g.id && GROUP_TYPES[g.type]).map(g => {
+          // Group ids are interpolated into onclick attributes by renderGroups() — keep
+          // only the `g<N>` shape the app generates, unique; others get a fresh id below.
+          const seenIds = new Set();
+          const restored = saved.filter(g => g && GROUP_TYPES[g.type]).map(g => {
             const openAlt = parseInt(g.openAlt) || (DEFAULT_OPEN_ALT[g.type] ?? 3000);
+            const id      = String(g.id);
+            const validId = /^g\d{1,6}$/.test(id) && !seenIds.has(id);
+            if (validId) seenIds.add(id);
             return {
-              id:             String(g.id),
+              id:             validId ? id : null,
               name:           String(g.name ?? 'Group'),
               size:           Math.max(1, Math.min(20, parseInt(g.size) || 1)),
               type:           g.type,
@@ -253,6 +263,8 @@ function loadSettings() {
               _breakoffManual: !!g._breakoffManual,
             };
           });
+          let nextIdx = Math.max(1, ...[...seenIds].map(id => parseInt(id.slice(1)))) + 1;
+          restored.forEach(g => { if (!g.id) g.id = `g${nextIdx++}`; });
           if (restored.length > 0) state.freefall.groups = restored;
         }
       } catch(e) {}
@@ -264,7 +276,9 @@ function loadSettings() {
       }];
     }
     state.freefall.nextGroupIdx = parseInt(localStorage.getItem(storageKey('next_group_idx'))) || 2;
-    if (state.freefall.nextGroupIdx < 2) state.freefall.nextGroupIdx = 2;
+    // Never reuse an id already in use (e.g. one just reassigned above)
+    const maxGroupIdx = Math.max(1, ...state.freefall.groups.map(g => parseInt(g.id.slice(1)) || 0));
+    state.freefall.nextGroupIdx = Math.max(state.freefall.nextGroupIdx, maxGroupIdx + 1, 2);
     if (typeof renderGroups === 'function') renderGroups();
 
     // Layer visibility — done last so setHand/setLegMode don't clobber pp_layers
