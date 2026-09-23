@@ -112,15 +112,16 @@ async function placeTarget(lat, lng) {
   collapseSearch();
   setStatus('Fetching elevation & winds…', true);
   // Never carry the previous location's winds/elevation over: if a fetch fails the
-  // pattern is withheld rather than drawn with another DZ's data.
+  // pattern is withheld rather than drawn with another DZ's data. Elevation and winds
+  // are fetched concurrently; fetchWinds() awaits the elevation step before caching.
   const seq = ++_placeSeq;
   clearWinds();
   state.fieldElevFt = null;
-  const elevFt = await fetchElevation(lat, lng);
+  const elevationPromise = fetchElevation(lat, lng).then(elevFt => {
+    if (seq === _placeSeq) state.fieldElevFt = elevFt;  // null → forecast's elevation is used
+  });
+  await fetchWinds(false, elevationPromise);
   if (seq !== _placeSeq) return;   // superseded by a newer tap
-  state.fieldElevFt = elevFt;       // null → fetchWinds falls back to the forecast's elevation
-  await fetchWinds();
-  if (seq !== _placeSeq) return;
   calculate();
 }
 
