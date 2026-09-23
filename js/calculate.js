@@ -766,13 +766,15 @@ function calculateCanopyPattern() {
 
   // Solves all three standard legs; returns bundle of results or null if unflyable.
   function solveLegs(altFs, altBs) {
-    // Final leg: altFs → 0
+    // Final leg: altFs → 0. The set final heading is always the GROUND TRACK into the
+    // target (crab and drift are equivalent once the track is fixed); fHdgActual is
+    // the flown heading that achieves it.
     const fStillFt = altFs * perfF.glide;
     const tF       = altFs / (dRateF * tasFactor(altFs / 2));
     const wF       = avgWindVec(0, altFs);
-    const rF       = solveleg(state.canopy.legModes.f, fVec.n, fVec.e, fStillFt, wF, tF, fHdg);
+    const rF       = solveleg('crab', fVec.n, fVec.e, fStillFt, wF, tF, fHdg);
     if (rF === null) return null;
-    const fHdgActual = state.canopy.legModes.f === 'crab' ? rF.hdg : fHdg;
+    const fHdgActual = rF.hdg;
     const fDisp      = rF.disp;
     const fTrackUnit = normalize({n: fDisp.dN, e: fDisp.dE});
 
