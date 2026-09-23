@@ -198,6 +198,8 @@ function placeLoad(pts, jrVec, jrPerp, tFixed) {
  *     with a MIN_EXIT_GAP_SEC floor.
  *  3. Placement: placeLoad() slides the whole load to maximize the worst-case margin
  *     inside each group's own opening circle (manual JR offset pins the lateral position).
+ *  4. Green/red: earliest point on the line the first group can exit / latest point the
+ *     last group can, with every member still opening inside its group's circle.
  * Writes state.jumpRun.result; returns an error message string on invalid input.
  */
 function calculateJumpRun() {
@@ -402,20 +404,39 @@ function calculateJumpRun() {
   // Line geometry in along/perp coordinates measured from the line's origin T
   const along = (n, e) => (n - Tn) * jrVec.n  + (e - Te) * jrVec.e;
   const perp  = (n, e) => (n - Tn) * jrPerp.n + (e - Te) * jrPerp.e;
-  const ringA  = along(exN, exE), ringP = perp(exN, exE);
+  const ringA  = along(exN, exE);
   const exitAs = plan.map(p => along(p.exitN, p.exitE));
-  const aMin   = Math.min(ringA - exitR * 1.25, Math.min(...exitAs) - 1500);
-  const aMax   = Math.max(ringA + exitR * 1.25, Math.max(...exitAs) + 1500);
+
+  // Valid exit window for a group along the line: where EVERY member (exit + that member's
+  // exit→opening displacement) opens inside the group's own opening circle. Each member is
+  // a circle–line intersection; the window is their overlap. null ⇒ nowhere on this line.
+  const exitWindow = i => {
+    const p = plan[i], c = circles[i], R = c.r * margin;
+    let lo = -Infinity, hi = Infinity;
+    for (const m of p.memberLegs) {
+      const qN = Tn + p.breakoffDispN + m.dN - c.n, qE = Te + p.breakoffDispE + m.dE - c.e;
+      const b  = qN * jrVec.n + qE * jrVec.e;
+      const disc = b * b - (qN * qN + qE * qE) + R * R;
+      if (disc < 0) return null;
+      lo = Math.max(lo, -b - Math.sqrt(disc));
+      hi = Math.min(hi, -b + Math.sqrt(disc));
+    }
+    return lo <= hi ? { lo, hi } : null;
+  };
+  // Green = earliest point the first group can exit; red = latest point the last group can.
+  const firstWin = exitWindow(0), lastWin = exitWindow(plan.length - 1);
+  const greenA   = firstWin ? firstWin.lo : null;
+  const redA     = lastWin  ? lastWin.hi  : null;
+
+  const spanAs = [...exitAs, ...(greenA != null ? [greenA] : []), ...(redA != null ? [redA] : [])];
+  const aMin   = Math.min(ringA - exitR * 1.25, Math.min(...spanAs) - 1500);
+  const aMax   = Math.max(ringA + exitR * 1.25, Math.max(...spanAs) + 1500);
   const onLine = a => toLL(Tn + jrVec.n * a, Te + jrVec.e * a);
 
-  // Green/red: where the line crosses the exit ring, as signed nm past the DZ reference
-  const dzA = along(dz.n, dz.e);
-  let greenNm = null, redNm = null;
-  if (Math.abs(ringP) <= exitR) {
-    const h = Math.sqrt(exitR ** 2 - ringP ** 2);
-    greenNm = (ringA - h - dzA) / FT_PER_NM;
-    redNm   = (ringA + h - dzA) / FT_PER_NM;
-  }
+  // Signed nm past the DZ reference, measured along jump run
+  const dzA     = along(dz.n, dz.e);
+  const greenNm = greenA != null ? (greenA - dzA) / FT_PER_NM : null;
+  const redNm   = redA   != null ? (redA   - dzA) / FT_PER_NM : null;
 
   const openAlts = [...new Set(plan.map(p => p.openAlt))].sort((a, b) => a - b);
 
@@ -428,6 +449,8 @@ function calculateJumpRun() {
     lineStart:    onLine(aMin),
     lineEnd:      onLine(aMax),
     lineMid:      onLine(ringA),
+    greenPt:      greenA != null ? onLine(greenA) : null,
+    redPt:        redA   != null ? onLine(redA)   : null,
     calcOffsetNm: -perp(dz.n, dz.e) / FT_PER_NM,
     greenNm, redNm,
     openMarginFt: Math.round(-place.worst),

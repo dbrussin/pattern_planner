@@ -326,7 +326,7 @@
       <p>The standard pattern has three legs — Downwind (orange), Base (teal), Final (yellow) — each with an independent <b>Crab</b> or <b>Drift</b> setting. Additional legs above the downwind can be added with the <b>+ Add Leg</b> button in the Pattern Legs header — see <i>Additional Legs</i> below.</p>
       <p class="help-para"><b>Crab:</b> the app solves for a steered heading that produces the target ground track, accounting for wind. A dashed line (colored to match the leg) shows the steered heading direction when it differs meaningfully from the ground track.</p>
       <p class="help-para"><b>Drift:</b> the canopy is steered on a nominal heading and the wind carries it toward the turn point. A dashed line (colored to match the leg) shows the steered heading direction when wind drift is significant.</p>
-      <p class="help-para"><b>Final</b> is a special case: the Final Hdg is always your <i>ground track</i> into the target, in either mode. The app solves the heading you must fly to hold that track, and shows it (steer label + dashed line) when it differs from the track by more than the steered-heading threshold.</p>
+      <p class="help-para"><b>Final:</b> in Crab mode the Final Hdg is your ground track into the target and the app solves the heading to fly; in Drift mode you fly the Final Hdg and the wind carries you off it — the track label and leg arrow show the resulting ground track.</p>
       <p class="help-para">Defaults: Downwind = Crab, Base = Drift, Final = Crab.</p>
       <p class="help-para"><b>Z Pattern:</b> a checkbox on the Downwind leg (only shown when no extra legs are present). When enabled, the downwind leg flies in the same direction as the final approach leg — rather than the opposite direction as in a normal pattern. This produces a Z-shaped pattern instead of the usual C shape, and is used when the opening point is downwind of the target so the jumper needs to fly toward the landing area before turning base. Z pattern is independent of the Crab/Drift setting.</p>
     </div>
@@ -363,7 +363,7 @@
       <div class="help-heading">Safety Regions (Opening &amp; Exit)</div>
       <p>A yellow <b>opening ring</b> is drawn for each group opening altitude: open anywhere inside it and your canopy can reach the top of the pattern.</p>
       <p class="help-para">The jump run groups are modeled as one load — each group's exit throw, freefall drift, breakoff, and tracking/movement spread — and the whole load is slid along and across jump run so that every jumper opens with the greatest possible margin inside their own group's opening ring. If that isn't possible, a red warning on the map shows how far outside the worst jumper opens.</p>
-      <p class="help-para">The blue dashed <b>exit ring</b> is the load's exit region (the average of each group's own exit region, sized to the tightest group); green/red light distances are where jump run crosses it. These apply in both Canopy and Freefall modes — with Freefall off, the groups still define the load, they just aren't drawn.</p>
+      <p class="help-para">The blue dashed <b>exit ring</b> is a summary of the load's exit region (the average of each group's own exit region, sized to the tightest group). <b>Green light</b> is the earliest point on jump run where the first group can exit and <b>red light</b> the latest point where the last group can, with every jumper in that group still opening inside their opening ring; both are marked on the jump run line. These apply in both Canopy and Freefall modes — with Freefall off, the groups still define the load, they just aren't drawn.</p>
     </div>
 
     <div class="help-section">
@@ -374,7 +374,7 @@
       <p class="help-para"><b>Aircraft IAS:</b> indicated airspeed of the jump aircraft (kts), used to compute jump run ground speed and exit separation timing.</p>
       <p class="help-para"><b>Region Buffer (%):</b> shrinks all safety rings by this fraction as a conservative margin.</p>
       <p class="help-para"><b>Offset:</b> perpendicular distance from the DZ reference point (defaults to the landing spot) to the jump run line. Auto-calculated when blank (shown in muted color). Enter a value to override — positive is right of flight path looking forward — and the load is then placed only along jump run. Delete the value to return to auto.</p>
-      <p class="help-para"><b>🟢/🔴 green/red light distances:</b> how far before or past the DZ reference point the aircraft is when it enters (🟢) and leaves (🔴) the exit ring. Measured along the jump run.</p>
+      <p class="help-para"><b>🟢/🔴 green/red light distances:</b> how far before or past the DZ reference point the first group's earliest valid exit (🟢) and the last group's latest valid exit (🔴) are. Measured along the jump run.</p>
       <p class="help-para"><b>Opening separation:</b> minimum distance (ft) required between any two jumpers from different groups at their opening altitudes. The solver finds exit timing such that every pair of jumpers satisfies this separation.</p>
     </div>
 

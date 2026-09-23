@@ -168,6 +168,11 @@ function drawJumpRun() {
       interactive: false, zIndexOffset: 43,
     }));
 
+    // Green/red light ticks on the line (solver values; manual overrides only relabel)
+    [[r.greenPt, '#4ade80'], [r.redPt, '#f87171']].forEach(([pt, c]) => {
+      if (pt) addL(L.circleMarker(ll(pt), { radius: 5, color: c, weight: 2, fillColor: c, fillOpacity: 0.9, interactive: false }));
+    });
+
     // Manual overrides (if set) win over the solver's values in the label
     const manualNm = (flag, id) => {
       const el = document.getElementById(id);
