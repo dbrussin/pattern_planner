@@ -199,7 +199,10 @@ function getLegAltConstraints(numId) {
 
   // Extra legs in display order: highest defaultAlt first (same sort as renderLegs)
   const displayOrder = [...(state.canopy.extraLegs || [])].sort((a, b) => b.defaultAlt - a.defaultAlt);
-  const getAlt = xl => parseFloat(document.getElementById(`alt-${xl.id}`)?.value) ?? xl.defaultAlt;
+  const getAlt = xl => {
+    const v = parseFloat(document.getElementById(`alt-${xl.id}`)?.value);
+    return isNaN(v) ? xl.defaultAlt : v;
+  };
 
   if (numId === 'alt-final') return { min: 100, max: Math.max(100, altBase - MIN_GAP) };
   if (numId === 'alt-base')  return { min: altFinal + MIN_GAP, max: Math.max(altFinal + MIN_GAP, altEnter - MIN_GAP) };

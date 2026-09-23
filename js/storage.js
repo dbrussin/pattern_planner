@@ -6,6 +6,9 @@ function storageKey(k) { return `pp_${k}`; }
 
 // ── Settings save / load ──────────────────────────────────────────────────────
 
+// parseInt with a fallback for NaN (`parseInt(x) ?? d` never falls back — NaN isn't nullish)
+function _intOr(v, fallback) { const n = parseInt(v); return isNaN(n) ? fallback : n; }
+
 // Flag prevents saveSettings from firing during the loadSettings restore loop
 let _loadingSettings = false;
 
@@ -20,8 +23,11 @@ function saveSettings() {
   try {
     PERSIST_INPUTS.forEach(id => {
       const el = document.getElementById(id);
-      if (el && el.value !== '') localStorage.setItem(storageKey(id), el.value);
+      if (!el) return;
+      if (el.value !== '')                     localStorage.setItem(storageKey(id), el.value);
+      else if (el.dataset.allowEmpty === 'true') localStorage.removeItem(storageKey(id)); // cleared on purpose
     });
+    localStorage.setItem(storageKey('dz_zero_manual'), String(state.manualDzZero));
     localStorage.setItem(storageKey('modes'),      JSON.stringify(state.modes));
     localStorage.setItem(storageKey('hand'),       state.canopy.hand);
     localStorage.setItem(storageKey('layers'),     JSON.stringify(state.layers));
@@ -33,7 +39,7 @@ function saveSettings() {
       id:    xl.id,
       color: xl.color,
       alt:   parseFloat(document.getElementById(`alt-${xl.id}`)?.value) || xl.defaultAlt,
-      hdg:   parseInt(document.getElementById(`hdg-${xl.id}`)?.value)   ?? xl.nomHdg ?? 0,
+      hdg:   _intOr(document.getElementById(`hdg-${xl.id}`)?.value, xl.nomHdg ?? 0),
     }));
     localStorage.setItem(storageKey('extra_legs'),       JSON.stringify(xlData));
     localStorage.setItem(storageKey('next_xl_idx'),      String(state.canopy.nextExtraLegIdx));
@@ -93,6 +99,8 @@ function loadSettings() {
       const el  = document.getElementById(id);
       if (val !== null && el) { el.value = val; el.style.color = 'var(--text)'; }
     });
+
+    state.manualDzZero = localStorage.getItem(storageKey('dz_zero_manual')) === 'true';
 
     // Leg heading overrides — restore early before renderLegs calls
     const hdgOverrideStr = localStorage.getItem(storageKey('leg_hdg_override'));
@@ -223,7 +231,7 @@ function loadSettings() {
 
     // Sync state.driftThresh from persisted input value
     const dtEl = document.getElementById('drift-thresh');
-    if (dtEl && dtEl.value !== '') state.driftThresh = parseInt(dtEl.value) || 5;
+    if (dtEl && dtEl.value !== '') state.driftThresh = _intOr(dtEl.value, 5);
 
     // Freefall groups — group #1 is mandatory; ensure at least one always exists.
     const groupsStr = localStorage.getItem(storageKey('groups'));

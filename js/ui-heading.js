@@ -266,7 +266,10 @@ function onRedLightInput() {
 // ── DZ reference zero point ───────────────────────────────────────────────────
 
 function onDzZeroInput() {
-  state.manualDzZero = true;
+  // Both fields cleared → follow the landing target again; otherwise the point is manual.
+  const lat = document.getElementById('dz-zero-lat')?.value ?? '';
+  const lng = document.getElementById('dz-zero-lng')?.value ?? '';
+  state.manualDzZero = !(lat === '' && lng === '');
   updateMagDeclination();
   saveSettings();
   if (state.target) calculate();

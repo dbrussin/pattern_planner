@@ -70,9 +70,15 @@ async function placeTarget(lat, lng) {
     if (fl) fl.textContent = 'Now';
   }
 
-  // Unlock DZ zero when moving to a different grid cell (non-nearby target)
-  if (state.target && cacheKey(state.target.lat, state.target.lng) !== cacheKey(lat, lng)) {
-    state.manualDzZero = false;
+  // Release a manual DZ zero point once the target is more than 1 mile from it
+  // (a different DZ). Measured from the point itself, so it also works on the first
+  // tap after a reload, when there is no previous target.
+  if (state.manualDzZero) {
+    const zLat = parseFloat(document.getElementById('dz-zero-lat')?.value);
+    const zLng = parseFloat(document.getElementById('dz-zero-lng')?.value);
+    if (!isFinite(zLat) || !isFinite(zLng) || distMiles({lat: zLat, lng: zLng}, {lat, lng}) > 1.0) {
+      state.manualDzZero = false;
+    }
   }
 
   // Update DZ zero point if not manually set, and new position is in a different grid cell
