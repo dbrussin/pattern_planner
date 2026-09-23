@@ -101,7 +101,8 @@ function calculate() {
   state.canopy.result   = null;
   state.freefall.result = null;
   let err = null;
-  if (state.modes.canopy || state.modes.freefall) err = calculateCanopyPattern();
+  if (!state.winds.length) err = 'No wind data for this location — tap Refresh Winds to retry';
+  else if (state.modes.canopy || state.modes.freefall) err = calculateCanopyPattern();
   if (!err && state.modes.freefall)               err = calculateFreefallPlan();
   if (err) {
     state.canopy.result   = null;
