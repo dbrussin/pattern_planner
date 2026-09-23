@@ -5,6 +5,11 @@
 // Per-leg canopy three-way calc — tracks which two fields were most recently edited
 const legLastEdited = Object.fromEntries(LEG_DEFS.map(l => [l.key, ['glide', 'speed']]));
 
+// Entry for any leg, created on first use (extra legs restored from storage have none).
+function lastEditedFor(leg) {
+  return legLastEdited[leg] ??= ['glide', 'speed'];
+}
+
 // ── Leg mode toggles ──────────────────────────────────────────────────────────
 
 function setLegMode(leg, mode) {
@@ -60,7 +65,7 @@ function updatePerfSections() {
 }
 
 function onLegCanopyInput(leg, field) {
-  const le = legLastEdited[leg];
+  const le = lastEditedFor(leg);
   if (!le.includes(field)) legLastEdited[leg] = [le[1], field];
   else legLastEdited[leg] = le.filter(f => f !== field).concat(field);
   updateLegCanopyCalc(leg);
@@ -72,7 +77,7 @@ function updateLegCanopyCalc(leg) {
   const s       = parseFloat(document.getElementById(`${leg}-speed`)?.value);
   const k       = parseFloat(document.getElementById(`${leg}-sink`)?.value);
   const noteEl  = document.getElementById(`${leg}-perf-note`);
-  const [a, b_] = legLastEdited[leg];
+  const [a, b_] = lastEditedFor(leg);
   const third   = ['glide', 'speed', 'sink'].find(f => f !== a && f !== b_);
   const sinkEl  = document.getElementById(`${leg}-sink`);
   const speedEl = document.getElementById(`${leg}-speed`);
@@ -87,7 +92,7 @@ function updateLegCanopyCalc(leg) {
   } else if (noteEl) noteEl.textContent = '';
 
   [['glide', glideEl], ['speed', speedEl], ['sink', sinkEl]].forEach(([f, el]) => {
-    if (el && legLastEdited[leg].includes(f)) el.style.color = 'var(--text)';
+    if (el && lastEditedFor(leg).includes(f)) el.style.color = 'var(--text)';
   });
 }
 
