@@ -4,11 +4,26 @@
 
 // ── Status pill ───────────────────────────────────────────────────────────────
 
+// Calculation errors stay visible until the next successful calculate() clears them.
+let _calcErrorShown = false;
+
 function setStatus(msg, persist = false) {
   const el = document.getElementById('status-pill');
   el.textContent = msg; el.classList.add('visible');
   if (setStatus._t) clearTimeout(setStatus._t);
   if (!persist) setStatus._t = setTimeout(() => el.classList.remove('visible'), 3500);
+  _calcErrorShown = false;
+}
+
+function setCalcError(msg) {
+  setStatus(msg, true);
+  _calcErrorShown = true;
+}
+
+function clearCalcError() {
+  if (!_calcErrorShown) return;
+  _calcErrorShown = false;
+  document.getElementById('status-pill').classList.remove('visible');
 }
 
 // ── Overlay panels ────────────────────────────────────────────────────────────
@@ -54,7 +69,7 @@ function toggleLayer(name) {
     return;
   }
   saveSettings();
-  if (state.canopy.result) drawPattern();
+  if (state.target) drawPattern();
 }
 
 // ── Mode toggles (canopy / freefall — independent on/off) ────────────────────
@@ -80,5 +95,5 @@ function setHand(h) {
   document.getElementById('btn-left').classList.toggle('active',  h === 'left');
   document.getElementById('btn-right').classList.toggle('active', h === 'right');
   saveSettings();
-  if (state.canopy.result) calculate();
+  if (state.target) calculate();
 }

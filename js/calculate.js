@@ -1,6 +1,6 @@
 // ─── CALCULATE ─────────────────────────────────────────────────────────────────
 // Core pattern solver and wind-integration helpers.
-// Depends on: config, state, geometry, ui (getLegPerf, setStatus, updateJumpRunDisplay)
+// Depends on: config, state, geometry, ui (getLegPerf, setCalcError, clearCalcError)
 // Turn model: coordinated banked turn; radius = v_TAS²/(g·tan θ); altitude consumed
 // via increased descent rate 1/cos(θ); two-pass to propagate altitude adjustments.
 
@@ -93,13 +93,23 @@ function firstGroupOpenAlt() {
  * Modes (state.modes.canopy, state.modes.freefall) are independent on/off toggles.
  * Each mode writes to its own result slot (state.canopy.result, state.freefall.result) which
  * the matching draw function reads. New modes plug in here and in drawPattern().
+ * Solvers return an error message (string) or nothing. On error every result is cleared
+ * so no stale geometry is drawn, and the message stays up until a calculation succeeds.
  */
 function calculate() {
   if (!state.target) return;
-  if (state.modes.canopy || state.modes.freefall) calculateCanopyPattern();
-  else                                            state.canopy.result = null;
-  if (state.modes.freefall) calculateFreefallPlan();
-  else                      state.freefall.result = null;
+  state.canopy.result   = null;
+  state.freefall.result = null;
+  let err = null;
+  if (state.modes.canopy || state.modes.freefall) err = calculateCanopyPattern();
+  if (!err && state.modes.freefall)               err = calculateFreefallPlan();
+  if (err) {
+    state.canopy.result   = null;
+    state.freefall.result = null;
+    setCalcError(err);
+  } else {
+    clearCalcError();
+  }
   drawPattern();
 }
 
@@ -234,10 +244,10 @@ function integrateTrackToOpening(altTopAGL, altBotAGL, vTermSL_fps, trackHdgDeg,
  */
 function calculateFreefallPlan() {
   const groups = state.freefall.groups;
-  if (!groups || !groups.length) { state.freefall.result = null; return; }
+  if (!groups || !groups.length) return 'Add at least one jump run group';
 
   const altExit = parseFloat(document.getElementById('alt-exit').value);
-  if (!isFinite(altExit)) { state.freefall.result = null; return; }
+  if (!isFinite(altExit)) return 'Enter an exit altitude';
 
   const jrAirspeedKts = parseFloat(document.getElementById('jr-airspeed').value) || 80;
   const openSepFt     = parseFloat(document.getElementById('exit-sep').value)    || 1500;
@@ -247,14 +257,10 @@ function calculateFreefallPlan() {
     const ga = g.openAlt     ?? DEFAULT_OPEN_ALT[g.type] ?? 3000;
     const gb = g.breakoffAlt ?? (ga + 1500);
     if (altExit <= gb + 100) {
-      setStatus(`Exit altitude must be ≥100 ft above breakoff for ${g.name}`);
-      state.freefall.result = null;
-      return;
+      return `Exit altitude must be ≥100 ft above breakoff for ${g.name}`;
     }
     if (gb <= ga + 100) {
-      setStatus(`Breakoff must be ≥100 ft above opening for ${g.name}`);
-      state.freefall.result = null;
-      return;
+      return `Breakoff must be ≥100 ft above opening for ${g.name}`;
     }
   }
 
@@ -595,8 +601,8 @@ function calculateFreefallPlan() {
 /**
  * Canopy mode solver. Reads DOM inputs, computes wind-adjusted headings and turn
  * points for all legs, stores result in state.canopy.result. Caller (calculate()) draws.
- * No-op via early return if required inputs are NaN/invalid; validation errors
- * surface via setStatus(). Altitude ordering enforced with 100 ft minimum gaps.
+ * Returns an error message string if inputs are invalid or the pattern is unflyable
+ * (calculate() surfaces it). Altitude ordering enforced with 100 ft minimum gaps.
  */
 function calculateCanopyPattern() {
   const glide  = parseFloat(document.getElementById('glide').value);
@@ -621,31 +627,31 @@ function calculateCanopyPattern() {
   const jrAirspeedKts = isNaN(_jrAirspeed) ? 80   : _jrAirspeed;
   const exitSepFt     = isNaN(_exitSep)    ? 1500 : _exitSep;
 
-  if (isNaN(glide) || isNaN(cSpd) || isNaN(altE) || isNaN(altB) || isNaN(altF)) return;
+  if (isNaN(glide) || isNaN(cSpd) || isNaN(altE) || isNaN(altB) || isNaN(altF)) return 'Enter glide, canopy speed, and pattern altitudes';
 
   // ── Altitude sanity checks ────────────────────────────────────────────────
-  if (altExit <= altOpen) { setStatus('Exit altitude must be above Opening altitude'); return; }
-  if (altF < 100) { setStatus('Turn Final must be at least 100 ft AGL'); return; }
-  if (altB < altF + 100) { setStatus('Turn Base must be at least 100 ft above Turn Final'); return; }
-  if (altE < altB + 100) { setStatus('Enter altitude must be at least 100 ft above Turn Base'); return; }
+  if (altExit <= altOpen) { return 'Exit altitude must be above Opening altitude'; }
+  if (altF < 100) { return 'Turn Final must be at least 100 ft AGL'; }
+  if (altB < altF + 100) { return 'Turn Base must be at least 100 ft above Turn Final'; }
+  if (altE < altB + 100) { return 'Enter altitude must be at least 100 ft above Turn Base'; }
   // Upper-bound sanity (defense-in-depth; HTML min/max are the primary guard)
-  if (altE    > 10000) { setStatus('Pattern entry altitude unrealistic (>10,000 ft AGL)'); return; }
-  if (altExit > 25000) { setStatus('Exit altitude unrealistic (>25,000 ft AGL)');          return; }
-  if (altOpen > 10000) { setStatus('Opening altitude unrealistic (>10,000 ft AGL)');       return; }
-  if (altOpen < altF + 100) { setStatus('Opening altitude must be above pattern Final');   return; }
-  if (cSpd    <= 0 || cSpd > 60)  { setStatus('Canopy speed must be between 1 and 60 kts'); return; }
-  if (glide   <= 0 || glide > 10) { setStatus('Glide ratio must be between 0 and 10:1');    return; }
+  if (altE    > 10000) { return 'Pattern entry altitude unrealistic (>10,000 ft AGL)'; }
+  if (altExit > 25000) { return 'Exit altitude unrealistic (>25,000 ft AGL)'; }
+  if (altOpen > 10000) { return 'Opening altitude unrealistic (>10,000 ft AGL)'; }
+  if (altOpen < altF + 100) { return 'Opening altitude must be above pattern Final'; }
+  if (cSpd    <= 0 || cSpd > 60)  { return 'Canopy speed must be between 1 and 60 kts'; }
+  if (glide   <= 0 || glide > 10) { return 'Glide ratio must be between 0 and 10:1'; }
   if (state.canopy.extraLegs && state.canopy.extraLegs.length > 0) {
     const extraAlts = state.canopy.extraLegs
       .map(xl => ({ id: xl.id, alt: parseFloat(document.getElementById(`alt-${xl.id}`)?.value) || xl.defaultAlt }))
       .filter(xl => xl.alt > 0)
       .sort((a, b) => a.alt - b.alt);
     if (extraAlts.length > 0 && extraAlts[0].alt < altE + 100) {
-      setStatus('Lowest extra leg must be at least 100 ft above Enter altitude'); return;
+      return 'Lowest extra leg must be at least 100 ft above Enter altitude';
     }
     for (let i = 1; i < extraAlts.length; i++) {
       if (extraAlts[i].alt < extraAlts[i - 1].alt + 100) {
-        setStatus('Extra legs must each be at least 100 ft apart'); return;
+        return 'Extra legs must each be at least 100 ft apart';
       }
     }
   }
@@ -653,7 +659,7 @@ function calculateCanopyPattern() {
   let fHdgFromBar = state.canopy.finalHeadingDeg;
   if (fHdgFromBar === null) {
     const s = state.winds.find(w => w.dirDeg !== null);
-    if (!s) { setStatus('Set winds or a final heading'); return; }
+    if (!s) { return 'Set winds or a final heading'; }
     fHdgFromBar = s.dirDeg;
   }
   const fHdg = state.canopy.legHdgOverride?.f != null ? state.canopy.legHdgOverride.f : fHdgFromBar;
@@ -809,7 +815,7 @@ function calculateCanopyPattern() {
   // Converges in 2–3 iterations typical; capped at 5.
   let altFstart = altF, altBstart = altB;
   let legs = solveLegs(altFstart, altBstart);
-  if (legs === null) { setStatus('Crosswind exceeds canopy speed on one or more legs — pattern unflyable'); return; }
+  if (legs === null) { return 'Crosswind exceeds canopy speed on one or more legs — pattern unflyable'; }
 
   let turnBF, turnDB;
   for (let iter = 0; iter < 5; iter++) {
@@ -821,12 +827,10 @@ function calculateCanopyPattern() {
 
     // Hard failure: turn consumes more altitude than available.
     if (newAltFstart < 50) {
-      setStatus('Base→Final turn consumes too much altitude — raise Turn Final or reduce bank angle');
-      return;
+      return 'Base→Final turn consumes too much altitude — raise Turn Final or reduce bank angle';
     }
     if (newAltBstart < newAltFstart + 50) {
-      setStatus('Downwind→Base turn consumes too much altitude — raise Turn Base or reduce bank angle');
-      return;
+      return 'Downwind→Base turn consumes too much altitude — raise Turn Base or reduce bank angle';
     }
 
     const converged =
@@ -836,7 +840,7 @@ function calculateCanopyPattern() {
     altFstart = newAltFstart;
     altBstart = newAltBstart;
     legs = solveLegs(altFstart, altBstart);
-    if (legs === null) { setStatus('Crosswind exceeds canopy speed on one or more legs — pattern unflyable'); return; }
+    if (legs === null) { return 'Crosswind exceeds canopy speed on one or more legs — pattern unflyable'; }
 
     if (converged) break;
   }
@@ -904,14 +908,14 @@ function calculateCanopyPattern() {
       }
 
       const p1 = solveXL(topAlt);
-      if (p1 === null) { setStatus(`Extra leg ${xl.id}: crosswind exceeds canopy speed — unflyable`); return; }
+      if (p1 === null) { return `Extra leg ${xl.id}: crosswind exceeds canopy speed — unflyable`; }
       const turn1XL = calcTurn(p1.hdg, lowerHdg, topAlt, avgCSpd, avgGlide, 0);
 
       // Cap band so it never collapses below 50 ft.
       const altBotStraight = Math.min(xl.alt - 50, topAlt + turn1XL.altConsumed);
 
       const p2 = solveXL(altBotStraight);
-      if (p2 === null) { setStatus(`Extra leg ${xl.id}: crosswind exceeds canopy speed — unflyable`); return; }
+      if (p2 === null) { return `Extra leg ${xl.id}: crosswind exceeds canopy speed — unflyable`; }
       const xlHdg  = p2.hdg;
       const xlDisp = p2.disp;
       const wXL    = p2.w;

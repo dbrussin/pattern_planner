@@ -233,7 +233,7 @@ function autoSetJumpRunHeading() {
 
 function onDriftThreshChange(v) {
   state.driftThresh = parseInt(v) || 0;
-  if (state.canopy.result) drawPattern();
+  if (state.target) drawPattern();
 }
 
 // ── Green / Red light overrides ───────────────────────────────────────────────
@@ -248,7 +248,7 @@ function onGreenLightInput() {
     state.jumpRun.manualGreenLight = true;
     el.style.color = 'var(--text)';
   }
-  if (state.canopy.result) calculate();
+  if (state.target) calculate();
 }
 
 function onRedLightInput() {
@@ -261,7 +261,7 @@ function onRedLightInput() {
     state.jumpRun.manualRedLight = true;
     el.style.color = 'var(--text)';
   }
-  if (state.canopy.result) calculate();
+  if (state.target) calculate();
 }
 
 // ── DZ reference zero point ───────────────────────────────────────────────────
@@ -270,7 +270,7 @@ function onDzZeroInput() {
   state.manualDzZero = true;
   updateMagDeclination();
   saveSettings();
-  if (state.canopy.result) calculate();
+  if (state.target) calculate();
 }
 
 function updateMagDeclination() {

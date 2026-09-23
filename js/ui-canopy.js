@@ -14,7 +14,7 @@ function setLegMode(leg, mode) {
     if (btn) btn.classList.toggle('active', m === mode);
   });
   saveSettings();
-  if (state.canopy.result) calculate();
+  if (state.target) calculate();
 }
 
 function toggleZPattern(checked) {
@@ -27,7 +27,7 @@ function toggleZPattern(checked) {
   }
   state.canopy.zPattern = checked;
   saveSettings();
-  if (state.canopy.result) calculate();
+  if (state.target) calculate();
 }
 
 // ── Per-leg custom performance section toggles ────────────────────────────────
@@ -56,7 +56,7 @@ function updatePerfSections() {
     }
   });
   saveSettings();
-  if (state.canopy.result) calculate();
+  if (state.target) calculate();
 }
 
 function onLegCanopyInput(leg, field) {

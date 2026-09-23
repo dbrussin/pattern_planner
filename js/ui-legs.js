@@ -293,7 +293,7 @@ function onExtraLegHdg(id, src) {
   const xl = state.canopy.extraLegs.find(x => x.id === id);
   if (xl) xl.nomHdg = parseInt(inp.value) || 0;
   saveSettings();
-  if (state.canopy.result) calculate();
+  if (state.target) calculate();
 }
 
 // ── Reset pattern legs to defaults ────────────────────────────────────────────
@@ -448,7 +448,7 @@ function onStdLegHdg(key, src) {
   if (!state.canopy.legHdgOverride) state.canopy.legHdgOverride = {};
   state.canopy.legHdgOverride[key] = parseInt(inp.value) || 0;
   saveSettings();
-  if (state.canopy.result) calculate();
+  if (state.target) calculate();
 }
 
 function onLegHdgOverrideToggle(key, checked) {
@@ -491,7 +491,7 @@ function onLegHdgOverrideToggle(key, checked) {
     if (key === 'dw') updateZRowState();
   }
   saveSettings();
-  if (state.canopy.result) calculate();
+  if (state.target) calculate();
 }
 
 function updateZRowState() {
