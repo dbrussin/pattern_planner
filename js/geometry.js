@@ -10,6 +10,14 @@ function offsetLL(lat, lng, dN, dE) {
   };
 }
 
+// Inverse of offsetLL: point → {n, e} feet from ref
+function llToNE(p, ref) {
+  return {
+    n: (p.lat - ref.lat) * D2R * R_FT,
+    e: (p.lng - ref.lng) * D2R * R_FT * Math.cos(ref.lat * D2R),
+  };
+}
+
 // Heading (0-359°) → unit vector {n, e}
 function hdgVec(h) { const r = h * D2R; return {n: Math.cos(r), e: Math.sin(r)}; }
 

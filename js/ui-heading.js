@@ -196,17 +196,15 @@ function onJrHdgBlur() {
 }
 
 function updateJrPyramid() {
-  const altExit = parseFloat(document.getElementById('alt-exit').value) || 13500;
-  const wExit   = avgWindVec(firstGroupOpenAlt(), altExit);
+  const altExit     = parseFloat(document.getElementById('alt-exit').value) || 13500;
+  const intoWindHdg = autoJumpRunHeading(altExit);
   const pyr    = document.getElementById('jr-wind-pyramid');
   const pyrHit = document.getElementById('jr-wind-pyramid-hit');
-  if (!pyr || vecLen(wExit) < 0.1) {
+  if (!pyr || intoWindHdg === null) {
     if (pyr)    pyr.style.display    = 'none';
     if (pyrHit) pyrHit.style.display = 'none';
     return;
   }
-  const windVelDir  = (Math.atan2(wExit.e, wExit.n) * R2D + 360) % 360;
-  const intoWindHdg = (windVelDir + 180) % 360;
   const slider  = document.getElementById('jr-hdg-slider');
   const trackW  = slider.clientWidth;
   if (trackW <= 0) return;  // slider hidden (settings tray closed); skip — refreshed on open
@@ -221,12 +219,10 @@ function updateJrPyramid() {
 function autoSetJumpRunHeading() {
   if (!state.jumpRun.manualHeading) {
     const altExit = parseFloat(document.getElementById('alt-exit').value) || 13500;
-    const wExit   = avgWindVec(firstGroupOpenAlt(), altExit);
-    if (vecLen(wExit) > 0.1) {
-      const windVelDir = (Math.atan2(wExit.e, wExit.n) * R2D + 360) % 360;
-      const dir        = Math.round((windVelDir + 180) % 360);
-      state.jumpRun.hdgDeg = dir;
-      updateJumpRunDisplay(dir);
+    const hdg     = autoJumpRunHeading(altExit);
+    if (hdg !== null) {
+      state.jumpRun.hdgDeg = Math.round(hdg);
+      updateJumpRunDisplay(state.jumpRun.hdgDeg);
     }
   }
 }
@@ -234,6 +230,19 @@ function autoSetJumpRunHeading() {
 function onDriftThreshChange(v) {
   state.driftThresh = parseInt(v) || 0;
   if (state.target) drawPattern();
+}
+
+// Push the jump run solver's auto values into the inputs the user hasn't overridden.
+function syncJumpRunFields(jr) {
+  const set = (id, manual, v) => {
+    const el = document.getElementById(id);
+    if (!el || manual) return;
+    el.value       = v == null ? '' : v.toFixed(2);
+    el.style.color = 'var(--muted)';
+  };
+  set('jr-offset',            state.jumpRun.manualOffset,     jr.calcOffsetNm);
+  set('green-light-override', state.jumpRun.manualGreenLight, jr.greenNm);
+  set('red-light-override',   state.jumpRun.manualRedLight,   jr.redNm);
 }
 
 // ── Green / Red light overrides ───────────────────────────────────────────────

@@ -36,6 +36,7 @@ const state = {
 
   // ── Jump run state (shared between canopy spot calc and freefall planner) ──
   jumpRun: {
+    result: null,                                                       // populated by calculateJumpRun()
     hdgDeg: null,
     manualHeading: false,
     manualOffset: false,
@@ -46,7 +47,6 @@ const state = {
   // ── Freefall mode state (jump run planner / movement planner) ──
   // Group #1 is mandatory: cannot be removed, sets freefall speed for canopy calc.
   freefall: {
-    result: null,                                                       // populated by calculateFreefallPlan()
     groups: [{ id: 'g1', name: 'Group 1', size: 4, type: 'FS', mvmt: 'R', openAlt: 3000, breakoffAlt: 4500, vSpeedMph: 120 }],
     nextGroupIdx: 2,
   },
