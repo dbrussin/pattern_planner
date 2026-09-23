@@ -263,15 +263,15 @@ function calculateCanopyPattern() {
 
   // Solves all three standard legs; returns bundle of results or null if unflyable.
   function solveLegs(altFs, altBs) {
-    // Final leg: altFs → 0. The set final heading is always the GROUND TRACK into the
-    // target (crab and drift are equivalent once the track is fixed); fHdgActual is
-    // the flown heading that achieves it.
+    // Final leg: altFs → 0. Crab: the set heading is the ground track and fHdgActual is
+    // the heading flown to hold it. Drift: the set heading is flown and wind moves the
+    // track off it (fDisp carries the actual ground track).
     const fStillFt = altFs * perfF.glide;
     const tF       = altFs / (dRateF * tasFactor(altFs / 2));
     const wF       = avgWindVec(0, altFs);
-    const rF       = solveleg('crab', fVec.n, fVec.e, fStillFt, wF, tF, fHdg);
+    const rF       = solveleg(state.canopy.legModes.f, fVec.n, fVec.e, fStillFt, wF, tF, fHdg);
     if (rF === null) return null;
-    const fHdgActual = rF.hdg;
+    const fHdgActual = rF.hdg;  // crab: solved heading; drift: fHdg
     const fDisp      = rF.disp;
     const fTrackUnit = normalize({n: fDisp.dN, e: fDisp.dE});
 
@@ -459,7 +459,7 @@ function calculateCanopyPattern() {
   const dwSteered = offsetLL(entry.lat,  entry.lng,  hdgVec(dwHdg).n * dStillFt,      hdgVec(dwHdg).e * dStillFt);
 
   const bDrift  = hdgDiff(bHdg,       trackHdgDeg(bDisp));
-  const fDrift  = hdgDiff(fHdgActual, fHdg);
+  const fDrift  = hdgDiff(fHdgActual, trackHdgDeg(fDisp));
   const dwDrift = hdgDiff(dwHdg,      trackHdgDeg(dDisp));
 
   // Wind components measured against GROUND TRACK so along = head/tail wind in all modes.
@@ -495,7 +495,7 @@ function calculateCanopyPattern() {
     bSteered, fSteered, dwSteered,
     bDrift, fDrift, dwDrift, DRIFT_THRESH,
     fHdg, fHdgActual, bHdg, dwHdg,
-    fTrackHdg: fHdg,
+    fTrackHdg: trackHdgDeg(fDisp),
     bTrackHdg: trackHdgDeg(bDisp),
     dwTrackHdg: trackHdgDeg(dDisp),
     tF_sec: Math.round(tF * 60),
