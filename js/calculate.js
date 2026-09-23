@@ -638,7 +638,6 @@ function calculateCanopyPattern() {
   if (altE    > 10000) { return 'Pattern entry altitude unrealistic (>10,000 ft AGL)'; }
   if (altExit > 25000) { return 'Exit altitude unrealistic (>25,000 ft AGL)'; }
   if (altOpen > 10000) { return 'Opening altitude unrealistic (>10,000 ft AGL)'; }
-  if (altOpen < altF + 100) { return 'Opening altitude must be above pattern Final'; }
   if (cSpd    <= 0 || cSpd > 60)  { return 'Canopy speed must be between 1 and 60 kts'; }
   if (glide   <= 0 || glide > 10) { return 'Glide ratio must be between 0 and 10:1'; }
   if (state.canopy.extraLegs && state.canopy.extraLegs.length > 0) {
@@ -653,6 +652,15 @@ function calculateCanopyPattern() {
       if (extraAlts[i].alt < extraAlts[i - 1].alt + 100) {
         return 'Extra legs must each be at least 100 ft apart';
       }
+    }
+  }
+  // Every group's canopy must be able to reach the top of the pattern.
+  const topPatternAlt = Math.max(altE, ...state.canopy.extraLegs
+    .map(xl => parseFloat(document.getElementById(`alt-${xl.id}`)?.value) || xl.defaultAlt));
+  for (const g of state.freefall.groups) {
+    const gOpen = g.openAlt ?? DEFAULT_OPEN_ALT[g.type] ?? 3000;
+    if (gOpen < topPatternAlt + 100) {
+      return `${g.name} opening altitude (${gOpen.toLocaleString()} ft) must be at least 100 ft above pattern entry (${topPatternAlt.toLocaleString()} ft)`;
     }
   }
 
