@@ -216,17 +216,6 @@ function updateJrPyramid() {
   pyrHit.style.display = 'block';
 }
 
-function autoSetJumpRunHeading() {
-  if (!state.jumpRun.manualHeading) {
-    const altExit = parseFloat(document.getElementById('alt-exit').value) || 13500;
-    const hdg     = autoJumpRunHeading(altExit);
-    if (hdg !== null) {
-      state.jumpRun.hdgDeg = Math.round(hdg);
-      updateJumpRunDisplay(state.jumpRun.hdgDeg);
-    }
-  }
-}
-
 function onDriftThreshChange(v) {
   state.driftThresh = parseInt(v) || 0;
   if (state.target) drawPattern();
@@ -234,6 +223,7 @@ function onDriftThreshChange(v) {
 
 // Push the jump run solver's auto values into the inputs the user hasn't overridden.
 function syncJumpRunFields(jr) {
+  if (!state.jumpRun.manualHeading) updateJumpRunDisplay(jr.jrHdg);
   const set = (id, manual, v) => {
     const el = document.getElementById(id);
     if (!el || manual) return;

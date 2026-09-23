@@ -225,14 +225,11 @@ function calculateJumpRun() {
     if (gb <= ga + 100)      return `Breakoff must be ≥100 ft above opening for ${g.name}`;
   }
 
-  let jrHdg = state.jumpRun.hdgDeg;
-  if (jrHdg == null) {
-    jrHdg = autoJumpRunHeading(altExit) ?? cr.fHdg;  // calm aloft → align with final
-    const dEl = document.getElementById('jr-hdg-display');
-    const sEl = document.getElementById('jr-hdg-slider');
-    if (dEl) dEl.value = Math.round(jrHdg);
-    if (sEl) sEl.value = Math.round(jrHdg);
-  }
+  // Manual heading if set; otherwise recomputed live every calculation so it tracks
+  // exit/opening altitude and wind changes (calm aloft → align with final).
+  const jrHdg = (state.jumpRun.manualHeading && state.jumpRun.hdgDeg != null)
+    ? state.jumpRun.hdgDeg
+    : (autoJumpRunHeading(altExit) ?? cr.fHdg);
   const jrVec  = hdgVec(jrHdg);
   const jrPerp = { n: -jrVec.e, e: jrVec.n };  // 90° right of jump run (compass right)
 

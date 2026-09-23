@@ -329,7 +329,6 @@ function processWindData(d, fieldElevFt) {
 
   buildWindTable();
   if (!state.canopy.manualHeading && state.surfaceWind.dirDeg != null) { state.canopy.finalHeadingDeg = state.surfaceWind.dirDeg; updateHeadingDisplay(state.surfaceWind.dirDeg); }
-  autoSetJumpRunHeading();
   updateWindPyramid();
   updateJrPyramid();
 
